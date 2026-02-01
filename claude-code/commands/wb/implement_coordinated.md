@@ -248,41 +248,39 @@ bd ready
 
 ### Step 5: Spawn Worker Agents Sequentially
 
-**NEW: Workers implement tasks one at a time with focused context**
+**For each ready task in the phase**, I'll spawn a focused worker agent:
 
-For each task in the phase:
+1. **Get next task**: Run `bd ready` to find available work
+2. **Check task details**: Run `bd show [task-id]` for requirements
+3. **Determine model**:
+   - Haiku: Simple tasks (config, docs, renames)
+   - Sonnet: Standard implementation (tests, new functions, integrations)
+   - Opus: Everything else (bugs, refactoring, architecture) - DEFAULT
+4. **Spawn worker agent**:
 
-```javascript
-// Get next ready task
-const readyTasks = await bd('ready');
-const nextTask = readyTasks[0];  // Pick first ready task
+   ```
+   Use the general-purpose agent to implement this task.
 
-// Get task details from beads
-const taskDetails = await bd(`show ${nextTask.id}`);
+   Provide the agent with:
+   - Task ID: ${taskId}
+   - Task Title: ${taskTitle}
+   - Task Description: ${taskDescription}
+   - Context Package: ${patterns, design, file references}
+   - Beads Commands: bd update [id] --status in_progress, bd close [id]
 
-// Determine model based on task complexity
-const model = determineModel(taskDetails);
-// Simple tasks (config, docs) → haiku
-// Standard implementation (tests, new functions) → sonnet
-// Everything else (bugs, refactoring, architecture) → opus (default)
+   The worker must follow TDD:
+   1. RED: Write failing test
+   2. GREEN: Minimal implementation
+   3. REFACTOR: Clean up
+   4. Close beads issue when complete
 
-// Spawn worker and WAIT for completion (blocking)
-Task({
-  description: `Implement ${nextTask.title}`,
-  prompt: buildWorkerPrompt(nextTask, taskDetails, contextPackage),
-  subagent_type: "general-purpose",
-  model: model
-  // NOT run_in_background - wait for worker to finish
-});
+   Worker should return: files changed, tests modified, test command, summary.
+   ```
 
-// After worker completes:
-// 1. Collect worker output
-// 2. Verify task was closed by worker
-// 3. bd ready to find next task
-// 4. Repeat until all phase tasks complete
-```
+5. **Collect worker output** when complete
+6. **Proceed to verification** (Step 6)
 
-**Simple loop**: Spawn worker → Wait → Collect output → Next task
+**Loop**: Spawn → Wait → Verify → Next task
 
 #### Worker Prompt Template
 
@@ -389,23 +387,24 @@ After each worker completes:
    - Test commands to verify
    - Any issues encountered
 
-3. **Spawn verification agent**:
+3. **Verify task completion**:
 
-   ```javascript
-   const verificationReport = Task({
-     description: `Verify ${taskId}`,
-     prompt: `Task ID: ${taskId}
-Task Description: ${taskDetails.description}
-Test Command: ${workerOutput.testCommand}
-Files Changed: ${workerOutput.filesChanged}
-Tests Modified: ${workerOutput.testsModified}
-Worker Summary: ${workerOutput.summary}`,
-     subagent_type: "task-verifier",
-     model: "haiku"
-   });
+   Spawn the task-verifier agent to validate the worker's implementation:
+
    ```
+   Use the task-verifier agent to verify task completion.
 
-   Agent returns structured markdown report with Status: PASS/FAIL.
+   Provide the agent with:
+   - Task ID: ${taskId}
+   - Task Description: ${taskDetails.description}
+   - Test Command: ${workerOutput.testCommand}
+   - Files Changed: ${workerOutput.filesChanged}
+   - Tests Modified: ${workerOutput.testsModified}
+   - Worker Summary: ${workerOutput.summary}
+
+   The agent will run tests, check scope adherence, and return a structured
+   markdown report with Status: PASS or FAIL.
+   ```
 
 4. **Parse verification result autonomously**:
 
@@ -425,47 +424,25 @@ Worker Summary: ${workerOutput.summary}`,
    **If FAIL**:
    - Attempt automatic fix (up to 2 retries):
 
-   ```javascript
-   let retryCount = 0;
-   const maxRetries = 2;
-
-   while (failed && retryCount < maxRetries) {
-     retryCount++;
-
-     // Spawn fix worker
-     const fixReport = Task({
-       description: `Fix ${taskId} (retry ${retryCount})`,
-       prompt: `Task ID: ${taskId}
-Task Description: ${taskDetails.description}
-Verification Failed:
-${verificationReport}
-
-Fix the issues above. Close beads issue when done.`,
-       subagent_type: "general-purpose",
-       model: "opus"
-     });
-
-     // Re-verify
-     const reVerifyReport = Task({
-       description: `Re-verify ${taskId}`,
-       prompt: `Task ID: ${taskId}
-Task Description: ${taskDetails.description}
-Test Command: ${workerOutput.testCommand}
-Files Changed: [check git diff]`,
-       subagent_type: "task-verifier",
-       model: "haiku"
-     });
-
-     failed = reVerifyReport.includes("### Status: FAIL");
-   }
-
-   // After max retries, if still failing
-   if (failed) {
-     // Add to blocking issues for phase review
-     blockingIssues.push(`${taskId}: ${verificationReport}`);
-     // Continue to next task, will surface at phase checkpoint
-   }
+   **Retry 1:**
    ```
+   Verification failed. Spawn a fix worker using the general-purpose agent with opus model.
+
+   Provide:
+   - Task ID: ${taskId}
+   - Original Task: ${taskDetails.description}
+   - Verification Report: ${verificationReport}
+   - Instructions: Fix the specific issues identified. Close beads issue when done.
+   ```
+
+   **Re-verify** using task-verifier agent with same context.
+
+   **Retry 2** (if still failing): Repeat process with additional context.
+
+   **After 2 failed retries**:
+   - Add to blocking issues list for phase checkpoint review
+   - Continue to next task (will surface issues at phase boundary)
+   - Don't block autonomous flow on individual task failures
 
 5. **Add to aggregated lists** (after pass):
    - Modified files (for final reporting)
