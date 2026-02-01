@@ -19,7 +19,9 @@
       "Bash(export CLAUDE_ENV_FILE=/tmp/test-env.sh)",
       "Bash(bash:*)",
       "Bash(export CLAUDE_ENV_FILE=/tmp/test-env-git.sh:*)",
-      "Bash(npx markdownlint-cli2:*)"
+      "Bash(npx markdownlint-cli2:*)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:gist.github.com)"
     ],
     "deny": [],
     "ask": []
