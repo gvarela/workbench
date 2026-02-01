@@ -1,7 +1,7 @@
 ---
 name: mockup-iteration
 description: Iterate on UI mockups, capturing keeps/removes/changes with full fidelity. Versions each iteration and maintains decision log.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(ls:*, mkdir:*)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(ls:*, mkdir:*), mcp__plugin_playwright_playwright__browser_navigate, mcp__plugin_playwright_playwright__browser_take_screenshot, mcp__plugin_playwright_playwright__browser_snapshot
 triggers:
   - mockup feedback
   - iterate on mockup
@@ -11,6 +11,8 @@ triggers:
   - update mockup
   - next version
   - refine design
+  - show mockup
+  - preview mockup
 ---
 
 # Mockup Iteration Skill
@@ -105,14 +107,24 @@ When user confirms or says "next version":
 
 1. **Read current_version from mockup-log.md frontmatter** (e.g., `current_version: 2`)
 2. **Read mockups/v00[N]/mockup.md** fully as base
-3. **Read mockup-log.md** Running Requirements for accumulated decisions
-4. **Create new version directory**: `mockups/v00[N+1]/` (zero-padded: v001, v002, ..., v010)
-5. **Create new mockup.md** incorporating ALL feedback
-6. **Create decisions.md** documenting what changed (delta only)
-7. **Update mockup-log.md**:
-   - Frontmatter: `current_version: [N+1]`, `last_updated: [date]`
-   - Add version entry to Version History
-   - Update Running Requirements sections
+3. **Read mockups/v00[N]/mockup.html** fully as base
+4. **Read mockup-log.md** Running Requirements AND UI Research Reference (for icon system, styling)
+5. **Create new version directory**: `mockups/v00[N+1]/` (zero-padded: v001, v002, ..., v010)
+6. **Create new mockup.md** incorporating ALL feedback
+7. **Create new mockup.html** incorporating ALL feedback
+   - Update HTML structure to match new mockup.md
+   - Maintain app's styling approach from research
+   - Update icons per feedback (add/remove/change)
+   - Keep CSS classes consistent with app
+8. **Create decisions.md** documenting what changed (delta only)
+9. **Visual validation**:
+   - Navigate to new mockup.html in Playwright
+   - Take screenshot: `mockups/v00[N+1]/preview-v00[N+1].png`
+   - Show screenshot to user
+10. **Update mockup-log.md**:
+    - Frontmatter: `current_version: [N+1]`, `last_updated: [date]`
+    - Add version entry to Version History
+    - Update Running Requirements sections
 
 ### Version Naming
 
@@ -199,6 +211,20 @@ _All confirmed requirements through this version:_
 3. **Recorded** - In mockup-log.md immediately
 4. **Incorporated** - In next version or noted as open
 
+### Icon Handling
+
+When updating mockup versions:
+
+1. **Use app's icon system** from research (NOT emojis)
+2. **If icon feedback given**:
+   - "add a save icon" → Check research for icon system, use that pattern
+   - "use text only" → Remove icons, update HTML
+   - "change icon to X" → Update using app's icon library
+3. **If icon system unclear**:
+   - Create beads issue: `bd create "UI Q: Icon for [element]?" --type=task`
+   - Ask user before adding icons
+4. **Never default to emojis** in mockup.html
+
 ### Anti-patterns to Avoid
 
 - Do not assume feedback without recording
@@ -206,6 +232,7 @@ _All confirmed requirements through this version:_
 - Do not lose "REMOVE" decisions (they inform design)
 - Do not use vague summaries instead of specific quotes
 - Do not create version without updating log
+- Do not use emojis in HTML mockups (use app's icon system or text-only)
 
 ## Finalizing to Design
 
@@ -258,7 +285,9 @@ _Explicitly excluded during mockup iteration_
 
 ### Final Mockup Reference
 
-See: `mockups/v00[final]/mockup.md`
+- Structure: `mockups/v00[final]/mockup.md`
+- Visual: `mockups/v00[final]/mockup.html`
+- Screenshot: `mockups/v00[final]/preview-v00[final].png`
 
 ### Open Items for Implementation
 
@@ -275,6 +304,7 @@ During iteration, user can say:
 | "remove [X]" | Add to Rejected, cut from next version |
 | "change [X] to [Y]" | Note modification for next version |
 | "next version" | Create v00[N+1] with all feedback |
+| "show mockup" | Open current mockup.html in browser and screenshot |
 | "show log" | Display current mockup-log.md |
 | "show keeps" | List all confirmed requirements |
 | "show removes" | List all rejected ideas |
@@ -282,21 +312,66 @@ During iteration, user can say:
 | "compare v00[A] and v00[B]" | Show differences between versions |
 | "finalize" | Prepare for design.md |
 
+## Visual Preview
+
+### On "show mockup"
+
+When user wants to see the current mockup visually:
+
+1. **Find current version** from mockup-log.md frontmatter
+2. **Navigate to mockup.html**:
+   ```javascript
+   mcp__plugin_playwright_playwright__browser_navigate({
+     url: "file:///[absolute-path]/mockups/v00[N]/mockup.html"
+   })
+   ```
+3. **Take screenshot**:
+   ```javascript
+   mcp__plugin_playwright_playwright__browser_take_screenshot({
+     filename: "mockup-preview-current.png",
+     fullPage: true
+   })
+   ```
+4. **Show to user**:
+   ```
+   Current mockup (v00[N]) preview:
+
+   [Screenshot]
+
+   This is the HTML mockup with your app's actual styles.
+   Any feedback on what to keep, change, or remove?
+   ```
+
 ## Revert and Compare
 
 ### On "revert to v00[N]"
 
-1. Read mockups/v00[N]/mockup.md as new base
-2. Create v00[current+1] with that content
-3. Note in mockup-log.md: "Reverted to v00[N] base"
-4. Decisions from v00[N+1] to v00[current] marked as "superseded by revert"
-5. User can still access old versions for reference
+1. Read mockups/v00[N]/mockup.md and mockup.html as new base
+2. Create v00[current+1] with that content (both .md and .html)
+3. Take new screenshot for reverted version
+4. Note in mockup-log.md: "Reverted to v00[N] base"
+5. Decisions from v00[N+1] to v00[current] marked as "superseded by revert"
+6. User can still access old versions for reference
 
 ### On "compare v00[A] and v00[B]"
 
-Generate comparison summary:
+Generate visual and structural comparison:
+
+1. **Take screenshots** of both versions (if not already saved)
+2. **Generate comparison summary**:
+
 ```
-## v00[A] → v00[B] Comparison
+## v00[A] → v00[B] Visual Comparison
+
+**Screenshots:**
+
+v00[A]:
+[preview-v00A.png]
+
+v00[B]:
+[preview-v00B.png]
+
+**Structural changes:**
 
 **Added in v00[B]:**
 - [element]
@@ -306,6 +381,9 @@ Generate comparison summary:
 
 **Changed:**
 - [element]: [v00A state] → [v00B state]
+
+**Style/Icon changes:**
+- [CSS/icon differences if any]
 
 **Decisions between versions:**
 - v00[A+1]: [summary]
@@ -341,10 +419,16 @@ Claude: Got it, adding to changes:
 
 Creating v002...
 
-✅ Created mockups/v002/
-- mockup.md: Updated with all changes
+Created mockups/v002/
+- mockup.md: Updated ASCII with all changes
+- mockup.html: Updated HTML with all changes
+- preview-v002.png: Visual screenshot
 - decisions.md: Documented rationale
 - mockup-log.md: Added v002 entry
+
+[Shows preview-v002.png screenshot]
+
+Visual preview updated with your changes. Anything else to adjust?
 ```
 
 ## Session Continuity
@@ -367,8 +451,11 @@ On resume, read mockup-log.md's "Pending Feedback" section first.
 
 ## DO NOT
 
-- Do not create mockup versions without reading the current version first
+- Do not create mockup versions without reading current mockup.md AND mockup.html first
 - Do not skip updating mockup-log.md
+- Do not skip visual validation (screenshot after creating new version)
 - Do not proceed with ambiguous feedback - ask for clarification
 - Do not lose track of cumulative requirements across versions
 - Do not assume feedback context - confirm if ambiguous whether it's about the mockup
+- Do not use emojis in mockup.html (use app's icon system from research or text-only)
+- Do not create HTML with placeholder CSS classes (use actual classes from research)

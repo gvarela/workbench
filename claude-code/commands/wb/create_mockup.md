@@ -105,6 +105,25 @@ Return with file:line references. DO NOT suggest improvements.`,
   subagent_type: "pattern-finder",
   model: "haiku"
 })
+
+// Agent 5: Icon System
+Task({
+  description: "Research icon system",
+  prompt: `You are documenting the icon system as it exists.
+
+Find and document:
+- Icon library used (Font Awesome, Material Icons, Heroicons, SVG sprites, custom, etc.)
+- Where icons are defined/imported (file:line references)
+- How icons are referenced in components (class names, components, imports)
+- Icon sizing and color conventions
+- Examples of icon usage with file:line references
+- Pattern for icons in buttons, headers, navigation
+
+Return exact patterns found. If NO icon system exists, state that clearly.
+DO NOT suggest adding an icon library if none exists.`,
+  subagent_type: "codebase-analyzer",
+  model: "haiku"
+})
 ```
 
 **⛔ BARRIER 2**: Wait for ALL agents to complete before proceeding.
@@ -131,6 +150,13 @@ Create a UI research summary:
 - Colors: [token location]
 - Typography: [scale location]
 - Spacing: [system]
+
+### Icon System
+- Library: [Font Awesome / Material Icons / Heroicons / SVG sprites / Custom / None]
+- Location: [file:line where icons imported/defined]
+- Usage pattern: [<i class="..."> / <Icon name="..."> / <svg><use href="...">]
+- Sizing: [classes or conventions]
+- Examples: [file:line references to icon usage]
 
 ### Similar Features
 - [Feature 1]: [path] - [how it's structured]
@@ -179,12 +205,18 @@ Set up versioned mockup structure:
 
 ```
 [project-dir]/mockups/
-├── mockup-log.md        # Decision log across versions
+├── mockup-log.md          # Decision log across versions
 ├── v001/
-│   ├── mockup.md        # The mockup itself
-│   └── decisions.md     # Rationale for this version
+│   ├── mockup.md          # ASCII structure and specs
+│   ├── mockup.html        # Working HTML with app styles
+│   ├── preview-v001.png   # Visual screenshot
+│   └── decisions.md       # Rationale for this version
 ├── v002/
-│   └── ...
+│   ├── mockup.md
+│   ├── mockup.html
+│   ├── preview-v002.png
+│   └── decisions.md
+└── ...
 ```
 
 ### Step 5: Create Initial Mockup (v001)
@@ -267,6 +299,15 @@ based_on: [similar feature from research]
 - Follows [spacing system]
 - Typography: [heading/body styles]
 
+## Icons
+
+- System: [icon library/approach from research, or "None - text only"]
+- Usage: [how icons are applied, with examples]
+- Locations: [where icons appear in this mockup]
+
+**If no icon system found but icons needed:**
+Create beads issue: `bd create "UI Q: Icon system?" --type=task --priority=2 -d "Mockup needs icons but no system found. Options: add library, use text only, custom SVG"`
+
 ## Open Questions
 
 UI questions are tracked in beads, NOT in this document.
@@ -326,7 +367,146 @@ created: [YYYY-MM-DD]
 - [ ] [Technical feasibility question]
 ```
 
-### Step 6: Initialize Mockup Log
+### Step 6: Create HTML Mockup with App Styles
+
+**⛔ BARRIER 4**: After ASCII mockup created, generate working HTML mockup with real app styles.
+
+Create `mockups/v001/mockup.html`:
+
+**Critical requirements:**
+1. **Import app's actual stylesheets** based on research
+2. **Use discovered component HTML patterns** (copy structure from file:line references)
+3. **Apply actual CSS classes/tokens** from research (no placeholder classes)
+4. **Follow icon system** from research (Font Awesome, Material Icons, etc.) or text-only if none
+5. **Match layout structure** from ASCII diagram
+6. **Standalone file** - can be opened directly in browser
+
+**Template structure:**
+
+`````html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: [Feature Name] v001</title>
+
+  <!-- Import app's styles based on research -->
+  <!-- If using Tailwind: -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- If using app's CSS files (adjust paths): -->
+  <!-- <link rel="stylesheet" href="../../src/styles/main.css"> -->
+
+  <!-- If using icon library from research: -->
+  <!-- Font Awesome example: -->
+  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> -->
+
+  <!-- Material Icons example: -->
+  <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> -->
+
+  <style>
+    /* Add any custom styles needed to match app exactly */
+    /* Copy from discovered theme/color tokens */
+  </style>
+</head>
+<body class="[discovered body classes from research]">
+
+  <!-- Header/Navigation - copy structure from research file:line -->
+  <header class="[actual header classes from app]">
+    <!-- Use actual nav structure from research -->
+  </header>
+
+  <!-- Main content area -->
+  <main class="[layout classes from research]">
+
+    <!-- Feature mockup using real component HTML -->
+    <div class="[container classes from research]">
+
+      <h1 class="[heading classes from research]">
+        <!-- Icon if system found: -->
+        <!-- <i class="fa-solid fa-[icon-name]"></i> -->
+        [Feature Title]
+      </h1>
+
+      <!-- Content sections matching ASCII diagram -->
+
+      <!-- Buttons using app's actual button HTML -->
+      <div class="[button container classes]">
+        <button class="[primary button classes from research]">
+          <!-- Icon if used in app: -->
+          <!-- <i class="fa-solid fa-save"></i> -->
+          Primary Action
+        </button>
+        <button class="[secondary button classes from research]">
+          Secondary Action
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer if app has one -->
+
+</body>
+</html>
+`````
+
+**Icon handling based on research:**
+
+- **If Font Awesome found**: Use `<i class="fa-[style] fa-[name]"></i>` pattern
+- **If Material Icons found**: Use `<span class="material-icons">[name]</span>` pattern
+- **If SVG sprites found**: Use `<svg><use href="#icon-[name]"></use></svg>` pattern
+- **If custom icon components**: Document pattern and ask user how to mock
+- **If NO icon system found**: Use text only, create beads issue if icons needed
+
+**Quality checks before proceeding:**
+- [ ] All CSS classes are from research (no placeholder classes)
+- [ ] Icon system matches research (or confirmed text-only)
+- [ ] Layout structure matches ASCII diagram
+- [ ] Can be opened in browser without errors
+- [ ] Styling approach matches research (Tailwind/CSS modules/etc)
+
+### Step 7: Visual Validation with Playwright
+
+**⛔ BARRIER 5**: Validate HTML mockup visually before presenting to user.
+
+Use Playwright to preview the mockup:
+
+1. **Navigate to mockup**:
+   - Get absolute path to mockup.html
+   - Open in browser: `file:///[absolute-path]/mockups/v001/mockup.html`
+
+2. **Take full page screenshot**:
+   - Capture entire mockup
+   - Save as `mockups/v001/preview-v001.png`
+
+3. **Present visual preview to user**:
+
+```
+Visual preview of mockup v001:
+
+[Show preview-v001.png]
+
+Does this match your app's visual style?
+- Colors match app theme? [Y/N]
+- Spacing looks consistent? [Y/N]
+- Typography matches app? [Y/N]
+- Icons follow app pattern? [Y/N] (or text-only confirmed)
+- Layout structure correct? [Y/N]
+
+If anything looks off, let me know and I'll adjust.
+```
+
+4. **If similar feature found in research**:
+   - Offer to navigate to similar page for comparison
+   - Take screenshot of existing feature
+   - Show side-by-side comparison
+
+**Wait for user feedback before proceeding to Step 8.**
+
+### Step 8: Initialize Mockup Log
 
 Create `mockups/mockup-log.md`:
 
@@ -360,6 +540,7 @@ _From initial research - apply to all versions:_
 - **Layout pattern**: [pattern from research]
 - **Component library**: [location]
 - **Styling system**: [approach]
+- **Icon system**: [library and usage pattern, or "None - text only"]
 - **Similar features**: [references]
 
 ## Running Requirements
@@ -378,30 +559,40 @@ _Still being discussed_
 1. [Principle discovered through iteration]
 ```
 
-### Step 7: Present for Iteration
+### Step 9: Present for Iteration
+
+Present the complete mockup package to user:
 
 ```
-✅ Initial mockup created!
+Initial mockup created!
 
-📁 Location: [project-dir]/mockups/v001/
+Location: [project-dir]/mockups/v001/
 
 **What I created based on research:**
 - Layout following [pattern] from [similar feature]
-- Using components: [list]
-- Styling per existing [system]
+- Using components: [list with file:line]
+- Styling: [CSS approach from research]
+- Icons: [icon system from research, or text-only]
+
+**Files created:**
+- mockup.md - ASCII structure and specifications
+- mockup.html - Working HTML with app's actual styles
+- decisions.md - Rationale for design choices
+- preview-v001.png - Visual screenshot
 
 **Key decisions made:**
-1. [Decision 1] - because [rationale]
-2. [Decision 2] - because [rationale]
+1. [Decision 1] - because [rationale from research]
+2. [Decision 2] - because [rationale from research]
 
 **Open questions:**
-- [Question 1]
-- [Question 2]
+[List any beads issues created for UI questions]
 
 **Next steps:**
-- Review the mockup at mockups/v001/mockup.md
-- Use the mockup-iteration skill to refine: just discuss changes
-- Each iteration will be versioned with decisions captured
+- Review the visual preview above
+- Open mockups/v001/mockup.html in browser to interact
+- Review mockups/v001/mockup.md for structure details
+- Provide feedback - just discuss what to keep, change, or remove
+- Each iteration will update both ASCII and HTML with decisions captured
 
 Ready to iterate? Just tell me what to keep, change, or remove.
 ```
@@ -411,8 +602,10 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 | File | Purpose |
 |------|---------|
 | `mockups/mockup-log.md` | Track all versions and running requirements |
-| `mockups/v001/mockup.md` | The actual mockup |
+| `mockups/v001/mockup.md` | ASCII structure and specifications |
+| `mockups/v001/mockup.html` | Working HTML mockup with app's actual styles |
 | `mockups/v001/decisions.md` | Rationale for this version |
+| `mockups/v001/preview-v001.png` | Visual screenshot of HTML mockup |
 
 ## Important Guidelines
 
@@ -432,9 +625,12 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 - Keep decision trail for design.md
 
 ### Fidelity
-- ASCII mockups for layout structure
-- Component specs for implementation detail
+- ASCII mockups for layout structure discussion
+- HTML mockups with app's actual styles for visual validation
+- Component specs for implementation detail (copied from research)
+- Icon system from research (no placeholder icons/emojis)
 - State documentation for edge cases
+- Visual screenshots for design approval
 
 ## Relationship to Other Commands
 

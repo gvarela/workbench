@@ -4,7 +4,7 @@ This file provides specific guidance for working with the documentation commands
 
 ## Overview
 
-This directory contains Claude Code slash commands for project documentation, research, planning, and task tracking. The commands implement enterprise-grade context engineering patterns with explicit barriers, verification gates, and structured workflows.
+This directory contains Claude Code slash commands for project documentation, research, planning, and task tracking. The commands implement context engineering patterns with explicit barriers, verification gates, and structured workflows.
 
 ## Command Workflow
 

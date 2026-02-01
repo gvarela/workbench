@@ -1,6 +1,6 @@
 # Project Documentation Commands
 
-A comprehensive set of Claude Code slash commands for managing project documentation, research, planning, and task tracking with enterprise-grade context engineering.
+Claude Code slash commands for managing project documentation, research, planning, and task tracking.
 
 ## Core Philosophy
 
@@ -21,11 +21,13 @@ A comprehensive set of Claude Code slash commands for managing project documenta
 ## Command Workflow
 
 ```mermaid
-/create_project → /create_research → /create_design → /create_execution → /implement_tasks → /validate_execution
-     ↓                   ↓                 ↓                 ↓                    ↓                   ↓
-[Structure]        [Research.md]      [Design.md]       [Tasks.md]         [Implementation]    [Validation]
-                        ↓                 ↓                 ↓                    ↓                   ↓
-                   [What EXISTS]    [WHAT & WHY]      [HOW to do it]      [TDD Cycle]        [Verification]
+/create_project → /create_research → /create_mockup → /create_design → /create_execution → /implement_tasks → /validate_execution
+     ↓                   ↓                 ↓                 ↓                 ↓                    ↓                   ↓
+[Structure]        [Research.md]      [Mockups/]        [Design.md]       [Tasks.md]         [Implementation]    [Validation]
+                        ↓                 ↓                 ↓                 ↓                    ↓                   ↓
+                   [What EXISTS]    [UI Patterns]    [WHAT & WHY]      [HOW to do it]      [TDD Cycle]        [Verification]
+                                         ↓
+                                  [HTML + Screenshots]
 
 For multi-session work:
 [Session 1] → /create_handoff → [Session 2] → /resume_handoff → [Continue work]
@@ -35,28 +37,45 @@ For multi-session work:
 
 1. **Initialize**: Create project structure with metadata
 2. **Research**: Document codebase as it EXISTS today (facts only)
-3. **Design**: Decide WHAT to build and WHY (architectural decisions)
-4. **Execution**: Plan HOW to implement (phased plan with tasks)
-5. **Implement**: Execute using TDD with checkpoints
-6. **Validate**: Verify implementation matches plan
-7. **Handoff** (optional): Transfer context between sessions
+3. **Mockup** (optional): Research UI patterns and create interactive HTML mockups
+4. **Design**: Decide WHAT to build and WHY (architectural decisions)
+5. **Execution**: Plan HOW to implement (phased plan with tasks)
+6. **Implement**: Execute using TDD with checkpoints
+7. **Validate**: Verify implementation matches plan
+8. **Handoff** (optional): Transfer context between sessions
 
 ### Beads Integration (Required)
 
-These commands require [beads](https://github.com/steveyegge/beads) (`bd init`):
+These commands require [beads](https://github.com/steveyegge/beads):
 
-- **`/create_execution`**: Creates beads issues for each phase with dependencies
-- **`/implement_tasks`**: Uses `bd ready`/`bd update`/`bd close` to track phases
-- **`/update_status`**: Reads beads state as source of truth
+```bash
+# Initialize (choose mode)
+bd init --stealth   # Stealth: .beads/ not committed (work repos)
+bd init             # Git: .beads/ tracked in git (personal projects)
+```
+
+**How commands use beads**:
+
+- **`/create_mockup`**: Creates `UI Q:` and `UI Assumption:` issues, blocks finalization until resolved
+- **`/create_execution`**: Creates phase milestone and task issues with dependency chains
+- **`/implement_tasks`**: Uses `bd ready`/`bd update`/`bd close` to track implementation
+- **`/update_status`**: Reads beads state as source of truth for status
+- **`/create_handoff`**: Includes open beads issues in handoff context
+- **`mockup-iteration` skill**: Creates UI questions, validates all resolved before finalization
 
 **Beads workflow**:
 ```bash
-bd ready                              # Find available phases
-bd update [phase-id] --status in_progress  # Claim phase
+bd ready                                    # Find available work (no blockers)
+bd show [id]                                # Review task details
+bd update [id] --status in_progress         # Claim task
 # ... implement ...
-bd close [phase-id] --reason "..."    # Complete phase
-bd sync                               # Persist to git
+bd close [id] --reason "..."                # Complete task
+bd sync                                     # Export to .beads/issues.jsonl
+# Git mode: commit .beads/ to persist across machines
+# Stealth mode: .beads/ stays uncommitted (local only)
 ```
+
+**Mode Detection**: SessionStart hook auto-detects stealth vs git mode, sets `$BEADS_MODE` environment variable.
 
 **Note**: For markdown-only tracking, use the `v1.0.0` tag.
 
@@ -149,6 +168,119 @@ Pattern Finder Agents → Find similar implementations
 - Similar implementations
 - Open questions
 - Follow-up research support
+
+---
+
+### `/create_mockup` - Research UI Patterns and Create Mockups
+
+Researches existing UI patterns, styles, and layouts, then creates versioned mockups with HTML and visual validation.
+
+**Usage**:
+
+```bash
+/create_mockup docs/plans/2025-10-07-my-feature "user settings panel"
+```
+
+**Research Process**:
+
+Spawns parallel agents to document what EXISTS:
+
+```
+Agent 1: Layout Patterns    → Grid, flex, containers, breakpoints
+Agent 2: Component Library  → Buttons, forms, cards, modals
+Agent 3: Styling Approach   → CSS modules, Tailwind, tokens
+Agent 4: Similar Features   → Existing panels/modals for reference
+Agent 5: Icon System        → Font Awesome, Material Icons, SVG sprites, or none
+```
+
+**Interactive Process**:
+
+1. **Research existing UI** (parallel agents)
+2. **Ask clarifying questions** about the feature
+3. **Create ASCII structure** (mockup.md)
+4. **Create HTML mockup** (mockup.html) with app's actual styles
+5. **Visual validation** with Playwright screenshots
+6. **Iterate** based on feedback
+
+**Creates**:
+
+```
+docs/plans/2025-10-07-my-feature/mockups/
+├── mockup-log.md              # Decision log across versions
+└── v001/
+    ├── mockup.md              # ASCII structure and specs
+    ├── mockup.html            # Working HTML with app styles
+    ├── preview-v001.png       # Visual screenshot
+    └── decisions.md           # Rationale for this version
+```
+
+**Key Features**:
+
+- **Research-driven**: Uses app's actual styles, components, and icon system
+- **Visual validation**: Playwright screenshots show real appearance
+- **Versioned iteration**: Each feedback cycle creates new version
+- **Icon handling**: Uses discovered icon library (NOT emojis)
+- **Decision tracking**: KEEP/REMOVE/CHANGE captured with rationale
+- **Beads integration**: Creates UI questions as beads issues
+
+**Iteration with mockup-iteration skill**:
+
+After initial mockup, provide feedback naturally:
+
+```
+"Keep the card layout but remove the sidebar"
+→ Updates mockup-log.md, creates v002 with changes
+
+"show mockup"
+→ Opens HTML in browser, shows screenshot
+
+"next version"
+→ Creates new version with all accumulated feedback
+```
+
+**Icon System Handling**:
+
+- **Researches app's icon library** (Font Awesome, Material Icons, Heroicons, SVG, custom)
+- **Never defaults to emojis** in HTML mockups
+- **Uses actual icon patterns** from research (classes, components)
+- **Creates beads issue** if icons needed but system unclear
+- **Asks before adding** icons if no system found
+
+**Critical Rules**:
+
+- All CSS classes from research (no placeholders)
+- HTML can be opened directly in browser
+- Screenshot after each version for visual validation
+- Icon system matches app conventions
+- Decision fidelity preserved across iterations
+
+**Workflow Example**:
+
+```bash
+# 1. Create initial mockup
+/create_mockup docs/plans/2025-10-07-feature "settings panel"
+> Research finds: Tailwind, Font Awesome icons, existing settings.jsx
+> Creates ASCII + HTML mockup with actual styles
+> Shows screenshot
+
+# 2. Iterate with feedback
+"Keep the two-column layout but make the buttons larger"
+> Updates mockup-log.md
+> Creates v002 with changes
+> Shows new screenshot
+
+# 3. Finalize to design
+"finalize"
+> Checks for open UI questions (beads issues)
+> Generates design.md section from confirmed requirements
+```
+
+**Integration**:
+
+- Feeds into `/create_design` with validated UI requirements
+- Mockup files referenced in design.md
+- Screenshots included in documentation
+- Decision log informs architectural choices
 
 ---
 
@@ -462,15 +594,23 @@ Creates timestamped directory with metadata-rich files.
 
 Spawns parallel agents, documents findings objectively.
 
-#### 3. Create Design
+#### 3. Create UI Mockup (Optional - for UI features)
+
+```bash
+/create_mockup docs/projects/2025-10-07-LINEAR-789-add-auth-middleware "login form"
+```
+
+Researches UI patterns, creates HTML mockup with app styles, iterates with visual feedback.
+
+#### 4. Create Design
 
 ```bash
 /create_design docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
-Interactive discussion → Design decisions (WHAT and WHY).
+Interactive discussion → Design decisions (WHAT and WHY). Includes UI requirements from mockup if created.
 
-#### 4. Create Execution Plan
+#### 5. Create Execution Plan
 
 ```bash
 /create_execution docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
@@ -478,7 +618,7 @@ Interactive discussion → Design decisions (WHAT and WHY).
 
 Generates phased plan with specific tasks (HOW to implement).
 
-#### 5. Implement with TDD
+#### 6. Implement with TDD
 
 ```bash
 /implement_tasks docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
@@ -716,7 +856,7 @@ Tasks ONLY from plan ensures:
 
 ## Credits
 
-Inspired by enterprise context engineering patterns and refined through real-world usage. Incorporates learnings from HumanLayer's command architecture with adaptations for general use.
+Context engineering patterns refined through real-world usage. Incorporates learnings from HumanLayer's command architecture with adaptations for general use.
 
 Commands leverage Claude Code's powerful agent system while maintaining strict behavioral boundaries through careful prompt engineering.
 
