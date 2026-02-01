@@ -4,7 +4,9 @@ A collection of reusable prompts, slash commands, and agent definitions for AI-p
 
 ## Overview
 
-This repository contains enterprise-grade documentation commands, prompt templates, and agent definitions designed to streamline software development through structured planning, comprehensive research, and systematic task tracking.
+A personal workbench of tools and workflows for Claude Code and AmpCode. Streamlines software development through structured planning, research, and persistent task tracking with [beads](https://github.com/steveyegge/beads).
+
+**[📖 Complete Workflow Guide →](docs/workbench-workflow-guide.md)**
 
 ## Quick Start
 
@@ -45,47 +47,30 @@ cd prompts
 
 ### Using Commands
 
-Once installed, use the workbench commands in your workflow:
-
 ```bash
-# Initialize project documentation
-/wb:create_project my-feature docs/plans LINEAR-123
-
-# Research existing codebase
-/wb:create_research docs/plans/2025-10-08-LINEAR-123-my-feature
-
-# Create design decisions
-/wb:create_design docs/plans/2025-10-08-LINEAR-123-my-feature
-
-# Create execution plan
-/wb:create_execution docs/plans/2025-10-08-LINEAR-123-my-feature
-
-# Implement with TDD
-/wb:implement_tasks docs/plans/2025-10-08-LINEAR-123-my-feature
-
-# Validate implementation
-/wb:validate_execution docs/plans/2025-10-08-LINEAR-123-my-feature
-
-# Update project status
-/wb:update_status docs/plans/2025-10-08-LINEAR-123-my-feature
+# Initialize → Research → Design → Implement → Validate
+/wb:create_project my-feature docs/plans TICKET-123
+/wb:create_research docs/plans/2025-01-15-TICKET-123-my-feature
+/wb:create_mockup docs/plans/... "UI component"  # Optional for UI
+/wb:create_design docs/plans/...
+/wb:create_execution docs/plans/...
+/wb:implement_tasks docs/plans/...
+/wb:validate_execution docs/plans/...
 ```
 
-**Skills** (automatically activated):
+**Skills** (auto-activated): `project-structure`, `mockup-iteration`, `tdd-discipline`, `verification-before-completion`, `status-sync`, `review-prep`
 
-- `project-structure` - Document separation (research.md, design.md, tasks.md, thoughts/)
-- `tdd-discipline` - RED-GREEN-REFACTOR enforcement
-- `verification-before-completion` - Evidence before completion claims
-- `status-sync` - Status drift detection
-- `review-prep` - Interactive tmux/nvim code review
+**[📖 Full Commands Reference →](claude-code/commands/wb/README.md)**
 
 ## What's Inside
 
 ### 📋 Workbench Commands (`/wb:*`)
 
-Enterprise-grade slash commands for project documentation and task management:
+Slash commands for project documentation and task management:
 
 - **`/wb:create_project`** - Initialize structured documentation with rich metadata
 - **`/wb:create_research`** - Document codebase using parallel research agents
+- **`/wb:create_mockup`** - Research UI patterns and create HTML mockups with visual validation
 - **`/wb:create_design`** - Create architectural design decisions (WHAT and WHY)
 - **`/wb:create_execution`** - Transform design into phased execution plan (HOW)
 - **`/wb:implement_tasks`** - Implement with TDD (Red-Green-Refactor)
@@ -95,17 +80,15 @@ Enterprise-grade slash commands for project documentation and task management:
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
 
 **Key Features**:
-- Three-document separation: research.md (facts), design.md (decisions), tasks.md (implementation)
-- Explicit barriers and synchronization points
-- "Document, Don't Judge" research philosophy
-- Dual verification model (automated + manual)
-- Rich frontmatter with git metadata tracking
-- Status progression with validation
-- Zero scope creep enforcement
-- Session continuity with handoff system
-- **Beads integration** for cross-session task tracking (optional)
+- Three-document separation (research/design/tasks)
+- HTML mockup workflow with visual validation
+- Beads integration for persistent task tracking
+- Explicit barriers and checkpoints
+- TDD enforcement with phase boundaries
+- Zero scope creep
+- Session continuity
 
-[Full Commands Documentation →](claude-code/commands/wb/README.md)
+**[📖 Detailed Features →](docs/workbench-workflow-guide.md)**
 
 ### 🤖 Workbench Agents (`/wb:*`)
 
@@ -120,6 +103,7 @@ Specialized agents for codebase analysis:
 Background capabilities that Claude automatically invokes:
 
 - **`project-structure`** - Enforces document separation (research.md, design.md, tasks.md, thoughts/)
+- **`mockup-iteration`** - Iterate on UI mockups with KEEP/REMOVE/CHANGE tracking, HTML generation, and Playwright screenshots
 - **`tdd-discipline`** - Enforces RED-GREEN-REFACTOR cycle before writing production code
 - **`verification-before-completion`** - Requires running verification commands before claiming work is done
 - **`status-sync`** - Monitors for status drift and reminds to run `/wb:update_status`
@@ -145,46 +129,27 @@ Comprehensive guides for using this repository:
 
 ## Core Philosophy
 
-### Document, Don't Judge
+- **Document, Don't Judge**: Research describes what EXISTS, not what should change
+- **Explicit Barriers**: Synchronization points prevent rushing ahead
+- **Dual Verification**: Automated (tests, CI) + Manual (UX, edge cases)
+- **Zero Scope Creep**: Tasks only from plans - no ad-hoc additions
 
-Research commands objectively document what EXISTS without suggesting improvements. This ensures unbiased understanding before planning changes.
+**[📖 Philosophy Details →](docs/workbench-workflow-guide.md#core-philosophy)**
 
-### Explicit Barriers
+### Beads Integration
 
-Commands use clear synchronization points:
-- **⛔ BARRIER 1**: After file reading - full context required
-- **⛔ BARRIER 2**: After agent spawning - wait for ALL
-- **⛔ BARRIER 3**: Before writing - no placeholders allowed
-- **⛔ CHECKPOINT**: Between phases - human verification required
-
-### Dual Verification
-
-Plans separate verification into:
-- **Automated**: Tests, linting, builds that CI can run
-- **Manual**: UI functionality, performance, edge cases requiring human validation
-
-### Zero Scope Creep
-
-Tasks come ONLY from plans - no additions during implementation. This maintains predictable delivery and traceable work.
-
-### Beads Integration (Required)
-
-The wb commands require [beads](https://github.com/steveyegge/beads) for task tracking:
+Requires [beads](https://github.com/steveyegge/beads) for persistent task tracking:
 
 ```bash
-# Initialize beads in your project
-bd init
+bd init --stealth   # Stealth: .beads/ not committed (work repos)
+bd init             # Git: .beads/ in git (personal projects)
 ```
 
-**Beads provides**:
-- **Persistent memory**: Task state survives compaction and new sessions
-- **Dependency tracking**: Phases block/unblock automatically
-- **Git-backed**: Syncs with your repository
-- **Source of truth**: Authoritative status for phases
+**Key Features**: Persistent memory across sessions, dependency tracking, auto-detected mode (stealth/git)
 
-See [AGENTS.md](AGENTS.md) for the beads workflow protocol.
+**Usage**: Commands create/track beads issues for phases, tasks, and UI questions. SessionStart hook detects mode automatically.
 
-**Note**: For markdown-only tracking, use the `v1.0.0` tag.
+**[📖 Detailed Beads Integration →](docs/workbench-workflow-guide.md#beads-integration)**
 
 ## Repository Structure
 
@@ -226,39 +191,17 @@ The installation script creates **symlinks** (not copies) by default. This means
 - Single source of truth in this repository
 - No need to reinstall after updates
 
-## Workflow Example
-
-A complete project lifecycle using planning commands:
+## Quick Example
 
 ```bash
-# 1. Initialize
-/create_project payment-integration docs/projects LINEAR-456
-
-# 2. Research
-/create_research docs/projects/2025-10-08-LINEAR-456-payment-integration
-> Research how we currently handle payment processing and error recovery
-
-# 3. Plan
-/create_plan docs/projects/2025-10-08-LINEAR-456-payment-integration
-# Interactive discussion → detailed phased plan
-
-# 4. Generate tasks
-/create_tasks docs/projects/2025-10-08-LINEAR-456-payment-integration
-
-# 5. Execute (work through tasks.md checking off items)
-# ...implementation work...
-
-# 6. Update status periodically
-/update_status docs/projects/2025-10-08-LINEAR-456-payment-integration
+/wb:create_project feature docs/plans TICKET-123
+/wb:create_research docs/plans/2025-01-15-TICKET-123-feature
+/wb:create_design docs/plans/...
+/wb:create_execution docs/plans/...
+/wb:implement_tasks docs/plans/...
 ```
 
-Result: Comprehensive documentation with:
-- Research findings with file:line references
-- Phased implementation plan with checkpoints
-- Trackable tasks organized by phase
-- Modified files tracking (code vs tests)
-- Progress metrics and status tracking
-- Full git metadata audit trail
+**[📖 Complete Workflow Example →](docs/workbench-workflow-guide.md#complete-workflow)**
 
 ## Development
 
@@ -321,29 +264,12 @@ Claude Code and AmpCode check project commands first, then fall back to global.
 
 ## Best Practices
 
-### Research Phase
-- Read files FULLY before analysis
-- Document objectively - what IS, not opinions
-- Include all references in file:line format
-- Find patterns and conventions in use
+**Research**: Read files fully, document objectively, use file:line references
+**Planning**: Discuss first, define out-of-scope, measurable criteria
+**Implementation**: TDD cycle, beads tracking, respect phase boundaries
+**Verification**: Automate CI checks, document manual steps
 
-### Planning Phase
-- Discuss before writing - get alignment
-- Define OUT of scope - prevent creep
-- Make success criteria measurable
-- Phase thoughtfully for incremental value
-
-### Task Management
-- Extract everything from plan - miss no tasks
-- Maintain barriers and checkpoints
-- Track blockers with actions and owners
-- Update status regularly
-
-### Verification
-- Automate what's possible via CI/CD
-- Document manual verification needs
-- Enforce checkpoints between phases
-- Require confirmation before proceeding
+**[📖 Detailed Best Practices →](docs/workbench-workflow-guide.md#best-practices)**
 
 ## Contributing
 
@@ -361,7 +287,7 @@ Please:
 
 ## Credits
 
-Planning commands inspired by enterprise context engineering patterns and refined through real-world usage. Incorporates learnings from HumanLayer's command architecture with adaptations for general use.
+Planning commands inspired by context engineering patterns and refined through real-world usage. Incorporates learnings from HumanLayer's command architecture with adaptations for general use.
 
 ## License
 

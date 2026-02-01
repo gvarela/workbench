@@ -12,7 +12,14 @@
       "Bash(bd:*)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(readlink:*)",
+      "Bash(python3:*)",
+      "Bash(~/.claude/settings.json)",
+      "Bash(export CLAUDE_ENV_FILE=/tmp/test-env.sh)",
+      "Bash(bash:*)",
+      "Bash(export CLAUDE_ENV_FILE=/tmp/test-env-git.sh:*)",
+      "Bash(npx markdownlint-cli2:*)"
     ],
     "deny": [],
     "ask": []
