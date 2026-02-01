@@ -617,7 +617,7 @@ if [ "$INSTALL_CLAUDE" = true ]; then
     # Install hooks
     print_info "Installing Claude Code Hooks..."
     if [ -d "$REPO_ROOT/.claude/hooks" ]; then
-        local hooks_target
+        hooks_target=""
         if [ "$SCOPE" = "global" ]; then
             hooks_target="$HOME/.claude/hooks"
         else
@@ -628,19 +628,17 @@ if [ "$INSTALL_CLAUDE" = true ]; then
         if ! ensure_directory "$hooks_target" "$SCOPE"; then
             print_warning "Failed to create hooks directory, skipping hooks installation"
         else
-            local installed_hooks=0
-            local skipped_hooks=0
+            installed_hooks=0
+            skipped_hooks=0
 
             # Install each hook script
             for hook_file in "$REPO_ROOT/.claude/hooks"/*.sh; do
                 if [ -f "$hook_file" ]; then
-                    local hook_name
                     hook_name=$(basename "$hook_file")
-                    local target_hook="$hooks_target/$hook_name"
+                    target_hook="$hooks_target/$hook_name"
 
                     # Check if symlink already exists and points to correct location
                     if [ -L "$target_hook" ]; then
-                        local current_target
                         current_target=$(readlink "$target_hook")
                         if [ "$current_target" = "$hook_file" ]; then
                             print_info "  $hook_name (already installed)"
@@ -669,7 +667,7 @@ if [ "$INSTALL_CLAUDE" = true ]; then
                 echo
 
                 # Configure SessionStart hook
-                local settings_file
+                settings_file=""
                 if [ "$SCOPE" = "global" ]; then
                     settings_file="$HOME/.claude/settings.json"
                 else
