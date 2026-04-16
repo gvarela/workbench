@@ -1,10 +1,10 @@
 # Prompts Repository
 
-A collection of reusable prompts, slash commands, and agent definitions for AI-powered development workflows with Claude Code and AmpCode.
+A collection of reusable prompts, slash commands, and agent definitions for AI-powered development workflows with Claude Code.
 
 ## Overview
 
-A personal workbench of tools and workflows for Claude Code and AmpCode. Streamlines software development through structured planning, research, and persistent task tracking with [beads](https://github.com/steveyegge/beads).
+A personal workbench of tools and workflows for Claude Code. Streamlines software development through structured planning, research, and persistent task tracking with [beads](https://github.com/steveyegge/beads).
 
 **[📖 Complete Workflow Guide →](docs/workbench-workflow-guide.md)**
 
@@ -12,7 +12,7 @@ A personal workbench of tools and workflows for Claude Code and AmpCode. Streaml
 
 ### Installation
 
-Install the planning commands globally for Claude Code or AmpCode:
+Install the planning commands globally for Claude Code:
 
 ```bash
 # Clone the repository
@@ -21,12 +21,6 @@ cd prompts
 
 # Install globally for Claude Code
 ./scripts/install-commands --claude
-
-# Install globally for AmpCode
-./scripts/install-commands --amp
-
-# Install for both
-./scripts/install-commands --both
 
 # Install to a specific project
 ./scripts/install-commands --claude --project ~/my-project
@@ -40,10 +34,6 @@ cd prompts
 - Entire directories symlinked for skills
 - **Benefit**: Edits in this repository immediately reflect in Claude Code
 - **Updates**: Run `git pull` in this repo - changes apply automatically, no reinstall needed
-
-**AmpCode** (uses copies):
-- Files are **copied** (not symlinked) to installation directory
-- **Updates**: Re-run `./scripts/install-commands --amp` after `git pull`
 
 ### Using Commands
 
@@ -115,7 +105,7 @@ Background capabilities that Claude automatically invokes:
 
 Utility scripts for repository management:
 
-- **`scripts/install-commands`** - Install commands to Claude Code/AmpCode
+- **`scripts/install-commands`** - Install commands to Claude Code
 - **`scripts/lint`** - Markdown linting with auto-fix support
 - **`scripts/lint-hook`** - Automatic linting hook for file operations
 
@@ -124,7 +114,6 @@ Utility scripts for repository management:
 Comprehensive guides for using this repository:
 
 - **[Claude Code README](claude-code/README.md)** - Using commands with Claude Code
-- **[AmpCode README](ampcode/README.md)** - Using commands with AmpCode
 - **[Planning Commands README](commands/planning/README.md)** - Detailed command reference
 
 ## Core Philosophy
@@ -175,14 +164,12 @@ prompts/
 Commands are installed globally and available in all projects:
 
 **Claude Code**: `~/.claude/commands/`
-**AmpCode**: `~/.config/amp/commands/` (or `$XDG_CONFIG_HOME/amp/commands/`)
 
 ### Project Installation
 
 Commands are installed in a specific project directory:
 
 **Claude Code**: `<project>/.claude/commands/`
-**AmpCode**: `<project>/.agents/commands/`
 
 ### Symlinks vs Copies
 
@@ -251,7 +238,7 @@ Install globally, then override specific commands per-project:
 
 ```bash
 # Global installation
-./scripts/install-commands --both
+./scripts/install-commands --claude
 
 # Copy one command for customization
 cp commands/planning/create_plan.md ~/my-project/.claude/commands/
@@ -260,7 +247,7 @@ cp commands/planning/create_plan.md ~/my-project/.claude/commands/
 vim ~/my-project/.claude/commands/create_plan.md
 ```
 
-Claude Code and AmpCode check project commands first, then fall back to global.
+Claude Code checks project commands first, then falls back to global.
 
 ## Best Practices
 
@@ -297,5 +284,4 @@ Planning commands inspired by context engineering patterns and refined through r
 
 - **Commands**: See [Planning Commands README](commands/planning/README.md)
 - **Claude Code Integration**: See [Claude Code README](claude-code/README.md)
-- **AmpCode Integration**: See [AmpCode README](ampcode/README.md)
 - **Issues**: Open an issue in this repository

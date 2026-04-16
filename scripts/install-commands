@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 #
-# install-commands - Install planning commands to Claude Code and/or AmpCode
+# install-commands - Install planning commands to Claude Code
 #
 # Usage:
 #   ./scripts/install-commands --claude         # Install to Claude Code globally
-#   ./scripts/install-commands --amp            # Install to AmpCode globally
-#   ./scripts/install-commands --both           # Install to both globally
 #   ./scripts/install-commands --claude --project  # Install to Claude Code in current project
-#   ./scripts/install-commands --amp --project     # Install to AmpCode in current project
-#   ./scripts/install-commands --both --project    # Install to both in current project
 #   ./scripts/install-commands --help           # Show this help message
 
 set -euo pipefail
@@ -26,7 +22,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Installation targets
 INSTALL_CLAUDE=false
-INSTALL_AMP=false
 INSTALL_PROJECT=false
 PROJECT_PATH=""
 SKIP_CONFIRM=false
@@ -51,15 +46,13 @@ print_error() {
 # Function to show help
 show_help() {
     cat << EOF
-Install planning commands to Claude Code and/or AmpCode
+Install planning commands to Claude Code
 
 Usage:
   ./scripts/install-commands [OPTIONS]
 
 Options:
   --claude          Install to Claude Code (uses symlinks)
-  --amp             Install to AmpCode (uses copies)
-  --both            Install to both Claude Code and AmpCode
   --project <path>  Install to project at specified path (default: global)
   --yes, -y         Skip confirmation prompts
   --help            Show this help message
@@ -68,54 +61,31 @@ Examples:
   # Install globally to Claude Code
   ./scripts/install-commands --claude
 
-  # Install globally to both
-  ./scripts/install-commands --both
-
   # Install to a specific project's Claude Code commands
   ./scripts/install-commands --claude --project /path/to/project
-
-  # Install to a specific project's AmpCode commands
-  ./scripts/install-commands --amp --project ~/my-project
 
 Installation Locations:
   Claude Code (global):  ~/.claude/commands/wb/, ~/.claude/agents/wb/, ~/.claude/skills/
   Claude Code (project): <project-path>/.claude/commands/wb/, agents/wb/, skills/
-  AmpCode (global):      ~/.config/amp/commands/ (flat structure)
-  AmpCode (project):     <project-path>/.agents/commands/ (flat structure)
 
-Symlinks vs Copies:
-
-  Claude Code (uses symlinks):
-    • Commands: Individual .md files symlinked from claude-code/commands/wb/*.md
-    • Agents:   Individual .md files symlinked from claude-code/agents/wb/*.md
-    • Skills:   Entire directories symlinked from claude-code/skills/*/
-    • Benefit:  Edits to source files immediately reflect in installation
-    • Updates:  Automatic via 'git pull' - no reinstall needed
-
-  AmpCode (uses copies):
-    • Commands: Files copied (not symlinked) to flat directory structure
-    • Updates:  Re-run ./scripts/install-commands --amp to update
-    • Why:      AmpCode doesn't follow symlinks
-
-  Installation Notes:
-    • Global installations require target directory to exist (or confirm creation)
-    • Project installations create directories automatically
-    • Symlinks point to absolute paths in this repository
+Installation Notes:
+  • Commands: Individual .md files symlinked from claude-code/commands/wb/*.md
+  • Agents:   Individual .md files symlinked from claude-code/agents/wb/*.md
+  • Skills:   Entire directories symlinked from claude-code/skills/*/
+  • Benefit:  Edits to source files immediately reflect in installation
+  • Updates:  Automatic via 'git pull' - no reinstall needed
+  • Global installations require target directory to exist (or confirm creation)
+  • Project installations create directories automatically
+  • Symlinks point to absolute paths in this repository
 
 EOF
 }
 
-# Function to get commands directories based on tool
+# Function to get commands directories
 get_commands_dirs() {
-    local tool=$1
-    if [ "$tool" = "claude" ]; then
-        echo "$REPO_ROOT/claude-code/commands/wb"
-        echo "$REPO_ROOT/claude-code/agents/wb"
-        echo "$REPO_ROOT/claude-code/skills"
-    elif [ "$tool" = "amp" ]; then
-        echo "$REPO_ROOT/ampcode/commands/planning"
-        echo "$REPO_ROOT/ampcode/commands/actions"
-    fi
+    echo "$REPO_ROOT/claude-code/commands/wb"
+    echo "$REPO_ROOT/claude-code/agents/wb"
+    echo "$REPO_ROOT/claude-code/skills"
 }
 
 # Function to validate commands directory
@@ -140,35 +110,17 @@ validate_commands_dir() {
 
 # Function to get target directories
 get_target_dirs() {
-    local tool=$1
-    local scope=$2
-    local project_path=$3
+    local scope=$1
+    local project_path=$2
 
-    if [ "$tool" = "claude" ]; then
-        if [ "$scope" = "global" ]; then
-            echo "$HOME/.claude/commands/wb"
-            echo "$HOME/.claude/agents/wb"
-            echo "$HOME/.claude/skills"
-        else
-            echo "${project_path}/.claude/commands/wb"
-            echo "${project_path}/.claude/agents/wb"
-            echo "${project_path}/.claude/skills"
-        fi
-    elif [ "$tool" = "amp" ]; then
-        # AmpCode uses flat directory structure - return same dir twice for compatibility
-        if [ "$scope" = "global" ]; then
-            local base_dir
-            if [ -n "${XDG_CONFIG_HOME:-}" ]; then
-                base_dir="$XDG_CONFIG_HOME/amp/commands"
-            else
-                base_dir="$HOME/.config/amp/commands"
-            fi
-            echo "${base_dir}"
-            echo "${base_dir}"
-        else
-            echo "${project_path}/.agents/commands"
-            echo "${project_path}/.agents/commands"
-        fi
+    if [ "$scope" = "global" ]; then
+        echo "$HOME/.claude/commands/wb"
+        echo "$HOME/.claude/agents/wb"
+        echo "$HOME/.claude/skills"
+    else
+        echo "${project_path}/.claude/commands/wb"
+        echo "${project_path}/.claude/agents/wb"
+        echo "${project_path}/.claude/skills"
     fi
 }
 
@@ -304,14 +256,12 @@ EOF
     print_success "Configured SessionStart hook in $(basename "$settings_file")"
 }
 
-# Function to install commands to a target directory
+# Function to install commands to a target directory (symlink-based)
 install_to_target() {
     local target_dir=$1
     local tool_name=$2
     local scope=$3
-    local use_symlinks=$4  # true for Claude Code, false for AmpCode
-    local commands_dir=$5
-    local prefix=$6  # prefix for AmpCode files (e.g., "planning_" or "actions_")
+    local commands_dir=$4
 
     print_info "Installing to $tool_name ($scope): $target_dir"
 
@@ -335,57 +285,30 @@ install_to_target() {
             continue
         fi
 
-        # For AmpCode with prefix, prepend it to filename
-        local target_basename="$basename"
-        if [ -n "$prefix" ]; then
-            target_basename="${prefix}${basename}"
-        fi
+        local target_file="$target_dir/$basename"
 
-        local target_file="$target_dir/$target_basename"
-
-        # For symlinks (Claude Code)
-        if [ "$use_symlinks" = true ]; then
-            # Check if symlink already exists and points to correct location
-            if [ -L "$target_file" ]; then
-                local current_target
-                current_target=$(readlink "$target_file")
-                if [ "$current_target" = "$cmd_file" ]; then
-                    print_info "  $target_basename (already installed)"
-                    ((skipped_count++))
-                    continue
-                else
-                    print_warning "  $target_basename (updating symlink)"
-                    rm "$target_file"
-                fi
-            elif [ -e "$target_file" ]; then
-                print_warning "  $target_basename (file exists, skipping)"
+        # Check if symlink already exists and points to correct location
+        if [ -L "$target_file" ]; then
+            local current_target
+            current_target=$(readlink "$target_file")
+            if [ "$current_target" = "$cmd_file" ]; then
+                print_info "  $basename (already installed)"
                 ((skipped_count++))
                 continue
+            else
+                print_warning "  $basename (updating symlink)"
+                rm "$target_file"
             fi
-
-            # Create symlink
-            ln -s "$cmd_file" "$target_file"
-            print_success "  $target_basename"
-            ((installed_count++))
-        else
-            # For copies (AmpCode)
-            if [ -e "$target_file" ]; then
-                # Check if file is identical
-                if cmp -s "$cmd_file" "$target_file"; then
-                    print_info "  $target_basename (already up to date)"
-                    ((skipped_count++))
-                    continue
-                else
-                    print_warning "  $target_basename (updating)"
-                    rm "$target_file"
-                fi
-            fi
-
-            # Copy file
-            cp "$cmd_file" "$target_file"
-            print_success "  $target_basename"
-            ((installed_count++))
+        elif [ -e "$target_file" ]; then
+            print_warning "  $basename (file exists, skipping)"
+            ((skipped_count++))
+            continue
         fi
+
+        # Create symlink
+        ln -s "$cmd_file" "$target_file"
+        print_success "  $basename"
+        ((installed_count++))
     done
 
     echo
@@ -471,15 +394,6 @@ while [ $# -gt 0 ]; do
             INSTALL_CLAUDE=true
             shift
             ;;
-        --amp)
-            INSTALL_AMP=true
-            shift
-            ;;
-        --both)
-            INSTALL_CLAUDE=true
-            INSTALL_AMP=true
-            shift
-            ;;
         --project)
             INSTALL_PROJECT=true
             shift
@@ -509,9 +423,9 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Validate that at least one tool was selected
-if [ "$INSTALL_CLAUDE" = false ] && [ "$INSTALL_AMP" = false ]; then
-    print_error "Must specify --claude, --amp, or --both"
+# Validate that a tool was selected
+if [ "$INSTALL_CLAUDE" = false ]; then
+    print_error "Must specify --claude"
     echo
     show_help
     exit 1
@@ -555,7 +469,6 @@ if [ "$SCOPE" = "project" ]; then
     echo "  Project: $PROJECT_PATH"
 fi
 echo "  Claude Code: $INSTALL_CLAUDE"
-echo "  AmpCode: $INSTALL_AMP"
 echo
 
 # Confirm installation
@@ -576,18 +489,18 @@ if [ "$INSTALL_CLAUDE" = true ]; then
     CLAUDE_SOURCES=()
     while IFS= read -r line; do
         CLAUDE_SOURCES+=("$line")
-    done < <(get_commands_dirs "claude")
+    done < <(get_commands_dirs)
 
     # Get target directories
     CLAUDE_TARGETS=()
     while IFS= read -r line; do
         CLAUDE_TARGETS+=("$line")
-    done < <(get_target_dirs "claude" "$SCOPE" "$PROJECT_PATH")
+    done < <(get_target_dirs "$SCOPE" "$PROJECT_PATH")
 
     # Install workbench commands
     print_info "Installing Claude Code Workbench Commands..."
     validate_commands_dir "${CLAUDE_SOURCES[0]}" "workbench commands"
-    if ! install_to_target "${CLAUDE_TARGETS[0]}" "Claude Code Workbench Commands" "$SCOPE" true "${CLAUDE_SOURCES[0]}" ""; then
+    if ! install_to_target "${CLAUDE_TARGETS[0]}" "Claude Code Workbench Commands" "$SCOPE" "${CLAUDE_SOURCES[0]}"; then
         print_error "Failed to install Claude Code workbench commands"
         exit 1
     fi
@@ -596,7 +509,7 @@ if [ "$INSTALL_CLAUDE" = true ]; then
     # Install workbench agents
     print_info "Installing Claude Code Workbench Agents..."
     validate_commands_dir "${CLAUDE_SOURCES[1]}" "workbench agents"
-    if ! install_to_target "${CLAUDE_TARGETS[1]}" "Claude Code Workbench Agents" "$SCOPE" true "${CLAUDE_SOURCES[1]}" ""; then
+    if ! install_to_target "${CLAUDE_TARGETS[1]}" "Claude Code Workbench Agents" "$SCOPE" "${CLAUDE_SOURCES[1]}"; then
         print_error "Failed to install Claude Code workbench agents"
         exit 1
     fi
@@ -681,79 +594,21 @@ if [ "$INSTALL_CLAUDE" = true ]; then
     echo
 fi
 
-# Install to AmpCode
-if [ "$INSTALL_AMP" = true ]; then
-    # Get source directories (line by line)
-    AMP_SOURCES=()
-    while IFS= read -r line; do
-        AMP_SOURCES+=("$line")
-    done < <(get_commands_dirs "amp")
-
-    # Get target directories
-    AMP_TARGETS=()
-    while IFS= read -r line; do
-        AMP_TARGETS+=("$line")
-    done < <(get_target_dirs "amp" "$SCOPE" "$PROJECT_PATH")
-
-    # Install planning commands (no prefix)
-    print_info "Installing AmpCode Planning Commands..."
-    validate_commands_dir "${AMP_SOURCES[0]}" "planning"
-    if ! install_to_target "${AMP_TARGETS[0]}" "AmpCode Planning" "$SCOPE" false "${AMP_SOURCES[0]}" ""; then
-        print_error "Failed to install AmpCode planning commands"
-        exit 1
-    fi
-    echo
-
-    # Install action commands (no prefix)
-    print_info "Installing AmpCode Action Commands..."
-    validate_commands_dir "${AMP_SOURCES[1]}" "actions"
-    if ! install_to_target "${AMP_TARGETS[1]}" "AmpCode Actions" "$SCOPE" false "${AMP_SOURCES[1]}" ""; then
-        print_error "Failed to install AmpCode action commands"
-        exit 1
-    fi
-    echo
-fi
-
 # Final summary
 echo
 print_success "Installation complete!"
 echo
 print_info "Next steps:"
 
-if [ "$INSTALL_CLAUDE" = true ]; then
-    echo "  • Test Claude Code commands with: /wb:create_project test-feature"
-    if [ "$SCOPE" = "global" ]; then
-        echo "  • Commands available in all projects using Claude Code"
-        echo "  • Hooks installed to ~/.claude/hooks/ (beads mode auto-detection)"
-    else
-        echo "  • Commands available in this project only"
-        echo "  • Hooks installed to project .claude/hooks/"
-    fi
-fi
-
-if [ "$INSTALL_AMP" = true ]; then
-    echo "  • Test AmpCode commands with: /create_project test-feature"
-    if [ "$SCOPE" = "global" ]; then
-        echo "  • Commands available in all projects using AmpCode"
-    else
-        echo "  • Commands available in this project only"
-    fi
+echo "  • Test Claude Code commands with: /wb:create_project test-feature"
+if [ "$SCOPE" = "global" ]; then
+    echo "  • Commands available in all projects using Claude Code"
+    echo "  • Hooks installed to ~/.claude/hooks/ (beads mode auto-detection)"
+else
+    echo "  • Commands available in this project only"
+    echo "  • Hooks installed to project .claude/hooks/"
 fi
 
 echo
-if [ "$INSTALL_CLAUDE" = true ] && [ "$INSTALL_AMP" = false ]; then
-    print_info "To update commands: cd $REPO_ROOT && git pull"
-    print_info "Claude Code commands will automatically reflect updates via symlinks"
-elif [ "$INSTALL_AMP" = true ] && [ "$INSTALL_CLAUDE" = false ]; then
-    print_info "To update commands: cd $REPO_ROOT && git pull && ./scripts/install-commands --amp"
-    if [ "$SCOPE" = "project" ]; then
-        print_info "Use --project $PROJECT_PATH when updating"
-    fi
-else
-    print_info "To update commands: cd $REPO_ROOT && git pull"
-    print_info "Claude Code: Updates automatically via symlinks"
-    print_info "AmpCode: Re-run ./scripts/install-commands --amp to update"
-    if [ "$SCOPE" = "project" ]; then
-        print_info "Use --project $PROJECT_PATH when updating AmpCode"
-    fi
-fi
+print_info "To update commands: cd $REPO_ROOT && git pull"
+print_info "Claude Code commands will automatically reflect updates via symlinks"
