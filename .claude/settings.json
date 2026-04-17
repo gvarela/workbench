@@ -1,16 +1,2 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "./.claude/hooks/setup-beads-mode.sh",
-            "timeout": 5,
-            "statusMessage": "Detecting beads mode"
-          }
-        ]
-      }
-    ]
-  }
 }
