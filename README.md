@@ -13,14 +13,25 @@ A personal workbench of tools and workflows for Claude Code. Streamlines softwar
 ### Installation
 
 ```bash
-# Clone the repository
+# Add the marketplace and install the plugin
+claude plugin marketplace add gvarela/workbench
+claude plugin install wb@gvarela-workbench
+```
+
+For local development:
+
+```bash
+# Clone and test locally (changes take effect immediately)
 git clone git@github.com:gvarela/workbench.git
-
-# Test locally
 claude --plugin-dir /path/to/workbench
+```
 
-# Or install as a plugin from GitHub
-claude plugin install wb@github:gvarela/workbench
+### Updating
+
+Bump `version` in `.claude-plugin/plugin.json`, push to GitHub, then:
+
+```bash
+claude plugin update wb@gvarela-workbench
 ```
 
 ### Using Commands
@@ -89,8 +100,9 @@ Background capabilities that Claude automatically invokes:
 
 ```
 workbench/
-├── .claude-plugin/     # Plugin manifest
-│   └── plugin.json
+├── .claude-plugin/     # Plugin manifest + marketplace
+│   ├── plugin.json
+│   └── marketplace.json
 ├── commands/           # Slash commands (/wb:*)
 ├── agents/             # Specialized subagents
 ├── skills/             # Auto-activated capabilities
