@@ -3,6 +3,9 @@
 # Hook script for Claude Code to run after markdown file changes
 # This script is called by Claude Code's PostToolUse hook
 
+# Resolve script directory (works whether invoked from plugin or directly)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Parse the JSON to get the file path
 # Claude Code passes tool arguments in CLAUDE_TOOL_ARGS environment variable
 FILE_PATH=$(echo "$CLAUDE_TOOL_ARGS" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
@@ -12,7 +15,7 @@ if [[ "$FILE_PATH" == *.md ]]; then
     echo "🔍 Linting markdown: $(basename "$FILE_PATH")"
 
     # Run the lint script with fix flag
-    if ./scripts/lint --fix "$FILE_PATH" 2>&1 | grep -E "(✓|✅|⚠️|Clean|Fixed)" | head -3; then
+    if "$SCRIPT_DIR/lint" --fix "$FILE_PATH" 2>&1 | grep -E "(✓|✅|⚠️|Clean|Fixed)" | head -3; then
         exit 0
     else
         echo "   Run './scripts/lint --fix $FILE_PATH' for details"

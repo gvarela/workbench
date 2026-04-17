@@ -20,7 +20,7 @@ This skill includes `nvim-helper.sh` for tmux/nvim operations. Add to your permi
 {
   "permissions": {
     "allow": [
-      "Bash(~/.claude/skills/review-prep/nvim-helper.sh:*)"
+      "Bash(${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh:*)"
     ]
   }
 }
@@ -31,7 +31,7 @@ This skill includes `nvim-helper.sh` for tmux/nvim operations. Add to your permi
 1. Initialize nvim pane:
 
 ```bash
-~/.claude/skills/review-prep/nvim-helper.sh setup
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
 # Returns: NVIM_PANE=%123
 ```
 
@@ -68,13 +68,13 @@ If more than 2-3 problems: flag as code smell, suggest splitting.
 1. Open file at line:
 
 ```bash
-~/.claude/skills/review-prep/nvim-helper.sh open src/auth.ts 42
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open src/auth.ts 42
 ```
 
 2. Focus nvim for user inspection:
 
 ```bash
-~/.claude/skills/review-prep/nvim-helper.sh focus
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
 ```
 
 3. Give ONE line context: "Change X/N - [Problem]. [brief description]"
@@ -135,16 +135,16 @@ Ready for PR? [yes/concerns]
 
 ```bash
 # Check if nvim pane exists
-~/.claude/skills/review-prep/nvim-helper.sh status
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh status
 
 # Setup (find or create nvim pane)
-~/.claude/skills/review-prep/nvim-helper.sh setup
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
 
 # Open file at specific line
-~/.claude/skills/review-prep/nvim-helper.sh open FILE LINE
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open FILE LINE
 
 # Focus nvim pane
-~/.claude/skills/review-prep/nvim-helper.sh focus
+${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
 ```
 
 ## Code Smell Flags

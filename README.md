@@ -1,44 +1,32 @@
-# Prompts Repository
+# Workbench (wb)
 
-A collection of reusable prompts, slash commands, and agent definitions for AI-powered development workflows with Claude Code.
+A Claude Code plugin for structured software development workflows: project planning, research, design, execution, and validation with TDD enforcement and beads integration.
 
 ## Overview
 
 A personal workbench of tools and workflows for Claude Code. Streamlines software development through structured planning, research, and persistent task tracking with [beads](https://github.com/steveyegge/beads).
 
-**[📖 Complete Workflow Guide →](docs/workbench-workflow-guide.md)**
+**[Complete Workflow Guide](docs/workbench-workflow-guide.md)**
 
 ## Quick Start
 
 ### Installation
 
-Install the planning commands globally for Claude Code:
-
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd prompts
+git clone git@github.com:gvarela/workbench.git
 
-# Install globally for Claude Code
-./scripts/install-commands --claude
+# Test locally
+claude --plugin-dir /path/to/workbench
 
-# Install to a specific project
-./scripts/install-commands --claude --project ~/my-project
+# Or install as a plugin from GitHub
+claude plugin install wb@github:gvarela/workbench
 ```
-
-### How Installation Works
-
-**Claude Code** (uses symlinks):
-- Commands, agents, and skills are **symlinked** to your installation directory
-- Individual `.md` files symlinked for commands and agents
-- Entire directories symlinked for skills
-- **Benefit**: Edits in this repository immediately reflect in Claude Code
-- **Updates**: Run `git pull` in this repo - changes apply automatically, no reinstall needed
 
 ### Using Commands
 
 ```bash
-# Initialize → Research → Design → Implement → Validate
+# Initialize -> Research -> Design -> Implement -> Validate
 /wb:create_project my-feature docs/plans TICKET-123
 /wb:create_research docs/plans/2025-01-15-TICKET-123-my-feature
 /wb:create_mockup docs/plans/... "UI component"  # Optional for UI
@@ -50,11 +38,11 @@ cd prompts
 
 **Skills** (auto-activated): `project-structure`, `mockup-iteration`, `tdd-discipline`, `verification-before-completion`, `status-sync`, `review-prep`
 
-**[📖 Full Commands Reference →](claude-code/commands/wb/README.md)**
+**[Full Commands Reference](docs/commands-reference.md)**
 
 ## What's Inside
 
-### 📋 Workbench Commands (`/wb:*`)
+### Commands (`/wb:*`)
 
 Slash commands for project documentation and task management:
 
@@ -64,68 +52,55 @@ Slash commands for project documentation and task management:
 - **`/wb:create_design`** - Create architectural design decisions (WHAT and WHY)
 - **`/wb:create_execution`** - Transform design into phased execution plan (HOW)
 - **`/wb:implement_tasks`** - Implement with TDD (Red-Green-Refactor)
+- **`/wb:implement_coordinated`** - Coordinate implementation with worker agents
 - **`/wb:validate_execution`** - Validate implementation matches plan
+- **`/wb:validate_project`** - Validate project documentation structure
 - **`/wb:create_handoff`** - Create session handoff for work continuity
 - **`/wb:resume_handoff`** - Resume from handoff document
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
+- **`/wb:help`** - Quick reference for all commands
 
-**Key Features**:
-- Three-document separation (research/design/tasks)
-- HTML mockup workflow with visual validation
-- Beads integration for persistent task tracking
-- Explicit barriers and checkpoints
-- TDD enforcement with phase boundaries
-- Zero scope creep
-- Session continuity
-
-**[📖 Detailed Features →](docs/workbench-workflow-guide.md)**
-
-### 🤖 Workbench Agents (`/wb:*`)
+### Agents
 
 Specialized agents for codebase analysis:
 
-- **`/wb:codebase-locator`** - Find specific components and files
-- **`/wb:codebase-analyzer`** - Analyze implementation details with file:line references
-- **`/wb:pattern-finder`** - Find similar patterns and implementations
+- **`codebase-locator`** - Find specific components and files
+- **`codebase-analyzer`** - Analyze implementation details with file:line references
+- **`pattern-finder`** - Find similar patterns and implementations
+- **`task-verifier`** - Verify task completion against requirements
 
-### 🧠 Skills (auto-activated)
+### Skills (auto-activated)
 
 Background capabilities that Claude automatically invokes:
 
-- **`project-structure`** - Enforces document separation (research.md, design.md, tasks.md, thoughts/)
-- **`mockup-iteration`** - Iterate on UI mockups with KEEP/REMOVE/CHANGE tracking, HTML generation, and Playwright screenshots
+- **`project-structure`** - Enforces document separation (research.md, design.md, tasks.md)
+- **`mockup-iteration`** - Iterate on UI mockups with KEEP/REMOVE/CHANGE tracking
 - **`tdd-discipline`** - Enforces RED-GREEN-REFACTOR cycle before writing production code
-- **`verification-before-completion`** - Requires running verification commands before claiming work is done
-- **`status-sync`** - Monitors for status drift and reminds to run `/wb:update_status`
-- **`review-prep`** - Interactive code review walkthrough using tmux and nvim for pair programming
+- **`verification-before-completion`** - Requires running verification before claiming work is done
+- **`status-sync`** - Monitors for status drift and reminds to sync
+- **`review-prep`** - Interactive code review walkthrough using tmux and nvim
 
-[Skills Guide →](docs/claude-code-skills-guide.md)
+### Hooks
 
-### 🛠️ Development Scripts
+- **SessionStart** - Auto-detects beads mode (stealth/git)
+- **PostToolUse** - Lints markdown files after Write/Edit operations
 
-Utility scripts for repository management:
+## Plugin Structure
 
-- **`scripts/install-commands`** - Install commands to Claude Code
-- **`scripts/lint`** - Markdown linting with auto-fix support
-- **`scripts/lint-hook`** - Automatic linting hook for file operations
+```
+workbench/
+├── .claude-plugin/     # Plugin manifest
+│   └── plugin.json
+├── commands/           # Slash commands (/wb:*)
+├── agents/             # Specialized subagents
+├── skills/             # Auto-activated capabilities
+├── hooks/              # Event handlers
+├── scripts/            # Utility scripts (lint)
+├── docs/               # Guides and documentation
+└── general/            # General-purpose prompts
+```
 
-### 📚 Documentation
-
-Comprehensive guides for using this repository:
-
-- **[Claude Code README](claude-code/README.md)** - Using commands with Claude Code
-- **[Planning Commands README](commands/planning/README.md)** - Detailed command reference
-
-## Core Philosophy
-
-- **Document, Don't Judge**: Research describes what EXISTS, not what should change
-- **Explicit Barriers**: Synchronization points prevent rushing ahead
-- **Dual Verification**: Automated (tests, CI) + Manual (UX, edge cases)
-- **Zero Scope Creep**: Tasks only from plans - no ad-hoc additions
-
-**[📖 Philosophy Details →](docs/workbench-workflow-guide.md#core-philosophy)**
-
-### Beads Integration
+## Beads Integration
 
 Requires [beads](https://github.com/steveyegge/beads) for persistent task tracking:
 
@@ -134,154 +109,35 @@ bd init --stealth   # Stealth: .beads/ not committed (work repos)
 bd init             # Git: .beads/ in git (personal projects)
 ```
 
-**Key Features**: Persistent memory across sessions, dependency tracking, auto-detected mode (stealth/git)
+Commands create/track beads issues for phases, tasks, and UI questions. SessionStart hook detects mode automatically.
 
-**Usage**: Commands create/track beads issues for phases, tasks, and UI questions. SessionStart hook detects mode automatically.
+## Core Philosophy
 
-**[📖 Detailed Beads Integration →](docs/workbench-workflow-guide.md#beads-integration)**
-
-## Repository Structure
-
-```
-prompts/
-├── commands/           # Slash command definitions
-│   └── planning/       # Project documentation commands
-├── agents/             # Agent definitions (future)
-├── general/            # General-purpose prompts (future)
-├── docs/               # Documentation and usage guides
-├── scripts/            # Utility scripts
-│   ├── install-commands
-│   ├── lint
-│   └── lint-hook
-└── .claude/            # Claude Code configuration
-    └── settings.local.json
-```
-
-## Installation Details
-
-### Global Installation
-
-Commands are installed globally and available in all projects:
-
-**Claude Code**: `~/.claude/commands/`
-
-### Project Installation
-
-Commands are installed in a specific project directory:
-
-**Claude Code**: `<project>/.claude/commands/`
-
-### Symlinks vs Copies
-
-The installation script creates **symlinks** (not copies) by default. This means:
-- Commands automatically update when you `git pull`
-- Single source of truth in this repository
-- No need to reinstall after updates
-
-## Quick Example
-
-```bash
-/wb:create_project feature docs/plans TICKET-123
-/wb:create_research docs/plans/2025-01-15-TICKET-123-feature
-/wb:create_design docs/plans/...
-/wb:create_execution docs/plans/...
-/wb:implement_tasks docs/plans/...
-```
-
-**[📖 Complete Workflow Example →](docs/workbench-workflow-guide.md#complete-workflow)**
+- **Document, Don't Judge**: Research describes what EXISTS, not what should change
+- **Explicit Barriers**: Synchronization points prevent rushing ahead
+- **Dual Verification**: Automated (tests, CI) + Manual (UX, edge cases)
+- **Zero Scope Creep**: Tasks only from plans - no ad-hoc additions
 
 ## Development
 
 ### Linting
 
-Markdown files are automatically linted via PostToolUse hooks when using Claude Code:
-
 ```bash
-# Manual linting
-./scripts/lint
-
-# Auto-fix issues
-./scripts/lint --fix
-
-# Lint specific files
-./scripts/lint README.md commands/planning/*.md
-
-# Lint all markdown files
-./scripts/lint --all
+./scripts/lint           # Lint changed files
+./scripts/lint --fix     # Auto-fix issues
+./scripts/lint --all     # Lint all markdown files
 ```
 
-Configuration: `.markdownlintrc`
-
-### Hooks
-
-Claude Code hooks are configured in `.claude/settings.local.json`:
-- PostToolUse hooks run linting after Write/Edit operations
-- Automatic permission for linting and installation scripts
-
-## Customization
-
-### Modifying Commands
-
-Commands are markdown files - edit them to customize behavior:
+### Testing Changes
 
 ```bash
-# Edit command
-vim commands/planning/create_plan.md
+# Run with local plugin
+claude --plugin-dir /path/to/this/repo
 
-# Test changes
-/create_plan test-project
+# Reload after changes (inside Claude Code)
+/reload-plugins
 ```
-
-### Project-Specific Overrides
-
-Install globally, then override specific commands per-project:
-
-```bash
-# Global installation
-./scripts/install-commands --claude
-
-# Copy one command for customization
-cp commands/planning/create_plan.md ~/my-project/.claude/commands/
-
-# Edit project-specific version
-vim ~/my-project/.claude/commands/create_plan.md
-```
-
-Claude Code checks project commands first, then falls back to global.
-
-## Best Practices
-
-**Research**: Read files fully, document objectively, use file:line references
-**Planning**: Discuss first, define out-of-scope, measurable criteria
-**Implementation**: TDD cycle, beads tracking, respect phase boundaries
-**Verification**: Automate CI checks, document manual steps
-
-**[📖 Detailed Best Practices →](docs/workbench-workflow-guide.md#best-practices)**
-
-## Contributing
-
-This is a personal repository, but pull requests are welcome for:
-- Bug fixes in existing commands
-- Documentation improvements
-- New utility scripts
-- Additional prompt templates
-
-Please:
-1. Run `./scripts/lint --fix` before committing
-2. Test commands thoroughly
-3. Update documentation
-4. Follow existing patterns
-
-## Credits
-
-Planning commands inspired by context engineering patterns and refined through real-world usage. Incorporates learnings from HumanLayer's command architecture with adaptations for general use.
 
 ## License
 
-[Your license here]
-
-## Support
-
-- **Commands**: See [Planning Commands README](commands/planning/README.md)
-- **Claude Code Integration**: See [Claude Code README](claude-code/README.md)
-- **Issues**: Open an issue in this repository
+MIT

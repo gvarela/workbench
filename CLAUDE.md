@@ -4,17 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a prompts repository containing Claude Code slash commands, agent definitions, and general prompt engineering resources. The repository serves as a collection of reusable prompts and commands for various purposes.
+This is a Claude Code plugin (`wb`) providing structured software development workflows: project planning, research, design, execution, and validation with TDD enforcement and beads integration.
 
-## Repository Structure
+## Repository Structure (Plugin Layout)
 
-- `commands/` - Claude Code slash command definitions (markdown files)
-- `agents/` - Agent definitions and specialized prompts
-- `general/` - General-purpose prompts and templates
+- `.claude-plugin/` - Plugin manifest
+- `commands/` - Slash commands (`/wb:*`)
+- `agents/` - Specialized subagent definitions
+- `skills/` - Auto-activated background capabilities
+- `hooks/` - Event handlers (SessionStart, PostToolUse)
+- `scripts/` - Utility scripts (lint, lint-hook)
 - `docs/` - Documentation and guides
-- `scripts/` - Utility scripts for the repository
-- `.claude/` - Claude Code configuration
-  - `settings.local.json` - Permissions and hooks configuration
+- `general/` - General-purpose prompts and templates
+- `.claude/` - Local development configuration
 
 ## Development Tools
 
@@ -45,37 +47,112 @@ This is a prompts repository containing Claude Code slash commands, agent defini
 - Emphasis as heading allowed (MD036)
 - Fenced code blocks without language allowed (MD040)
 
-## Working with Prompts
+### Testing the Plugin
 
-### Command Files
+```bash
+# Test locally
+claude --plugin-dir /path/to/this/repo
 
-Commands in `commands/` are markdown files that define Claude Code slash commands. Each command should:
+# Reload after changes
+/reload-plugins
+```
 
-- Include clear initial setup instructions
-- Define step-by-step execution
-- Provide error handling guidance
-- Use consistent formatting
+## Command Workflow
 
-### Agent Definitions
+The commands follow a strict sequential workflow:
 
-Agent definitions in `agents/` should specify:
+```
+/wb:create_project → /wb:create_research → /wb:create_design → /wb:create_execution → /wb:implement_tasks → /wb:validate_execution
+```
 
-- Agent purpose and capabilities
-- Input/output expectations
-- Constraints and limitations
-- Example usage
+For multi-session work:
 
-### General Prompts
+```
+[Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [Continue work]
+```
 
-General prompts in `general/` can include:
+Each command builds upon the previous one's output, creating structured documentation in timestamped directories under `docs/plans/`.
 
-- Templates for common tasks
-- Reusable prompt patterns
-- Best practices examples
+## Workflow Philosophy
 
-## Subdirectory Guidelines
+The workflow separates three distinct concerns:
 
-Each major subdirectory may contain its own `CLAUDE.md` with specific instructions for that context. When working in a subdirectory with its own `CLAUDE.md`, follow those specific guidelines in addition to these general ones.
+1. **Research** (`research.md`) - Document what EXISTS (facts only, no recommendations)
+2. **Design** (`design.md`) - Document WHAT to build and WHY (architectural decisions)
+3. **Execution** (`tasks.md`) - Document HOW to build it (phased implementation plan)
+
+## Core Command Philosophy
+
+### Critical Principles
+
+1. **Document, Don't Judge**: Research describes what EXISTS, not what should be changed
+2. **Explicit Barriers**: Commands implement synchronization points (⛔ BARRIER) to ensure complete context
+3. **File Reading Protocol**: ALWAYS read files FULLY (no limit/offset) before analysis
+4. **Dual Verification**: Separate automated checks from manual verification
+5. **Zero Scope Creep**: Tasks only come from plans, no additions
+6. **Beads Required**: These commands require beads for ALL task tracking (`bd init`)
+   - Use beads for phases AND granular tasks
+   - Do NOT use TaskCreate, TaskUpdate, TodoWrite, or markdown checkboxes for tracking
+   - Markdown files document the PLAN, beads tracks the STATUS
+
+### Beads Error Handling
+
+If any `bd` command fails:
+
+1. **Diagnose**: Run `bd doctor` to check for issues
+2. **Report**: Tell the user the specific error and suggest fixes
+3. **Fix**: Common fixes:
+   - "beads not initialized" → `bd init`
+   - "issue not found" → `bd list` to find correct ID
+   - "database locked" → wait and retry
+4. **Retry**: After fixing, re-run the failed command
+
+### Task Tracking Philosophy
+
+**Beads for STATUS, Markdown for PLAN**:
+
+- **Beads issues** (`bd create`, `bd update`, `bd close`): Track live status of ALL work
+- **Markdown files** (tasks.md, research.md, design.md): Document the PLAN and rationale
+
+### Command Structure Patterns
+
+When modifying commands, maintain these patterns:
+
+```markdown
+⛔ BARRIER 1: After file reading - full context required
+⛔ BARRIER 2: After agent spawning - wait for ALL
+⛔ BARRIER 3: Before writing - no placeholders allowed
+⛔ CHECKPOINT: Between phases - human verification required
+```
+
+### Frontmatter Standards
+
+All generated documentation files use consistent YAML frontmatter:
+
+- Basic: `project`, `ticket`, `created`, `status`, `last_updated`
+- Git metadata: `git_commit`, `git_branch`, `repository`
+- User tracking: `researcher`, `planner`, `assignee`
+- Progress: `current_phase`, `total_tasks`, `completed_tasks`
+
+## Agent Spawning with Model Selection
+
+Commands support model hints when spawning agents:
+
+- `haiku`: File searches, pattern matching, simple tasks
+- `sonnet`: Code analysis, integration planning, test design
+- `opus`: Complex reasoning, critical decisions
+
+## Working with Commands
+
+When creating or modifying commands:
+
+1. Follow existing command patterns
+2. Include all three barriers and checkpoints
+3. Use "think deeply" directives at critical decision points
+4. Maintain the documentarian philosophy for research
+5. Separate automated from manual verification
+6. Always read files FULLY before processing
+7. Use parallel agents for efficiency but wait for ALL to complete
 
 ## Best Practices
 
@@ -118,5 +195,4 @@ See [AGENTS.md](AGENTS.md) for the full session close protocol. Key points:
 
 ### Integration with wb Commands
 
-The workbench commands (`/wb:*`) automatically detect beads and use it for phase tracking. See [wb/README.md](claude-code/commands/wb/README.md) for details.
-
+The workbench commands (`/wb:*`) automatically detect beads and use it for phase tracking. See [docs/commands-reference.md](docs/commands-reference.md) for details.
