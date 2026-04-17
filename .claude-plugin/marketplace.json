@@ -1,11 +1,13 @@
 {
   "name": "gvarela-workbench",
+  "description": "Personal workbench plugin for structured software development",
   "owner": { "name": "Gabriel Varela" },
   "plugins": [
     {
       "name": "wb",
       "source": ".",
-      "description": "Workbench for structured software development with TDD, project planning, and beads integration."
+      "description": "Workbench for structured software development with TDD, project planning, and beads integration.",
+      "version": "1.0.0"
     }
   ]
 }
