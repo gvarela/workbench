@@ -13,6 +13,7 @@ Conducts comprehensive codebase research and documents findings from a **product
 - **DO NOT** identify issues or problems unless explicitly asked
 - **DO NOT** propose enhancements or optimizations
 - **DO NOT** critique the implementation or architecture
+- **DO NOT** perform root cause analysis unless explicitly asked
 - **ONLY** describe what the software does, how users interact with it, and what behaviors result
 - You are a documentarian, NOT an evaluator or consultant
 - **Document what IS, not what SHOULD BE**
@@ -47,6 +48,14 @@ When invoked, check for arguments:
    Then: "Research how user authentication works from a product perspective"
    ```
 
+## Workflow Position
+
+This command can be used in two ways:
+
+1. **Within the wb pipeline**: After `/create_project` creates the directory structure. The `product-research.md` file will be created alongside `research.md` — they serve different audiences for the same project.
+
+2. **Standalone**: A PM can run this without `/create_project`. If the directory exists but `product-research.md` doesn't, create it fresh. If the directory doesn't exist, create it.
+
 ## Steps to Execute After Receiving the Research Query
 
 ### Step 1: Read Any Directly Mentioned Files First (CRITICAL)
@@ -60,25 +69,31 @@ When invoked, check for arguments:
 
 ### Step 2: Validate Project Structure
 
-- Check that the specified directory exists
+- Check that the specified directory exists; if not, create it
 - Check if product-research.md exists (may be a follow-up)
 - If it exists, read it FULLY to see what's already documented
 - Check frontmatter status field
 
 ### Step 3: Decompose Research Question in Product Terms
 
-**think deeply about what the SOFTWARE DOES, not how the code works**
+**ultrathink about what the SOFTWARE DOES from the user's perspective**
 
 1. **Break down the user's query into product areas**, not code modules:
-   - What features are involved?
-   - What user flows touch this area?
-   - What data moves through the system?
+   - What features are involved? What does the user see and do?
+   - What user flows touch this area? What's the happy path? Error paths?
+   - What data moves through the system? What does the user provide and receive?
    - What integrations or external services are involved?
-   - What configuration controls behavior?
+   - What configuration controls behavior? What can be changed without code?
 
 2. **REMEMBER: Document what IS, not what SHOULD BE**
 
-3. **Identify research areas** to investigate:
+3. **ultrathink about:**
+   - The user-visible surface of this feature — screens, APIs, messages, states
+   - How this feature connects to adjacent features the user also touches
+   - What a PM needs to know to make decisions about this area
+   - Which parts of the codebase actually implement user-facing behavior
+
+4. **Identify research areas** to investigate:
    - User-facing features and capabilities
    - User flows (happy path and error paths)
    - Data involved (what's collected, stored, displayed)
@@ -86,11 +101,13 @@ When invoked, check for arguments:
    - Integration points with other systems
    - Error states and recovery paths
 
+5. **Consider which specific components** to investigate
+
 ### Step 4: Spawn Parallel Research Agents
 
 Create multiple agents to research different aspects concurrently:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write product-research.md after synthesizing their findings.**
+**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings as reports. They do NOT write files. YOU (the main agent) will write product-research.md after synthesizing their findings.**
 
 ```
 ## Parallel Research Strategy
@@ -105,7 +122,7 @@ Based on the research question "[research-question]", I'll spawn specialized age
 #### Agent 1: Component Locator
 
 ```javascript
-Agent({
+Task({
   description: "Find [feature] components",
   prompt: `Find all files related to [feature].
 
@@ -126,7 +143,7 @@ Agent({
 #### Agent 2: Product Behavior Analyzer
 
 ```javascript
-Agent({
+Task({
   description: "Analyze [feature] product behaviors",
   prompt: `Understand what [feature] does from a product perspective.
 
@@ -142,9 +159,10 @@ Agent({
   CRITICAL INSTRUCTIONS:
   - Explain as PRODUCT BEHAVIORS, not code implementation
   - Write for a product manager, not an engineer
-  - Document what EXISTS with file references as backing evidence
+  - Document what EXISTS — Document what IS, not what SHOULD BE
   - DO NOT suggest improvements or identify issues
-  - Document what IS, not what SHOULD BE
+  - Include file:line references for EVERY behavioral claim
+  - Trace actual code — do NOT guess or infer
   - DO NOT write any files. Return your findings as a report.`,
   subagent_type: "product-behavior-analyzer",
   model: "sonnet"
@@ -154,7 +172,7 @@ Agent({
 #### Agent 3: Pattern Finder
 
 ```javascript
-Agent({
+Task({
   description: "Find engineering patterns and conventions",
   prompt: `Identify coding patterns and engineering conventions in the codebase.
 
@@ -167,6 +185,8 @@ Agent({
   - Configuration management approach
 
   Summarize at a HIGH LEVEL suitable for a product manager to understand the engineering approach, not the engineering details.
+
+  REMEMBER: Document what IS, not what SHOULD BE. No recommendations.
 
   DO NOT write any files. Return your findings as a report.`,
   subagent_type: "pattern-finder",
@@ -190,20 +210,27 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 - **Each agent describes what the software does, NOT how the code works**
 - **Agents MUST describe what exists without ANY judgment**
 - **Document what IS, not what SHOULD BE — NO EXCEPTIONS**
+- **Agents MUST include file:line references for every claim**
+- **Use specific agent types for their strengths**
 - **Run multiple agents in parallel for speed**
 - **ALWAYS wait for ALL agents before synthesizing**
+- **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
 
 **⛔⛔⛔ BARRIER 2: STOP! Wait for ALL sub-agents to complete — DO NOT proceed until EVERY agent returns ⛔⛔⛔**
 
 ### Step 5: Synthesize Findings into Three Layers
 
-**think deeply about documenting ONLY what EXISTS, in product language**
+**ultrathink about documenting ONLY what EXISTS, in product language**
 
 **IMPORTANT**: Wait for ALL sub-agent tasks to complete before proceeding
 
 1. **Compile all sub-agent results**
 2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Organize into three layers**:
+3. **Prioritize live codebase findings** as primary source of truth
+4. **Connect findings across different components**
+5. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
+6. **DO NOT add recommendations or improvements unless explicitly requested**
+7. **Organize into three layers**:
 
 **Layer 1 — Product Overview** (the PM reads this):
 
@@ -227,37 +254,9 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 - Key code snippets for engineering conversations
 - Configuration values that affect behavior
 
-### Step 6: Validate Research Accuracy
+### Step 6: Write Product Research Document
 
-Before writing the document, spawn the research validator:
-
-```javascript
-Agent({
-  description: "Validate research claims",
-  prompt: `Validate the following research findings against the actual codebase.
-
-  Check:
-  1. All file paths mentioned exist
-  2. All behavioral claims can be traced through code
-  3. All pattern claims are accurate
-
-  Research findings to validate:
-  [paste synthesized findings here]
-
-  Return a structured validation report with PASS/FAIL/UNCERTAIN per claim.`,
-  subagent_type: "research-validator",
-  model: "sonnet"
-})
-```
-
-- Review validation results
-- Fix any FAIL items by re-checking the code
-- Note any UNCERTAIN items in the document for human review
-- Do NOT write the document if critical claims fail validation
-
-### Step 7: Write Product Research Document
-
-Update the product-research.md file with:
+Write the product-research.md file. **Keep the main agent focused on synthesis — sub-agents already did the deep file reading.**
 
 ````markdown
 ---
@@ -266,7 +265,7 @@ created: [YYYY-MM-DD]
 status: complete
 audience: product
 last_updated: [YYYY-MM-DD]
-validation_status: [passed|passed_with_warnings|failed]
+validation_status: not-yet-run
 ---
 
 # Product Research: [Feature/Area Name]
@@ -274,7 +273,6 @@ validation_status: [passed|passed_with_warnings|failed]
 **Created**: [YYYY-MM-DD]
 **Last Updated**: [YYYY-MM-DD]
 **Audience**: Product Management
-**Validation**: [PASS/PASS WITH WARNINGS — N items need review]
 
 ## Feature Overview
 
@@ -291,6 +289,7 @@ validation_status: [passed|passed_with_warnings|failed]
 
 **Success outcome**: [what the user experiences when everything works]
 **Error outcomes**:
+
 - [Error condition]: [what the user sees]
 - [Error condition]: [what the user sees]
 
@@ -347,10 +346,12 @@ validation_status: [passed|passed_with_warnings|failed]
 ### File References
 
 **[Feature Area 1]**:
+
 - `path/to/main/implementation/` — [what it handles in product terms]
 - `path/to/tests/` — [test coverage for this area]
 
 **[Feature Area 2]**:
+
 - `path/to/files/` — [what it handles]
 
 ### Key Code (for engineering discussions)
@@ -364,6 +365,7 @@ validation_status: [passed|passed_with_warnings|failed]
 ### Validation Notes
 
 [Any UNCERTAIN claims from validation that need human review]
+
 - [Claim]: [What was verified, what needs manual check]
 
 ## Open Questions
@@ -371,7 +373,7 @@ validation_status: [passed|passed_with_warnings|failed]
 Questions requiring resolution are tracked in beads:
 
 ```bash
-bd create --title="Q: [your question]" --type=task --priority=2 \
+bd create "Q: [your question]" --type=task --priority=2 \
   -d "Product research question. Context: [what this affects]"
 ```
 
@@ -394,8 +396,40 @@ Before writing:
 - **NO** "[To be added]" or similar placeholders
 - **NO** generic examples — use REAL data from THIS codebase
 - **NO** assumptions — only documented FACTS
-- **Validation must have passed** or passed with warnings only
+- **Document what IS, not what SHOULD BE**
 - **Remember one final time: Document what IS, not what SHOULD BE**
+
+### Step 7: Validate the Written Document
+
+**After writing product-research.md, validate it against the codebase.**
+
+The validator reads the written file directly — no need to pass findings in context.
+
+```javascript
+Task({
+  description: "Validate product research document",
+  prompt: `Validate the research document at [project-dir]/product-research.md against the actual codebase.
+
+  Read the document fully, then check:
+  1. All file paths mentioned exist
+  2. All code snippets match actual file content
+  3. All behavioral claims ("when X, system does Y") can be traced through code
+  4. All pattern claims are accurate
+
+  Return a structured validation report with PASS/FAIL/UNCERTAIN per claim.
+  DO NOT modify the document. Only report findings.`,
+  subagent_type: "research-validator",
+  model: "sonnet"
+})
+```
+
+**⛔⛔⛔ BARRIER 4: STOP! Wait for validation agent to complete before proceeding ⛔⛔⛔**
+
+After validation returns:
+
+- If **PASS**: Update frontmatter `validation_status: passed`
+- If **PASS WITH WARNINGS**: Update frontmatter `validation_status: passed_with_warnings`, add UNCERTAIN items to Validation Notes section
+- If **FAIL**: Fix the failing claims by re-checking the code, update the document, re-validate
 
 ### Step 8: Handle Follow-Up Questions
 
@@ -408,7 +442,7 @@ If the user has follow-up questions:
    - `last_updated: [YYYY-MM-DD]`
    - Add: `last_updated_note: "Added research on [topic]"`
 5. **Spawn new sub-agents** for additional investigation
-6. **Re-validate** the new claims before appending
+6. **Re-validate** the new claims after writing
 7. **Continue building** on previous findings
 
 ### Step 9: Confirm Completion
@@ -447,8 +481,9 @@ Next: Review the research and run `/wb:create_design` when ready.
 
 - **ALWAYS** read mentioned files first before spawning sub-tasks (Step 1)
 - **ALWAYS** wait for all sub-agents to complete before synthesizing (Step 4)
-- **ALWAYS** validate before writing (Step 6)
-- **NEVER** write the document with placeholder values
+- **ALWAYS** write the document before validating (Step 6 before Step 7)
+- **ALWAYS** wait for validation before confirming completion (Step 7)
+- **NEVER** write the research document with placeholder values
 
 ### Documentation Philosophy
 
@@ -458,6 +493,15 @@ Next: Review the research and run `/wb:create_design` when ready.
 - **NO RECOMMENDATIONS**: Only describe the current state of the software
 - Focus on behaviors, flows, and capabilities over implementation details
 - Research documents should be self-contained with all necessary context
+- Each sub-agent prompt should be specific and focused on read-only operations
+- Document cross-component connections and how systems interact
+
+### File Reading
+
+- **File reading**: Always read mentioned files FULLY (no limit/offset) before spawning sub-tasks
+- Have sub-agents document examples and usage patterns as they exist
+- Keep the main agent focused on synthesis, not deep file reading
+- Sub-agents must include file:line references for all claims
 
 ### Three-Layer Output
 
@@ -467,16 +511,17 @@ Next: Review the research and run `/wb:create_design` when ready.
 
 ### Validation
 
-- Validation runs BEFORE writing the document
-- FAIL results must be fixed (re-check the code)
-- UNCERTAIN results are noted in the document for human review
+- Validation runs AFTER writing the document, reading it directly from file
+- FAIL results must be fixed (re-check the code, update document, re-validate)
+- UNCERTAIN results are noted in the Validation Notes section for human review
 - The `validation_status` frontmatter field tracks overall validation state
 
 ### Synchronization Points
 
 1. ⛔ **BARRIER 1**: After reading mentioned files — Do not proceed until ALL files are read
-2. ⛔ **BARRIER 2**: After spawning agents — Wait for ALL agents to complete
-3. ⛔ **BARRIER 3**: Before writing output — Verify no placeholder values, validation passed
+2. ⛔ **BARRIER 2**: After spawning research agents — Wait for ALL agents to complete
+3. ⛔ **BARRIER 3**: Before writing output — Verify no placeholder values
+4. ⛔ **BARRIER 4**: After spawning validation agent — Wait for validation to complete
 
 ## Configuration
 

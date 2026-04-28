@@ -5,122 +5,103 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Bash
+  - Bash(test:*, ls:*)
 ---
 
 # Research Validation
 
-Re-validate any research document against the current codebase. Research goes stale as code changes — this skill checks whether documented claims are still accurate.
+Research goes stale. Code changes. This skill checks whether documented claims are still true.
 
-## When to Use
+## The Rule
 
-- Code has changed since research was written
+```
+NO TRUST WITHOUT VERIFICATION
+```
+
+If the research document says it, check it against the code. Every path, every snippet, every behavioral claim.
+
+## When to Validate
+
+- Code changed since research was written
 - Before a planning session that depends on research
-- When anyone questions whether documentation is still accurate
+- When anyone says "is this still accurate?"
 - After a refactor or major feature change
-- Periodically, to keep research trustworthy
+- Before making product decisions based on research
 
-## The Process
+## How to Validate
 
-### 1. Find the Research Document
+### 1. Find the Document
 
 Look for research documents in the specified or current project directory:
 
-- `product-research.md` (PM-focused research)
-- `research.md` (engineering-focused research)
+- `product-research.md` (PM-focused)
+- `research.md` (engineering-focused)
 
-If both exist, validate whichever the user specifies. If unspecified, validate both.
+If both exist, validate whichever the user specifies. If unspecified, ask.
 
-### 2. Parse Verifiable Claims
+### 2. Read It Fully
 
-Extract from the document:
+Read the entire document. No limit/offset. Full context required.
 
-- **File paths**: Every `path/to/file.ext` reference
-- **Code snippets**: Every fenced code block with a source location
-- **Behavioral claims**: Every "when X, system does Y" statement
-- **Pattern claims**: Every "the codebase uses X pattern" statement
+### 3. Check Every Claim
 
-### 3. Run Validation
-
-Spawn a `research-validator` agent to check all claims:
-
-```javascript
-Agent({
-  description: "Validate research document",
-  prompt: `Validate this research document against the actual codebase.
-
-  Document path: [path]
-  Document content:
-  [full document text]
-
-  Check every verifiable claim:
-  1. File paths exist
-  2. Code snippets match actual files
-  3. Behavioral claims trace through code
-  4. Pattern claims are accurate
-
-  Return structured PASS/FAIL report.`,
-  subagent_type: "research-validator",
-  model: "sonnet"
-})
-```
-
-If agent spawning is not available, perform validation directly:
-
-**Path checks**:
+**Paths** — every file path in backticks:
 
 ```bash
-# For each file path in the document
-test -f "path/to/file.ext" && echo "PASS" || echo "FAIL"
+test -f "path/to/file.ext" && echo "PASS" || echo "FAIL: not found"
 ```
 
-**Snippet checks**:
+**Snippets** — every code block with a source reference:
 
-- Read each referenced file
-- Compare quoted content to actual content at stated lines
+- Read the actual file at the stated location
+- Compare quoted content to actual content
+- PASS if matches, STALE if changed, FAIL if gone
 
-**Behavioral checks**:
+**Behaviors** — every "when X, system does Y" claim:
 
-- Grep for key functions/handlers mentioned in claims
-- Read the code path to verify described behavior
-- Mark UNCERTAIN if trace is incomplete
+- Grep for the handler/route/function
+- Read the implementation
+- Trace the flow: does the code do what the document says?
+- PASS if confirmed, FAIL if wrong, UNCERTAIN if can't fully trace
 
-### 4. Update Document
+**Patterns** — every "codebase uses X" claim:
 
-Update the `validation_status` field in the document's frontmatter:
+- Search for the pattern across the codebase
+- Verify it exists where claimed
+- PASS if found, STALE if changed, FAIL if gone
 
-- `passed` — all claims verified
-- `passed_with_warnings` — some STALE or UNCERTAIN items
-- `failed` — inaccurate claims found
+### 4. Update the Document
 
-Add or update `last_validated: [YYYY-MM-DD]` in frontmatter.
+Update frontmatter:
 
-### 5. Report Results
+- `validation_status: passed` | `passed_with_warnings` | `failed`
+- `last_validated: [YYYY-MM-DD]`
+
+### 5. Report
 
 ```
 ## Research Validation: [document name]
 
-**Status**: [PASS / PASS WITH WARNINGS / FAIL]
+**Status**: PASS | PASS WITH WARNINGS | FAIL
 **Checked**: [date]
 
-### Results
-- Paths: N/M exist
-- Snippets: N/M match
-- Behaviors: N/M verified, K uncertain
-- Patterns: N/M confirmed
+Paths: N/M exist
+Snippets: N/M match
+Behaviors: N/M verified, K uncertain
+Patterns: N/M confirmed
 
-### Issues Found
-[List any FAIL or STALE items with what changed]
+### Issues
+[List FAIL or STALE items with what changed]
 
 ### Action Needed
-[What to update in the document, if anything]
+[What to update, or "none — document is accurate"]
 ```
 
 ## If Validation Fails
 
-Don't silently update the document. Report to the user:
+Don't silently fix the document. Report:
 
-1. What claims are now inaccurate
+1. What claims are now wrong
 2. What changed in the code (if determinable)
-3. Whether the document needs a minor update or full re-research
-4. Suggest running `/wb:create_product_research` or `/wb:create_research` to regenerate if too many claims are stale
+3. Whether it needs a minor update or full re-research
+4. Suggest `/wb:create_product_research` or `/wb:create_research` to regenerate if too stale

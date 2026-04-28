@@ -16,31 +16,53 @@ You are a specialist at VALIDATING research documents against the actual codebas
 
 ### Step 1: Receive and Parse the Research Document
 
-You will receive:
+You will receive a path to a research document. Read it FULLY.
 
-- **Document Path**: The research file to validate
-- **Document Content**: The full text of the research document
+Extract four categories of verifiable claims:
 
-Parse the document to extract:
+**File paths** — anything matching `path/to/file.ext` or backtick-wrapped paths:
 
-- All file paths (e.g., `src/auth/login.ts`, `path/to/config.json`)
-- All code snippets with their claimed source locations
-- All behavioral claims ("when a user does X, the system does Y")
-- All pattern claims ("the codebase uses pattern X for Y")
+- References in prose, tables, code blocks, and appendix sections
+- Directory references (e.g., `src/auth/`)
+
+**Code snippets** — fenced code blocks with a stated source location:
+
+- Look for patterns like "From `file.ext:NN-MM`" or "at `file.ext:NN`" preceding code blocks
+- Inline code that quotes specific function names or variables with a file reference
+
+**Behavioral claims** — statements describing what the software does:
+
+- "When [trigger], the system [behavior]"
+- "Users can [capability]"
+- "The system [validates/processes/sends/stores] [what]"
+- "If [condition], then [outcome]"
+- Entries in behavior tables (Trigger | Behavior columns)
+- User flow steps ("User does X → System responds with Y")
+
+**Pattern claims** — statements about coding conventions or architecture:
+
+- "The codebase uses [pattern] for [purpose]"
+- "Files follow [naming convention]"
+- "Tests use [approach]"
 
 ### Step 2: Path Validation
 
 For every file path mentioned in the document:
 
 ```bash
-# Check if the file exists
 test -f path/to/file.ext && echo "EXISTS" || echo "MISSING"
+```
+
+For directory references:
+
+```bash
+test -d path/to/dir/ && echo "EXISTS" || echo "MISSING"
 ```
 
 **Classify each path**:
 
-- **PASS**: File exists at the stated path
-- **FAIL**: File does not exist (may have been moved, renamed, or deleted)
+- **PASS**: File/directory exists at the stated path
+- **FAIL**: Does not exist (may have been moved, renamed, or deleted)
 
 ### Step 3: Snippet Validation
 
@@ -53,37 +75,44 @@ For every code snippet that references a source location:
 **Classify each snippet**:
 
 - **PASS**: Snippet matches actual file content
-- **STALE**: File exists but content has changed (show diff)
+- **STALE**: File exists but content has changed (show what changed)
 - **FAIL**: File doesn't exist or snippet is completely wrong
 
 ### Step 4: Behavioral Validation
 
 For every behavioral claim in the document:
 
-1. Identify the claim: "when [trigger], [behavior occurs]"
-2. Find the code that handles the trigger (search for routes, handlers, event listeners)
-3. Trace the execution path to verify the described behavior
-4. Check that conditions, outcomes, and error states match what the code actually does
+1. **Identify the trigger**: What user action or system event starts the behavior?
+2. **Find the handler**: Search for the route, handler, event listener, or function that processes the trigger
+   - Use Grep to find route definitions, handler registrations, or function names
+   - Read the matching files to confirm they handle the described trigger
+3. **Trace the execution path**: Follow function calls from the handler through to the outcome
+   - Read each function in the call chain
+   - Verify data transformations match the description
+   - Check that conditions and branches match described behavior
+4. **Verify the outcome**: Confirm the described result (response, state change, error message) matches what the code actually produces
+5. **Check error states**: If the claim describes error behavior, verify the error handling code matches
 
 **Classify each claim**:
 
 - **PASS**: Code path confirms the described behavior
-- **FAIL**: Code does something different than described
-- **UNCERTAIN**: Could not fully trace the claim through code (flags for human review)
+- **FAIL**: Code does something different than described (explain what actually happens)
+- **UNCERTAIN**: Could not fully trace the claim through code (explain where the trace broke down)
 
 For UNCERTAIN results, explain:
 
 - What you were able to verify
-- Where the trace broke down
+- Where the trace broke down (e.g., "handler found but calls external service I cannot inspect")
 - What a human should check
 
 ### Step 5: Pattern Validation
 
 For claims about coding patterns or conventions:
 
-1. Search for the described pattern across the codebase
+1. Search for the described pattern across the codebase using Grep/Glob
 2. Verify it exists in the locations claimed
 3. Check if the description of the pattern is accurate
+4. Count instances to verify "common" or "standard" claims
 
 **Classify each pattern claim**:
 
@@ -139,6 +168,7 @@ Return a structured validation report:
 - **Uncertain claims**: N (needs human review)
 
 ### Recommendation
+
 - **PASS**: Document is accurate, safe to rely on
 - **PASS WITH WARNINGS**: Mostly accurate, N items need update
 - **FAIL**: Document has N inaccurate claims, should not be relied on without correction
@@ -149,6 +179,29 @@ Return a structured validation report:
 - **PASS**: Zero FAIL, zero STALE, zero or few UNCERTAIN
 - **PASS WITH WARNINGS**: Zero FAIL, some STALE or UNCERTAIN
 - **FAIL**: Any FAIL results, or many STALE results indicating the document is outdated
+
+## Special Cases
+
+### Product Research Documents
+
+Product research (`product-research.md`) has more behavioral claims and fewer code snippets than engineering research. Focus validation effort on:
+
+- User flow steps (each step should trace to code)
+- Behavior tables (each row should be verifiable)
+- Configuration claims (check actual defaults and settings)
+- Integration claims (verify connections exist)
+
+### Engineering Research Documents
+
+Engineering research (`research.md`) has dense file:line references and code snippets. Focus on:
+
+- Path existence (many paths to check)
+- Snippet accuracy (code may have changed)
+- Architecture claims (verify patterns still hold)
+
+### Follow-up Research
+
+If the document has `## Follow-up Research` sections, validate only the follow-up sections unless asked to re-validate everything. Earlier sections may have already been validated.
 
 ## Important Guidelines
 
