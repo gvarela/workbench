@@ -59,15 +59,21 @@ claude --plugin-dir /path/to/this/repo
 
 ### Releasing New Commands/Skills/Agents
 
-**CRITICAL**: When the plugin is installed via marketplace (not `--plugin-dir`), the plugin system caches files at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. The cache is keyed by version — adding new files will NOT show up until the version bumps.
+**CRITICAL**: When the plugin is installed via marketplace (not `--plugin-dir`), the plugin system caches files at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. The cache is keyed by version — adding new files will NOT show up until the version bumps AND the user runs an update.
 
 When adding new commands, skills, or agents:
 
 1. Bump `version` in `.claude-plugin/plugin.json` (e.g., 1.0.0 → 1.1.0 for features, 1.0.0 → 1.0.1 for fixes)
-2. Bump matching `version` in `.claude-plugin/marketplace.json`
+2. Bump matching `version` in `.claude-plugin/marketplace.json` (must match plugin.json)
 3. Commit and push
-4. Users run `claude plugin update wb@gvarela-workbench` to pick up the new version
-5. `/reload-plugins` alone will NOT pull new files — the cache must be invalidated by version bump
+4. Users run `claude plugin update wb@gvarela-workbench` from the **shell** (not a slash command — it's a CLI command, run with `!` prefix or in a separate terminal)
+5. After update, restart Claude (or `/reload-plugins`) to apply
+
+**What does NOT work alone**:
+
+- `/reload-plugins` — only re-reads the existing cache, doesn't pull updates
+- Pushing to git — the marketplace clone at `~/.claude/plugins/marketplaces/<name>/` doesn't auto-pull
+- Bumping version without `claude plugin update` — the cache stays at the old version
 
 For local dev (`--plugin-dir` install), changes take effect immediately without a version bump.
 

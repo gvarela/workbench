@@ -28,11 +28,19 @@ claude --plugin-dir /path/to/workbench
 
 ### Updating
 
-Bump `version` in `.claude-plugin/plugin.json`, push to GitHub, then:
+To release new commands/skills/agents:
 
-```bash
-claude plugin update wb@gvarela-workbench
-```
+1. Bump `version` in **both** `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` (must match)
+2. Commit and push to GitHub
+3. Users run from their shell (not a slash command):
+
+   ```bash
+   claude plugin update wb@gvarela-workbench
+   ```
+
+4. Restart Claude (or `/reload-plugins`) to apply
+
+Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by version and only `claude plugin update` invalidates it.
 
 ### Using Commands
 
