@@ -57,6 +57,20 @@ claude --plugin-dir /path/to/this/repo
 /reload-plugins
 ```
 
+### Releasing New Commands/Skills/Agents
+
+**CRITICAL**: When the plugin is installed via marketplace (not `--plugin-dir`), the plugin system caches files at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. The cache is keyed by version — adding new files will NOT show up until the version bumps.
+
+When adding new commands, skills, or agents:
+
+1. Bump `version` in `.claude-plugin/plugin.json` (e.g., 1.0.0 → 1.1.0 for features, 1.0.0 → 1.0.1 for fixes)
+2. Bump matching `version` in `.claude-plugin/marketplace.json`
+3. Commit and push
+4. Users run `claude plugin update wb@gvarela-workbench` to pick up the new version
+5. `/reload-plugins` alone will NOT pull new files — the cache must be invalidated by version bump
+
+For local dev (`--plugin-dir` install), changes take effect immediately without a version bump.
+
 ## Command Workflow
 
 The commands follow a strict sequential workflow:
