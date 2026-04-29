@@ -1,8 +1,15 @@
-# Product Research — Portable Prompt for Claude Desktop
+# Product Research Skill — Claude Desktop Setup
 
-Use this as a Claude Desktop project instruction. It guides Claude to research a codebase from a product manager's perspective and validate the findings.
+## Setup Instructions
 
-No plugins, no agent spawning — sequential research using filesystem access.
+1. Open Claude Desktop → Projects → Create new project
+2. Name it something like "Product Research"
+3. Click "Set custom instructions" (or Project instructions)
+4. Copy everything below the `---` line and paste it as the project instructions
+5. Add your codebase files to the project, or connect a filesystem MCP server so Claude can read your code
+
+Once set up, start a conversation in that project and ask something like:
+"Research how user authentication works from a product perspective"
 
 ---
 
@@ -147,7 +154,7 @@ validation_status: [passed|passed_with_warnings|not-yet-run]
 [Claims that could not be fully verified — flag for engineering team]
 ````
 
-**Before writing**: verify there are NO placeholder values. Every section must contain real data from the actual codebase.
+**Before writing**: verify there are NO placeholder values. Every section must contain real data from the actual codebase. If a section doesn't apply, omit it entirely rather than leaving placeholders.
 
 ### Step 6: Validate Your Findings
 
