@@ -128,7 +128,7 @@ bd ready                    # See available work
 
 - Phase 1: milestone `prompts-1ng` - 8 tasks, all closed
 - Phase 2: milestone `prompts-tq7.1` - 11 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
-- Phase 3: milestone `prompts-tq7.2` - 9 tasks
+- Phase 3: milestone `prompts-tq7.2` - 9 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 4: milestone `prompts-tq7.3` - 5 tasks
 - Phase 5: milestone `prompts-h1y` - 9 tasks
 
@@ -435,6 +435,30 @@ Give every plan an Intent section written at creation, make each stage owe it so
 - Initial Response of create_product_research, create_mockup, implement_tasks, implement_coordinated, validate_project, create_handoff, resume_handoff, update_status
 - `CHANGELOG.md`
 
+#### 📝 Modified Files (Phase 3, as landed)
+
+Nine task commits, f8dace2 through 0a89ea5, 24 files, +199/−27. No test files (docs plugin).
+
+- `plugin/skills/create_project/SKILL.md`, `templates.md` - intent intake with one-exchange confirmation; README `## Intent` (Goal, Success looks like, Non-goals, Amendments); Intent echoed at confirmation
+- `plugin/skills/create_research/SKILL.md`, `templates.md` - question derived from the Goal; decomposition against statements; `## Intent Coverage`
+- `plugin/skills/explore_design/SKILL.md`, `templates.md` - framing against the Goal and statements; Decide description cites the Goal; dated Amendments line
+- `plugin/skills/create_design/SKILL.md`, `templates.md` - `(refines:)` metrics and Deferred list; problem traced to the Goal; amendment rule with Decide record; BARRIER 4
+- `plugin/skills/create_tasks/SKILL.md`, `templates.md` - Target State from Intent-refining metrics
+- `plugin/skills/validate_execution/SKILL.md`, `templates.md` - verdict per Intent statement table; README verdict echo; README read in Step 1
+- `plugin/skills/help/SKILL.md` - "What each stage needs from you" table; trigger-text description; State step with three cases and the routing rule
+- `plugin/hooks/wb-prime.sh` - six-line map summary (orientation 25 lines)
+- `plugin/skills/{create_product_research,create_mockup,implement_tasks,implement_coordinated,validate_project,create_handoff,resume_handoff,update_status}/SKILL.md` - "This stage needs from you" line (14 stage intakes in all)
+- `CHANGELOG.md` - Unreleased: four Added bullets and one Changed bullet
+- `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/tasks.md` - discoveries and notes
+
+**Quick verification commands:**
+
+```bash
+grep -rl "needs from you" plugin/skills/*/SKILL.md | wc -l   # 15: 14 stage intakes plus help's heading
+grep -rn "plan predates 3.0.0" plugin/skills --include=SKILL.md -l | wc -l   # 5
+plugin/hooks/wb-prime.sh --export | wc -l   # under 40
+```
+
 ### ⛔ CHECKPOINT: Phase 3 Complete
 
 1. ✅ All Phase 3 task beads issues closed; milestone `prompts-tq7.2` closed
@@ -729,6 +753,7 @@ bd blocked
 
 ### Implementation Notes
 
+- 2026-09-06: Phase 3 implemented by coordinated sonnet workers: eight task workers, eight verifier passes (all PASS on first verification), one verification worker that hit its 60-turn limit at the last lint step and was resumed to write its report (truncation, not failure; the remaining wb-prime re-measure was done by the coordinator: 25 lines, 43ms). Nine commits f8dace2 through 0a89ea5, 24 files, +199/−27. Deviations and observations: (1) the create_project intake confirms an inferred intent in one exchange, as D19 says; the tasks.md verify wording "no question before the first write event" was loose and is superseded by D19's text; in headless mode the run ends at the confirmation, and a prompt that states the intent is already confirmed writes the files directly (the end-to-end used that). (2) help under-fires rather than over-fires: "where am I" and "what's next" invoke wb:help and report position and next stage; "what does wb do" and both prompts in a directory without docs/plans are answered correctly from the wb-prime orientation without a Skill call (recorded in Implementation Discoveries; D18 makes those questions self-answering). (3) The "needs from you" file count is 15, not the plan's 14, because help's own heading contains the phrase. (4) Five stage skills carry the "plan predates 3.0.0" line (research, explore_design, design, validate_execution, help); create_project writes the section and create_tasks has no Intent obligation beyond the Target State wording, per the plan. Harness findings: the headless allowlist must include the Skill tool for prose-triggered skills; a nested session cannot write outside the worktree, so scratch projects were created under untracked directories inside it and deleted; verifier and worker prompts now forbid git stash. Coordinator-level facts gathered for the checkpoint: the commit-discipline inventory (prompts-0cn2).
 - 2026-09-06: Status reconciled via update_status after Phase 2 verification: tasks.md stays in-progress at phase 2 with 19 of 42 tasks closed (Phase 2's eleven tasks closed in beads; milestone prompts-tq7.1 open for the checkpoint); design.md moves from approved to implementing; git metadata at f0292a1. The nine Phase 5 beads issues that still said "Phase 2" from before the re-plan were corrected in beads (descriptions, and the prompts-84lh title).
 - 2026-09-06: Phase 2 implemented by coordinated sonnet workers: ten workers, ten verifier passes (all PASS on first verification), one verification worker, sequential, main context never compacted. Deviations: (1) `bd orphans` and `bd preflight` do not mean what design D16 assumed (see Implementation Discoveries; decision issue prompts-hsa2 open for Gabe at this checkpoint); (2) the workflow guide's Basic Workflow `bd update --status in_progress` at line 301 was changed to `--claim` alongside the two planned sites, pulling a Phase 4 audit correction forward; (3) the CHANGELOG per-file lint delta is +2 MD024 duplicate-heading findings of the pre-existing kind (every release section repeats Added/Changed/Fixed; the baseline had 11), because `.markdownlintrc` sets `allow_different_nesting` rather than `siblings_only`; changing lint rules is out of scope. Coordinator-level corrections landed in task commits: the Hygiene lines in beads-mode.md (task 2.1). Harness findings: the worktree Bash guard refuses `env -C` and `env PATH=` prefixes; a wrapper script under the job tmp dir (`cd`, `export PATH`, `exec`) is the working form; a plain single-file delete is accepted; one worker used `git stash` and `git stash pop` to lint a baseline, harmless only because the shared stack was empty, so worker prompts now forbid stash and prescribe `git show <rev>:<file>` to a scratch path inside the repo. The two Phase 2 unknowns were resolved from the Claude Code hooks reference (a guide agent) and `bd config get` on 1.1.0 before any worker ran. Verification worker: headless orientation prompt answered with the orientation's first line; the wrong-database fixture made `wb:implement_coordinated` stop before spawning workers; the headless validate_project recipe was rewritten (turns, git allowed, assistant-text grep) after its first run exhausted 12 turns reading the plan documents.
 - 2026-09-06: Plan restructured after Phase 1 into five phases on one branch and one PR (design D9 revised): the beads-model realignment with wb-prime (D11-D16, D18), the intent model with stateful help (D19-D20), and the beads guide (D17) were added; the rename moved to Phase 5. PR #27 is held as the running review surface. Three inventory agents (sonnet, sonnet, haiku) supplied the line-level sites, the verification recipes, and the bd command inventory; corrections folded in: `bd status` exists in 1.1.0 and is not stale; `bd daemon` at help:241 and `.beads/daemon.lock` at beads-not-initialized.md:25 are; the workflow guide and commands reference still show `bd update --status in_progress` where the skills use `--claim`.
