@@ -282,7 +282,7 @@ bd list              # Find correct ID
 ```
 
 **"database locked"**
-Wait a moment and retry. Check for a stale `.beads/daemon.lock` or another bd process (`bd daemon` status).
+Wait a moment and retry; parallel sessions share one embedded database, so a lock clears when the other session's command finishes. `bd context` shows which database is open; `bd doctor` runs only against a Dolt server in 1.1.0.
 
 **Need markdown-only workflow?**
 Use `v1.0.0` tag of this repo (before beads integration).
