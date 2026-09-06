@@ -1,5 +1,7 @@
 # Beads Integration Learnings
 
+Dated history, kept as written. Current guidance lives in [beads-guide.md](beads-guide.md); the runtime statement installers and skills read is `plugin/docs/reference/beads-mode.md`.
+
 Captured during the integration of beads with the wb workflow (prompts-917).
 
 ## Session 2026-01-31

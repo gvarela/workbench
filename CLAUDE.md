@@ -156,6 +156,8 @@ All generated documentation files use consistent YAML frontmatter:
 - User tracking: `researcher`, `planner`, `assignee`
 - Progress: `current_phase`, `total_tasks`, `completed_tasks`
 - Progress fields are written only by `/wb:update_status` (sole writer); other skills and checkpoints defer to it.
+- Any change that adds, removes, or alters a bd command in a shipped file (under `plugin/`) updates the contract inventory in [docs/beads-guide.md](docs/beads-guide.md), including its verified-on column.
+- Any change to a workflow stage's existence, name, scope, or intake updates help's Command Workflow chain, its "What each stage needs from you" table, and its Command Details, wb-prime's orientation (stage chain and the six-line summary), and that stage's "This stage needs from you" line, in the same commit. RELEASING.md's pre-bump verification greps for drift.
 
 ## Agent Spawning with Model Selection
 

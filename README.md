@@ -130,7 +130,7 @@ workbench/
 
 ## Beads Integration
 
-Requires [beads](https://github.com/steveyegge/beads) 1.1.0 or later for persistent task tracking:
+Requires [beads](https://github.com/steveyegge/beads) 1.1.0 or later for persistent task tracking (the supported version, the bd contract the plugin relies on, and the upgrade protocol are in [docs/beads-guide.md](docs/beads-guide.md)):
 
 ```bash
 bd init --stealth   # any repository with collaborators who do not use beads (writes the shared .git/info/exclude)
