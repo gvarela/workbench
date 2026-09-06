@@ -72,6 +72,7 @@ bd close ${task.id} --reason "Implemented ${task.title}, tests passing"
 - **FOLLOW PATTERNS**: Use patterns from context, don't invent new ones
 - **TEST FIRST**: Always RED → GREEN → REFACTOR
 - **ONE TASK ONLY**: Complete this task and return
+- **DO NOT COMMIT**: the coordinator commits after verification; your last act is \`bd close ${task.id}\`
 
 ## Expected Output
 

@@ -263,7 +263,7 @@ bd ready
 1. Improve code quality while keeping tests green
 2. Consider patterns from research.md
 3. Run tests after each change
-4. Commit when satisfied
+4. One commit per task, after its verification below; the message names the task and its beads id. Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart.
 
 **D. Update Progress**
 

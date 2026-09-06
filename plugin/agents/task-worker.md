@@ -18,7 +18,7 @@ The coordinator's prompt gives you: a task ID/title/description, a context packa
 2. **RED**: write the failing test first, exactly as the task specifies — no extra cases. Run it; confirm it fails for the right reason.
 3. **GREEN**: minimal implementation to pass. Run the test, then related tests for regression.
 4. **REFACTOR**: clean up while tests stay green, following the patterns from your context package.
-5. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"`
+5. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
 
 ## Operating Mode
 
@@ -31,6 +31,7 @@ You are operating autonomously within this task. Nobody is watching in real time
 - **SURGICAL EDITS**: when it will not affect the end result, edit a file in place rather than rewriting it — fewer tokens, same outcome.
 - **FOLLOW PATTERNS** from the context package; don't invent new ones
 - **ONE TASK ONLY**: complete it and return
+- **DO NOT COMMIT**: the coordinator commits each verified task; a task you leave uncommitted with the bead still open is how truncation is detected
 
 ## Expected Output
 

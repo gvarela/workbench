@@ -244,6 +244,7 @@ After each worker completes:
    ```
 
    **If PASS**:
+   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart.
    - Add to success log
    - Collect modified files for aggregation
    - Proceed to step 5 (next task)
@@ -442,6 +443,7 @@ When resuming work (phase = "continue"):
 
 - ❌ All prohibitions from original `implement_tasks`
 - ❌ **NEVER** spawn multiple workers in parallel (keep it simple)
+- ❌ **NEVER** let a worker commit, and never commit a task before its verifier passes
 - ❌ **NEVER** allow workers to add scope
 - ❌ **NEVER** pass entire docs to workers (extract context)
 - ❌ **NEVER** proceed without waiting for worker completion
