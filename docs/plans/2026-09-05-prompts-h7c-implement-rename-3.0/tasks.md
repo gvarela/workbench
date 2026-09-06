@@ -10,7 +10,7 @@ assignee: gabe@vare.la
 current_phase: 4
 total_tasks: 43
 completed_tasks: 34
-git_commit: 06a15cd53e5770a6b343253ac9f66309176a8c98
+git_commit: dc801dca5e573064327832478adf7b98013cef0e
 git_branch: worktree-implement-rename-3.0
 repository: gvarela/workbench
 tags: [tasks, tracking, implement-rename-3.0]
