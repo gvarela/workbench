@@ -7,9 +7,9 @@ status: in-progress
 last_updated: 2026-09-06
 assignee: gabe@vare.la
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 3
+current_phase: 4
 total_tasks: 43
-completed_tasks: 28
+completed_tasks: 34
 git_commit: 06a15cd53e5770a6b343253ac9f66309176a8c98
 git_branch: worktree-implement-rename-3.0
 repository: gvarela/workbench
@@ -130,7 +130,7 @@ bd ready                    # See available work
 - Phase 1: milestone `prompts-1ng` - 8 tasks, all closed
 - Phase 2: milestone `prompts-tq7.1` - 11 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 3: milestone `prompts-tq7.2` - 9 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
-- Phase 4: milestone `prompts-tq7.3` - 6 tasks (one added at the Phase 3 checkpoint)
+- Phase 4: milestone `prompts-tq7.3` - 6 tasks (one added at the Phase 3 checkpoint), all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 5: milestone `prompts-h1y` - 9 tasks
 
 Use `bd show [milestone-id]` to see which tasks block each phase milestone.
@@ -533,6 +533,25 @@ Write the maintainer guide, audit every bd reference in shipped files against bd
 - Phase 4 verification → `[beads:phase4_test_1]`
   - After 4.1 through 4.5: the audit recipe returns no stale subcommand; the guide inventory grep returns none missing; the help drift grep from RELEASING.md item 4 passes on the current tree; the commit-discipline greps above; per-file lint deltas; `bd doctor` run and its output recorded in Implementation Notes (a no-op note in embedded mode)
 
+#### 📝 Modified Files (Phase 4, as landed)
+
+Six commits, 34a2d65 (the plan revision) through 7925f01, 14 files, +211/−21. No test files (docs plugin).
+
+- `docs/beads-guide.md` - new: the model wb relies on, the bd 1.1.0 contract inventory (47 invocation rows, 8 config-key rows, 8 prose tokens), the upgrade protocol, interpretation notes, doc map, version log
+- `plugin/skills/help/SKILL.md` - the daemon.lock and bd daemon troubleshooting line replaced
+- `CLAUDE.md` - the inventory rule and the stage-change rule beside the sole-writer rule; `README.md` - bd 1.1.0 with the guide link; `docs/beads-integration-learnings.md` - dated-history header; `RELEASING.md` - help drift check in the pre-bump verification; `docs/claude-code-skills-guide.md` - the four-copy sentence
+- `plugin/skills/implement_coordinated/SKILL.md`, `sub-agent-prompts.md`, `plugin/agents/task-worker.md`, `plugin/agents/task-verifier.md`, `plugin/skills/implement_tasks/SKILL.md` - commit discipline
+- `CHANGELOG.md` - Unreleased: three Added bullets, one Fixed bullet
+- `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/tasks.md` - the Phase 4 additions and these notes
+
+**Quick verification commands:**
+
+```bash
+grep -rhoE '\bbd [a-z][a-z-]*' plugin | awk '{print $2}' | sort -u   # compare with bd --help; leftovers are prose tokens and the stats alias
+grep -L "needs from you" plugin/skills/*/SKILL.md   # background skills and the deprecated alias only
+./plugin/scripts/lint --all | grep -c "Issues found in"   # 25 after Phase 4
+```
+
 ### Phase 4 Success Criteria
 
 - [ ] No bd subcommand referenced under plugin/ is absent from `bd --help`
@@ -739,7 +758,7 @@ Things to determine during implementation:
 - Resolved 2026-09-06 (bd 1.1.0): `bd config get sync.remote` prints `sync.remote (not set in config.yaml)` and exits 0 when unset; a set key prints the bare value (`bd config get backup.enabled` prints `false`). The drift hook's `grep -qv "not set"` condition is sound.
 - Resolved 2026-09-06 (task 3.7 headless runs): help's broadened description does not over-trigger; it under-fires. "where am I" in this repository invoked `wb:help` and reported the plan, documents, beads state, and a Next stage line. "what does wb do" here, and both prompts in a scratch directory without docs/plans, were answered correctly from the wb-prime orientation without any Skill call (case-A wording, no Next stage line, no reference card). The orientation makes generic questions self-answering, which is D18 working; the Phase 3 verification judges the routing cases on the where-am-I run and records the other three as answered-from-orientation. Louder trigger text is not the lever (blind trials, 2026-09-05).
 - Whether git detects the Phase 5 directory moves as renames after Phases 2 to 4 edited the files (`git show --stat -M` on the 5.1 commit)
-- The exact count of pre-existing `lint --all` findings after each phase (27 after Phase 1; 27 after Phase 2)
+- The exact count of pre-existing `lint --all` findings after each phase (27 after Phase 1; 27 after Phase 2; 27 after Phase 3; 25 after Phase 4, two files cleared incidentally)
 - Resolved 2026-09-06 (bd 1.1.0 `--help`, issue prompts-hsa2): `bd orphans` reports open or in-progress issues that commit messages already reference (landed but never closed), not broken dependencies and not frontmatter orphans; `bd preflight` is a checklist for contributors to the beads Go repository, not a workspace check; `bd doctor --check=conventions` is the lint-stale-orphans pass. Phase 2 kept validate_project's frontmatter orphan check and added `bd orphans` under its real meaning; beads-mode.md Hygiene lists `bd doctor --check=conventions` in place of `bd preflight`. Phase 4's contract audit inherits this correction.
 - Resolved 2026-09-06 (run in this workspace, surfaced by the headless validate_project run): `bd doctor` and `bd doctor --check=conventions` are not supported in bd 1.1.0's default embedded mode; they print "not yet supported in embedded mode" and exit. They run only against a Dolt server (`bd init --server`). `bd lint`, `bd stale`, and `bd orphans` work in embedded mode. The Phase 2 text that names `bd doctor` (beads-mode.md Hygiene, the playbook's diagnose line, CLAUDE.md's session protocol, the workflow guide's session-end block, the CHANGELOG Added bullet) carries the caveat and falls back to `bd stale` and `bd orphans`. Phase 4's inventory needs a verified-on column that distinguishes embedded from server mode.
 - Resolved 2026-09-06: a headless `-p "/wb:validate_project <dir>"` run emits no `"skill":"wb:..."` event (slash-command prompts do not route through a Skill tool call; prose prompts do, as the wrong-database recipe showed with `wb:implement_coordinated`), and it needs about 40 turns plus `Bash(git *)` in `--allowedTools` to reach its report. Grep the assistant lines, not the whole stream, for mode vocabulary: the stream's dump of this plan's own tasks.md contains the old words by design.
@@ -766,6 +785,8 @@ bd blocked
 
 ### Implementation Notes
 
+- 2026-09-06: Status reconciled via update_status after Phase 4 verification: tasks.md stays in-progress at phase 4 with 34 of 43 tasks closed (Phase 4's six tasks closed in beads; milestone prompts-tq7.3 open for the checkpoint); design.md stays implementing; git metadata at the aggregation commit.
+- 2026-09-06: Phase 4 implemented by coordinated sonnet workers: five task workers, five verifier passes (one FAIL on the audit's scratch inventory: four citation errors, repaired by a fix worker that then died on a sonnet rate limit and finished by the coordinator by hand, spot-checked, and accepted), one verification worker. Six commits 34a2d65 through 7925f01, 14 files, +211/−21. Deviations and observations: (1) the two additions approved at the Phase 3 checkpoint landed as planned (help-maintenance rule in 4.3, commit discipline as 4.5); (2) the lint backlog fell from 27 to 25 because the lint hook's reformatting of `docs/claude-code-skills-guide.md` and `plugin/agents/task-verifier.md` cleared their pre-existing findings; (3) help's Command Details has 11 headings and lacks entries for implement_coordinated, create_product_research, and validate_project, which the new drift check will flag until Phase 5's help sweep adds them (recorded here so 5.5 covers it); (4) the audit found no flag the plugin uses that is absent from bd 1.1.0's help; `sync.remote` and `backup.enabled` are not in `bd config --help`'s namespace list but work (live-tested); (5) `bd stale` lists three Q: issues untouched for 34 days (prompts-cfz, 7w4, rll) and `bd orphans` lists prompts-h7c, which closes at the cut. The coordinator's verification recipes carried two wrong expectations (a table grep that matched other tables in help; the backlog expected unchanged), recorded in the verification task's close reason.
 - 2026-09-06: Status reconciled via update_status after Phase 3 verification: tasks.md stays in-progress at phase 3 with 28 of 42 tasks closed (Phase 3's nine tasks closed in beads; milestone prompts-tq7.2 open for the checkpoint); design.md stays implementing; git metadata at 06a15cd.
 - 2026-09-06: Phase 3 implemented by coordinated sonnet workers: eight task workers, eight verifier passes (all PASS on first verification), one verification worker that hit its 60-turn limit at the last lint step and was resumed to write its report (truncation, not failure; the remaining wb-prime re-measure was done by the coordinator: 25 lines, 43ms). Nine commits f8dace2 through 0a89ea5, 24 files, +199/−27. Deviations and observations: (1) the create_project intake confirms an inferred intent in one exchange, as D19 says; the tasks.md verify wording "no question before the first write event" was loose and is superseded by D19's text; in headless mode the run ends at the confirmation, and a prompt that states the intent is already confirmed writes the files directly (the end-to-end used that). (2) help under-fires rather than over-fires: "where am I" and "what's next" invoke wb:help and report position and next stage; "what does wb do" and both prompts in a directory without docs/plans are answered correctly from the wb-prime orientation without a Skill call (recorded in Implementation Discoveries; D18 makes those questions self-answering). (3) The "needs from you" file count is 15, not the plan's 14, because help's own heading contains the phrase. (4) Five stage skills carry the "plan predates 3.0.0" line (research, explore_design, design, validate_execution, help); create_project writes the section and create_tasks has no Intent obligation beyond the Target State wording, per the plan. Harness findings: the headless allowlist must include the Skill tool for prose-triggered skills; a nested session cannot write outside the worktree, so scratch projects were created under untracked directories inside it and deleted; verifier and worker prompts now forbid git stash. Coordinator-level facts gathered for the checkpoint: the commit-discipline inventory (prompts-0cn2).
 - 2026-09-06: Status reconciled via update_status after Phase 2 verification: tasks.md stays in-progress at phase 2 with 19 of 42 tasks closed (Phase 2's eleven tasks closed in beads; milestone prompts-tq7.1 open for the checkpoint); design.md moves from approved to implementing; git metadata at f0292a1. The nine Phase 5 beads issues that still said "Phase 2" from before the re-plan were corrected in beads (descriptions, and the prompts-84lh title).
