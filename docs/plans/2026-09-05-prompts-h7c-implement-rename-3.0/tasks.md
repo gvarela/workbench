@@ -8,7 +8,7 @@ last_updated: 2026-09-06
 assignee: gabe@vare.la
 # progress fields below are maintained by /wb:update_status — do not hand-edit
 current_phase: 3
-total_tasks: 42
+total_tasks: 43
 completed_tasks: 28
 git_commit: 06a15cd53e5770a6b343253ac9f66309176a8c98
 git_branch: worktree-implement-rename-3.0
@@ -59,6 +59,7 @@ beads_tasks:
   phase4_impl_2: prompts-scjh
   phase4_impl_3: prompts-kk2p
   phase4_impl_4: prompts-uadx
+  phase4_impl_5: prompts-wtp5
   phase4_test_1: prompts-a9uh
   # Phase 5 tasks
   phase5_impl_1: prompts-q4fm
@@ -129,7 +130,7 @@ bd ready                    # See available work
 - Phase 1: milestone `prompts-1ng` - 8 tasks, all closed
 - Phase 2: milestone `prompts-tq7.1` - 11 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 3: milestone `prompts-tq7.2` - 9 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
-- Phase 4: milestone `prompts-tq7.3` - 5 tasks
+- Phase 4: milestone `prompts-tq7.3` - 6 tasks (one added at the Phase 3 checkpoint)
 - Phase 5: milestone `prompts-h1y` - 9 tasks
 
 Use `bd show [milestone-id]` to see which tasks block each phase milestone.
@@ -472,7 +473,7 @@ plugin/hooks/wb-prime.sh --export | wc -l   # under 40
 
 ### Phase 4 Objective
 
-Write the maintainer guide, audit every bd reference in shipped files against bd 1.1.0, add the CLAUDE.md inventory rule and the version floor. Design D17.
+Write the maintainer guide, audit every bd reference in shipped files against bd 1.1.0, add the CLAUDE.md inventory rule and the version floor. Design D17. Added 2026-09-06 at the Phase 3 checkpoint (Gabe approved both): the development-only rule that keeps help and wb-prime current when a stage changes (folded into item 3), and the commit discipline for coordinated and inline execution (item 5; decision prompts-0cn2). Both are docs-only and land before Phase 5's directory move so rename detection holds.
 
 ### Phase 4 Prerequisites
 
@@ -500,9 +501,19 @@ Write the maintainer guide, audit every bd reference in shipped files against bd
 
 **Target State**: CLAUDE.md gains "Any change that adds, removes, or alters a bd command in a shipped file updates the contract inventory in docs/beads-guide.md." README states "Requires bd 1.1.0 or later" with a link to the guide. The learnings doc gains a two-line header: dated history; current guidance lives in beads-guide.md.
 
+**Help-maintenance rule** (added 2026-09-06; development-only, nothing in shipped help or wb-prime). Three more sites: `CLAUDE.md`, a second rule beside the sole-writer note: "Any change to a workflow stage's existence, name, scope, or intake updates help's Command Workflow chain, its What-each-stage-needs-from-you table, and its Command Details, wb-prime's orientation (stage chain and the six-line summary), and that stage's intake line, in the same commit." `RELEASING.md` Process item 4 gains a help drift check as a grep recipe: every user-invocable stage under `plugin/skills/` has a Command Details heading and a table row in help, and each stage's "This stage needs from you" sentence matches its row. `docs/claude-code-skills-guide.md` "What This Means for This Repository" gains one sentence: a new or renamed skill is registered in help and wb-prime and given an intake line.
+
 #### 4. CHANGELOG Unreleased, Phase 4 entries
 
-`### Added`: docs/beads-guide.md; the inventory rule. `### Fixed`: stale bd references removed (list them).
+`### Added`: docs/beads-guide.md; the inventory rule; the help-maintenance rule and its drift check; the commit discipline (item 5). `### Fixed`: stale bd references removed (list them).
+
+#### 5. Commit discipline for coordinated and inline execution
+
+**Files**: `plugin/skills/implement_coordinated/SKILL.md` (Step 6 "After Each Worker Completes", the PASS branch), `plugin/skills/implement_coordinated/sub-agent-prompts.md` (Worker Prompt Template, CRITICAL Constraints), `plugin/agents/task-worker.md` (Process and Constraints), `plugin/agents/task-verifier.md` (the scope check that diffs `HEAD~1`), `plugin/skills/implement_tasks/SKILL.md` (the Refactor step's "Commit when satisfied", around line 266)
+
+**Current State** (inventory 2026-09-06, decision prompts-0cn2): the coordinated path states no commit rule anywhere; the worker's contract ends at `bd close`; the verifier diffs `HEAD~1` as a scope proxy, assuming a per-task commit exists; help's map row asserts "one commit each"; implement_tasks says "Commit when satisfied".
+
+**Target State**: implement_coordinated Step 6, after PASS: "**Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits are separate commits, made only between tasks, never while a worker or verifier runs." Worker template and task-worker.md: "Do not commit. The coordinator commits after verification; your last act is `bd close`." task-verifier.md: scope is checked against the working tree (`git status --short`, `git diff --stat`) against the coordinator's stated file list; the `HEAD~1` diff is removed. implement_tasks: "Commit when satisfied" becomes "One commit per task, after its verification; the message names the task and its beads id." One sentence in both implementation skills: "Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart." help's map row is already true once these land.
 
 ### Phase 4 Tasks
 
@@ -511,14 +522,16 @@ Write the maintainer guide, audit every bd reference in shipped files against bd
 - Write `docs/beads-guide.md` → `[beads:phase4_impl_2]`
   - After 4.1 (the table); verify: `grep -c "^## " docs/beads-guide.md` → 6; every subcommand token from 4.1's list appears in the guide (`while read c; do grep -q "bd $c" docs/beads-guide.md || echo MISSING $c; done` → none); `grep -c "verified-on\|1.1.0" docs/beads-guide.md` → 3 or more
 - CLAUDE.md inventory rule; README bd requirement; learnings header; floor confirmed in the playbook → `[beads:phase4_impl_3]`
-  - After 4.2; verify: `grep -c "beads-guide.md" CLAUDE.md README.md docs/beads-integration-learnings.md` → 1 or more each; `grep -c "1.1.0" README.md plugin/docs/reference/beads-not-initialized.md` → 1 each
+  - After 4.2; verify: `grep -c "beads-guide.md" CLAUDE.md README.md docs/beads-integration-learnings.md` → 1 or more each; `grep -c "1.1.0" README.md plugin/docs/reference/beads-not-initialized.md` → 1 each; `grep -c "workflow stage's existence" CLAUDE.md` → 1; `grep -c "drift" RELEASING.md` → 1 or more; `grep -c "registered in help" docs/claude-code-skills-guide.md` → 1
 - CHANGELOG Unreleased: Phase 4 entries → `[beads:phase4_impl_4]`
-  - After 4.2 and 4.3; verify: `grep -c "beads-guide" CHANGELOG.md` → 1 or more
+  - After 4.2, 4.3, and 4.5; verify: `grep -c "beads-guide" CHANGELOG.md` → 1 or more; `grep -c "one commit" CHANGELOG.md` → 1 or more
+- Commit discipline: implement_coordinated Step 6, worker template, task-worker, task-verifier, implement_tasks → `[beads:phase4_impl_5]`
+  - Independent of 4.1 to 4.4 (different files); verify: `grep -c "One task, one commit" plugin/skills/implement_coordinated/SKILL.md` → 1; `grep -c "Do not commit" plugin/skills/implement_coordinated/sub-agent-prompts.md plugin/agents/task-worker.md` → 1 each; `grep -c "HEAD~1" plugin/agents/task-verifier.md` → 0; `grep -c "One commit per task" plugin/skills/implement_tasks/SKILL.md` → 1; `grep -c "Tidy First edge rule" plugin/skills/implement_coordinated/SKILL.md plugin/skills/implement_tasks/SKILL.md` → 1 each; per-file lint delta zero on all five
 
 #### Phase 4 Testing Tasks
 
 - Phase 4 verification → `[beads:phase4_test_1]`
-  - After 4.1 through 4.4: the audit recipe returns no stale subcommand; the guide inventory grep returns none missing; per-file lint deltas; `bd doctor` run and its output recorded in Implementation Notes
+  - After 4.1 through 4.5: the audit recipe returns no stale subcommand; the guide inventory grep returns none missing; the help drift grep from RELEASING.md item 4 passes on the current tree; the commit-discipline greps above; per-file lint deltas; `bd doctor` run and its output recorded in Implementation Notes (a no-op note in embedded mode)
 
 ### Phase 4 Success Criteria
 
