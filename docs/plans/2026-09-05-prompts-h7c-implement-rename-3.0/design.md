@@ -7,7 +7,7 @@ status: implementing
 last_updated: 2026-09-06
 designer: gabe@vare.la
 status_note: approved by Gabe 2026-09-06 (first pass via /wb:create_tasks); revised after Phase 1 to add the beads-model realignment (D11-D16, prompts-my1i), the single-PR release shape (D9 revised), the maintainer guide (D17), wb-prime (D18), and the intent model with stateful help (D19-D20, prompts-k0ub); re-approved by Gabe 2026-09-06 with a five-phase structure
-git_commit: f0292a1d227da1deb5babe24c3cb3c210eb67d52
+git_commit: 06a15cd53e5770a6b343253ac9f66309176a8c98
 git_branch: worktree-implement-rename-3.0
 repository: gvarela/workbench
 tags: [design, architecture, implement-rename-3.0]
