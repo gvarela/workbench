@@ -131,7 +131,7 @@ bd ready                    # See available work
 - Phase 2: milestone `prompts-tq7.1` - 11 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 3: milestone `prompts-tq7.2` - 9 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 4: milestone `prompts-tq7.3` - 6 tasks (one added at the Phase 3 checkpoint), all closed; milestone open pending Gabe's checkpoint go-ahead
-- Phase 5: milestone `prompts-h1y` - 9 tasks
+- Phase 5: milestone `prompts-h1y` - 9 tasks; eight closed, the merge-and-tag task open for Gabe; milestone open pending the cut
 
 Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 
@@ -741,6 +741,26 @@ Both manifests: `"version": "3.0.0"`.
 - `README.md`, `CLAUDE.md`, `docs/commands-reference.md`, `docs/workbench-workflow-guide.md`, `docs/claude-code-skills-guide.md`, `docs/subagent-tool-call-ceiling.md`, `docs/beads-integration-learnings.md`, `docs/beads-guide.md`
 - `CHANGELOG.md`, `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`
 
+#### 📝 Modified Files (Phase 5, as landed)
+
+Seven task commits, 22ea8a5 through b07d2b3; git counts 40 paths because the moves appear under both names. No test files (docs plugin).
+
+- `plugin/skills/implement/` (moved from implement_coordinated, five files, rename detection 85 to 99 percent) and `plugin/skills/implement_inline/` (moved from implement_tasks, two files): names, descriptions, examples, self-references, display titles; README restated (relationship, why coordinated is the default, choosing inline)
+- `plugin/skills/implement_coordinated/` (five files) and `plugin/skills/implement_tasks/` (two files) - deprecated alias stubs and pointer files, through 3.x, removed at 4.0.0
+- `plugin/skills/create_execution/` - deleted (four files)
+- `plugin/skills/help/SKILL.md` - chain, table row, Command Details (implement, implement_inline, create_product_research, validate_project); `plugin/hooks/wb-prime.sh` - chain; `plugin/agents/task-worker.md`, `plugin/docs/reference/beads-not-initialized.md`, and the continue lines in create_project (SKILL and templates), create_tasks, create_handoff, resume_handoff, validate_execution, validate_project templates
+- `README.md`, `CLAUDE.md`, `docs/commands-reference.md`, `docs/workbench-workflow-guide.md`, `docs/claude-code-skills-guide.md`, `docs/subagent-tool-call-ceiling.md`, `docs/beads-integration-learnings.md`, `docs/beads-guide.md` - renderings and inventory paths in the new names; dated narrative kept
+- `CHANGELOG.md` - Unreleased became 3.0.0 with Breaking and Migration; `plugin/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` - 3.0.0
+- `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/tasks.md` - these notes
+
+**Quick verification commands:**
+
+```bash
+grep -rlE "implement_coordinated|implement_tasks|create_execution" --include='*.md' --include='*.sh' . | grep -vE "plugin/skills/implement_coordinated/|plugin/skills/implement_tasks/|CHANGELOG.md|docs/plans/"   # alias sentences and dated narrative only
+jq -r .version plugin/.claude-plugin/plugin.json   # 3.0.0
+plugin/hooks/wb-prime.sh --export | grep -c "/wb:implement"   # 2
+```
+
 ### ⛔ CHECKPOINT: Phase 5 Complete
 
 1. ✅ All Phase 5 task beads issues closed; milestone `prompts-h1y` closed; epic `prompts-tq7` closed
@@ -757,8 +777,8 @@ Things to determine during implementation:
 - Resolved 2026-09-06 (same reference, "PreCompact input"): PreCompact receives `trigger` (`manual` or `auto`) and `custom_instructions`; its stdout is not added to the model's context (only UserPromptSubmit, UserPromptExpansion, SessionStart, and PostModelSwitch stdout is), and its `systemMessage` is discarded. wb-prime's PreCompact registration returns 0 and the compact-trigger SessionStart carries the recovery.
 - Resolved 2026-09-06 (bd 1.1.0): `bd config get sync.remote` prints `sync.remote (not set in config.yaml)` and exits 0 when unset; a set key prints the bare value (`bd config get backup.enabled` prints `false`). The drift hook's `grep -qv "not set"` condition is sound.
 - Resolved 2026-09-06 (task 3.7 headless runs): help's broadened description does not over-trigger; it under-fires. "where am I" in this repository invoked `wb:help` and reported the plan, documents, beads state, and a Next stage line. "what does wb do" here, and both prompts in a scratch directory without docs/plans, were answered correctly from the wb-prime orientation without any Skill call (case-A wording, no Next stage line, no reference card). The orientation makes generic questions self-answering, which is D18 working; the Phase 3 verification judges the routing cases on the where-am-I run and records the other three as answered-from-orientation. Louder trigger text is not the lever (blind trials, 2026-09-05).
-- Whether git detects the Phase 5 directory moves as renames after Phases 2 to 4 edited the files (`git show --stat -M` on the 5.1 commit)
-- The exact count of pre-existing `lint --all` findings after each phase (27 after Phase 1; 27 after Phase 2; 27 after Phase 3; 25 after Phase 4, two files cleared incidentally)
+- Resolved 2026-09-06 (commit 22ea8a5): git detected all seven Phase 5 moves as renames, 85 to 99 percent similarity (README 85, SKILL.md 97 and 98, reference 99, sub-agent-prompts 98, templates 97 and 97). `git mv` was accepted by the worktree Bash guard; the content edits were staged on top and committed together.
+- The exact count of pre-existing `lint --all` findings after each phase (27 after Phase 1; 27 after Phase 2; 27 after Phase 3; 25 after Phase 4, two files cleared incidentally; 24 after Phase 5, the deleted create_execution directory carried one)
 - Resolved 2026-09-06 (bd 1.1.0 `--help`, issue prompts-hsa2): `bd orphans` reports open or in-progress issues that commit messages already reference (landed but never closed), not broken dependencies and not frontmatter orphans; `bd preflight` is a checklist for contributors to the beads Go repository, not a workspace check; `bd doctor --check=conventions` is the lint-stale-orphans pass. Phase 2 kept validate_project's frontmatter orphan check and added `bd orphans` under its real meaning; beads-mode.md Hygiene lists `bd doctor --check=conventions` in place of `bd preflight`. Phase 4's contract audit inherits this correction.
 - Resolved 2026-09-06 (run in this workspace, surfaced by the headless validate_project run): `bd doctor` and `bd doctor --check=conventions` are not supported in bd 1.1.0's default embedded mode; they print "not yet supported in embedded mode" and exit. They run only against a Dolt server (`bd init --server`). `bd lint`, `bd stale`, and `bd orphans` work in embedded mode. The Phase 2 text that names `bd doctor` (beads-mode.md Hygiene, the playbook's diagnose line, CLAUDE.md's session protocol, the workflow guide's session-end block, the CHANGELOG Added bullet) carries the caveat and falls back to `bd stale` and `bd orphans`. Phase 4's inventory needs a verified-on column that distinguishes embedded from server mode.
 - Resolved 2026-09-06: a headless `-p "/wb:validate_project <dir>"` run emits no `"skill":"wb:..."` event (slash-command prompts do not route through a Skill tool call; prose prompts do, as the wrong-database recipe showed with `wb:implement_coordinated`), and it needs about 40 turns plus `Bash(git *)` in `--allowedTools` to reach its report. Grep the assistant lines, not the whole stream, for mode vocabulary: the stream's dump of this plan's own tasks.md contains the old words by design.
