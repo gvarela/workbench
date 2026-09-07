@@ -3,14 +3,14 @@ project: implement-rename-3.0
 ticket: prompts-h7c
 created: 2026-09-05
 created_timestamp: 2026-09-06T00:23:23Z
-status: in-progress
-last_updated: 2026-09-06
+status: complete
+last_updated: 2026-09-07
 assignee: gabe@vare.la
 # progress fields below are maintained by /wb:update_status — do not hand-edit
 current_phase: 5
 total_tasks: 43
-completed_tasks: 42
-git_commit: 69b2708fa5390322a2517a972ccf54bed5380874
+completed_tasks: 43
+git_commit: 9b107a0044829074b8531d35f9ef5562836e5f6c
 git_branch: worktree-implement-rename-3.0
 repository: gvarela/workbench
 tags: [tasks, tracking, implement-rename-3.0]
@@ -131,7 +131,7 @@ bd ready                    # See available work
 - Phase 2: milestone `prompts-tq7.1` - 11 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 3: milestone `prompts-tq7.2` - 9 tasks, all closed; milestone open pending Gabe's checkpoint go-ahead
 - Phase 4: milestone `prompts-tq7.3` - 6 tasks (one added at the Phase 3 checkpoint), all closed; milestone open pending Gabe's checkpoint go-ahead
-- Phase 5: milestone `prompts-h1y` - 9 tasks; eight closed, the merge-and-tag task open for Gabe; milestone open pending the cut
+- Phase 5: milestone `prompts-h1y` - 9 tasks, all closed; milestone and epic closed at the cut (3.0.0 merged 2026-09-07 at 9b107a0, tagged v3.0.0)
 
 Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 
@@ -805,6 +805,7 @@ bd blocked
 
 ### Implementation Notes
 
+- 2026-09-07: Closed out via update_status after the cut: PR #27 merged to main at 9b107a0, `v3.0.0` tagged on the merge commit and published, the marketplace clone refreshed and the installed plugin updated; prompts-30s1, the Phase 5 milestone, the epic, and the four issues that close at the cut (prompts-h7c, vwo, 3ke, my1i) closed in beads. All three documents are `complete`, 43 of 43 tasks, git metadata at the merge commit. The three canary sessions (RELEASING.md item 5) were Gabe's before the merge.
 - 2026-09-06: Status reconciled via update_status after Phase 5 verification: tasks.md stays in-progress at phase 5 with 42 of 43 tasks closed (only the merge-and-tag task, prompts-30s1, is open; milestone prompts-h1y open pending the cut); design.md stays implementing until the cut; git metadata at the Phase 5 aggregation commit.
 - 2026-09-06: Phase 5 implemented by coordinated sonnet workers: six task workers, six verifier passes (all PASS on first verification), the create_execution deletion executed by the coordinator as a single command, one verification worker resumed once after its turn limit. Seven task commits 22ea8a5 through b07d2b3. Deviations and observations: (1) `git mv` was accepted by the worktree guard, and git recorded all seven moves as renames at 85 to 99 percent similarity; (2) the routing validation (prompts-zmy) needed a plausible test subject: "implement phase N of the plan at <dir>" did not invoke a skill against this plan (its Phase 2 was already closed, and the model reported that) nor against the first fixture (whose overview called itself a scratch plan); against a plausible plan with a pending phase it fired wb:implement; the inline and help prompts routed as expected on the first try; (3) two lint baseline comparisons were skipped by the verification worker for budget and accepted from the Phase 4 evidence (the workflow guide's duplicate heading; implement_inline's four table findings inherited from implement_tasks); (4) the lint backlog fell to 24 with the create_execution directory gone; (5) help's Command Details gained entries for create_product_research and validate_project so the new drift check passes with 14 headings; (6) PR #27 retitled to the 3.0.0 title with the Breaking and Migration body; the three canary sessions, the merge, and the tag are Gabe's (prompts-30s1). The recipes for the sweep-miss grep used `\|` alternation, which BSD grep does not honor inside `grep -v`; the worker re-ran it with `-E`, and the tasks.md quick-verification block now uses `-E`.
 - 2026-09-06: Status reconciled via update_status after Phase 4 verification: tasks.md stays in-progress at phase 4 with 34 of 43 tasks closed (Phase 4's six tasks closed in beads; milestone prompts-tq7.3 open for the checkpoint); design.md stays implementing; git metadata at the aggregation commit.
