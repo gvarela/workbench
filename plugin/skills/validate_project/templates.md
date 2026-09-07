@@ -110,5 +110,5 @@ Based on the validation results:
 **Next Command Suggestions**:
 - If critical errors: Fix them manually or re-run workflow commands
 - If warnings only: Run `/wb:update_status` to sync metadata
-- If all passed: Run `/wb:implement_tasks` to continue work
+- If all passed: Run `/wb:implement` to continue work
 ```

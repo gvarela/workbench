@@ -5,7 +5,7 @@ argument-hint: [project-directory] [phase-number|continue]
 allowed-tools: Read
 ---
 
-# Implement Tasks (Coordinated)
+# Implement (Coordinated Execution)
 
 **Next-generation task implementation using coordinator + worker agent pattern.**
 

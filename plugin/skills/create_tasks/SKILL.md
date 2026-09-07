@@ -316,7 +316,7 @@ Key features of the plan:
 Next steps:
 1. Review the execution plan in tasks.md (documentation)
 2. Run `bd ready` to see available work (first tasks with no dependencies)
-3. Run `/implement_tasks` to begin implementation with TDD
+3. Run `/implement` to begin coordinated implementation (`/implement_inline` to run it in this session)
 4. Track ALL progress with beads (`bd update [id] --claim`, `bd close [id]`)
 5. Never use markdown checkboxes for status - beads is source of truth
 ```

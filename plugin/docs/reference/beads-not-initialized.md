@@ -1,6 +1,6 @@
 # Beads Not Initialized — Standard Response
 
-Shared reference for wb skills that require beads tracking (`implement_tasks`, `implement_coordinated`, `create_tasks`, and others). When `bd info` fails, beads is otherwise unavailable, or the session-start sanity check cannot resolve the plan's epic, present the matching case below and stop.
+Shared reference for wb skills that require beads tracking (`implement`, `implement_inline`, `create_tasks`, and others). When `bd info` fails, beads is otherwise unavailable, or the session-start sanity check cannot resolve the plan's epic, present the matching case below and stop.
 
 Requires bd 1.1.0 or later (`bd version`).
 

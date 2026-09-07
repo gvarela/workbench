@@ -68,7 +68,9 @@ Run this first, before any topic. It decides which of three cases you are in.
          ↓
 /wb:create_tasks  → Plan HOW to implement (creates beads issues)
          ↓
-/wb:implement_tasks   → Execute with TDD (Red → Green → Refactor)
+/wb:implement          → Execute with workers (one per task, verified, escalated)
+         ↓
+/wb:implement_inline   → Same plan, coded inline by this session (TDD)
          ↓
 /wb:validate_execution → Verify implementation matches plan
 ```
@@ -101,7 +103,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
 | `create_design` | the approach, when no decision record exists | the approach; the refined metrics | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
 | `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; Target State names the Intent-refining metrics |
-| `implement_coordinated` / `implement_tasks` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; the milestone closes only on your go-ahead |
+| `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; the milestone closes only on your go-ahead |
 | `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
 | `update_status` | — | any backward transition, with a reason | the proposed transitions | frontmatter status, phase, and counts match beads |
 | `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary | the handoff carries decisions, discoveries, and next steps; resume ran the sanity check and `bd ready` shows the next task |
@@ -216,6 +218,10 @@ Creates project structure with research.md, design.md, tasks.md.
 
 Spawns parallel agents to document codebase. Facts only, no opinions.
 
+### `/wb:create_product_research [directory]`
+
+Researches the codebase from the product perspective: features, user flows, user-visible behaviors, written in product language.
+
 ### `/wb:explore_design [directory]`
 
 (optional) Facilitated architecture discussion between research and design. Invoke when research surfaced multiple viable approaches, the change is cross-cutting or introduces a new subsystem, or the choice is hard to reverse. Skip for small well-scoped fixes, single-approach research, or when create_design's built-in option step is proportionate. Records the decision as a closed `Decide:` issue plus a thoughts/ doc; create_design detects and formalizes it.
@@ -226,15 +232,23 @@ Interactive design session. Captures WHAT and WHY, not HOW. Formalizes a recorde
 
 ### `/wb:create_tasks [directory]`
 
-Transforms design into phased plan. Creates beads issues for tracking. (`/wb:create_execution` is a deprecated alias — removed at 3.0.0.)
+Transforms design into phased plan. Creates beads issues for tracking.
 
-### `/wb:implement_tasks [directory] [phase|continue]`
+### `/wb:implement [directory] [phase|continue]`
 
-TDD implementation. Claims phase in beads, updates on completion.
+The default execution path: coordinates fresh-context workers, one per task, each verified by a task-verifier; verified failures escalate once. Claims and closes beads issues per task; one commit per verified task. `/wb:implement_coordinated` is a deprecated alias through 3.x (removed at 4.0.0).
+
+### `/wb:implement_inline [directory] [phase|continue]`
+
+The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model. `/wb:implement_tasks` is a deprecated alias through 3.x (removed at 4.0.0).
 
 ### `/wb:validate_execution [directory]`
 
 Verifies implementation matches plan. Run after completing work.
+
+### `/wb:validate_project [directory]`
+
+Checks that a plan directory follows the wb workflow: required files, frontmatter, status transitions, beads tracking, stage ordering.
 
 ### `/wb:update_status [directory]`
 

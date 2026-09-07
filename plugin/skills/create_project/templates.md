@@ -41,7 +41,7 @@ Read the relevant template in full before creating each file; match its structur
 3. ⏳ Design exploration (optional) (`/wb:explore_design [directory]`)
 4. ⏳ Design phase (`/wb:create_design [directory]`)
 5. ⏳ Execution planning (`/wb:create_tasks [directory]`)
-6. ⏳ Implementation (`/wb:implement_tasks [directory]`)
+6. ⏳ Implementation (`/wb:implement [directory]`; `/wb:implement_inline` to run it in this session)
 7. ⏳ Testing & Verification
 
 ## Quick Commands
@@ -59,8 +59,8 @@ Read the relevant template in full before creating each file; match its structur
 # Generate execution plan with tasks
 /wb:create_tasks [this-directory]
 
-# Implement tasks with TDD
-/wb:implement_tasks [this-directory]
+# Implement with coordinated workers (/wb:implement_inline runs it in this session)
+/wb:implement [this-directory]
 
 # Update status across all files
 /wb:update_status [this-directory]

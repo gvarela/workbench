@@ -18,8 +18,8 @@ Stages, in order. Each stage reads the previous stage's document and stops if it
   /wb:explore_design  -> optional: think through trade-offs; records a decision in thoughts/ and a closed Decide: issue
   /wb:create_design   -> design.md: what to build and why; needs research.md complete
   /wb:create_tasks    -> tasks.md: phased plan plus the beads epic, milestones, and task issues; needs design.md approved
-  /wb:implement_coordinated -> the default execution path: one worker per task, verified, one phase at a time
-  /wb:implement_tasks -> the same plan, coded inline by this session
+  /wb:implement -> the default execution path: one worker per task, verified, one phase at a time
+  /wb:implement_inline -> the same plan, coded inline by this session
   /wb:validate_execution -> pass/fail against design.md and tasks.md after a phase or the plan
   /wb:create_handoff and /wb:resume_handoff -> carry context across sessions, models, and machines
 Conventions:

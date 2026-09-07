@@ -353,7 +353,7 @@ Common workflows:
 **Simple Resume**:
 
 1. **`/resume_handoff`** - Load context
-2. `/implement_tasks` - Continue implementation
+2. `/implement` - Continue implementation
 3. `/validate_execution` - Verify when phase complete
 
 **Complex Resume with Validation**:
@@ -361,7 +361,7 @@ Common workflows:
 1. **`/resume_handoff`** - Load context
 2. `/validate_execution` - Check actual state
 3. Resolve any discrepancies
-4. `/implement_tasks` - Continue work
+4. `/implement` - Continue work
 
 **Chain of Handoffs**:
 

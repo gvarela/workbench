@@ -1,6 +1,6 @@
 ---
 name: task-worker
-description: Focused implementation worker for exactly one beads task under coordinated execution. Implements the single task it is given with strict TDD, claims and closes its beads issue, and returns a structured completion report. Spawned by /wb:implement_coordinated with a per-task model override.
+description: Focused implementation worker for exactly one beads task under coordinated execution. Implements the single task it is given with strict TDD, claims and closes its beads issue, and returns a structured completion report. Spawned by /wb:implement with a per-task model override.
 tools: Read, Write, Edit, Grep, Glob, Bash
 skills: [tdd-discipline]
 maxTurns: 60

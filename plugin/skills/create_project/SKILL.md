@@ -162,8 +162,8 @@ Present the created structure:
 3. Then generate execution plan:
    /create_tasks [directory]
 
-4. Implement with TDD:
-   /implement_tasks [directory]
+4. Implement (coordinated workers; /implement_inline runs it in this session):
+   /implement [directory]
 
 Ready to begin research phase!
 ```

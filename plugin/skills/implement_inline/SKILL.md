@@ -5,7 +5,7 @@ argument-hint: [project-directory] [phase-number|continue]
 allowed-tools: Read
 ---
 
-# Implement Tasks
+# Implement Inline
 
 You are tasked with implementing tasks from a structured task list in `tasks.md`, following Test-Driven Development (TDD) practices and the phased implementation approach defined in the project documentation.
 

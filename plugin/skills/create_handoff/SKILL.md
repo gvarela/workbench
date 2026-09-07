@@ -245,7 +245,7 @@ Typical workflows:
 
 **Mid-Implementation Handoff**:
 
-1. `/implement_tasks` - Working on implementation
+1. `/implement` - Working on implementation
 2. [Hit blocker or session limit]
 3. **`/create_handoff`** - Document current state
 4. [New session]
