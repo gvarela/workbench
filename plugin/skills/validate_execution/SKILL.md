@@ -30,6 +30,8 @@ Run this AFTER implementation to ensure quality before merging or deployment.
 
 ## Initial Response
 
+This stage needs from you: the manual checks only you can run, and your reading of the verdict per Intent statement.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/validate_execution docs/plans/2025-01-08-my-project/`):
@@ -67,14 +69,27 @@ const tasksFile = `${projectDir}/tasks.md`;
    - Success criteria for each phase
    - Modified files listed
 
+   **Session-start sanity check**: read `beads_epic` from tasks.md frontmatter. If it is present, confirm the right database is open before doing any work (see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md)):
+
+   ```bash
+   bd context            # resolved database name and beads dir
+   bd show [epic-id]     # the plan's epic; must resolve
+   bd stats              # total issue count
+   bd version            # requires bd 1.1.0 or later
+   ```
+
+   If `bd show [epic-id]` fails, present the Wrong database case from [docs/reference/beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and stop. If the frontmatter has no `beads_epic`, note "plan predates beads tracking, sanity check skipped" and continue.
+
 2. **Read design.md** to understand:
    - Original design decisions
-   - Success metrics defined
+   - Success metrics defined, and which Intent statement each refines (`(refines: ...)`), plus the Deferred list
    - Scope boundaries
 
 3. **Read research.md** to understand:
    - Original state of the codebase
    - Patterns that should be followed
+
+4. **Read README.md** in the project directory. If it has an `## Intent` section, list its "Success looks like" statements; each gets a verdict in Step 5 and an echo in Step 6. If it has none, the verdict table carries one row: "no Intent section (plan predates 3.0.0)".
 
 **Compare what was supposed to be built with what exists**
 
@@ -143,6 +158,8 @@ Read [templates.md](templates.md) NOW and create the validation report using its
 
 ### Step 6: Update Documentation
 
+**Verdict echo** (always, pass or fail): for each "Success looks like" statement in the README's `## Intent` section, append `→ PASS (YYYY-MM-DD)` or `→ FAIL (YYYY-MM-DD)` to the end of the statement's line, replacing an earlier `→ ...` suffix if one exists, so the README carries the latest verdict. The verdict for a statement is PASS only when every metric that refines it passed; a statement whose metrics were all deferred is written `→ DEFERRED (YYYY-MM-DD)`. Skip the echo when there is no Intent section.
+
 If validation passes with minor issues:
 
 1. Update tasks.md to reflect actual completion status
@@ -208,7 +225,7 @@ Recommended workflow:
 1. `/create_research` - Document current state
 2. `/create_design` - Decide what to build
 3. `/create_tasks` - Plan how to build
-4. `/implement_tasks` - Build it with TDD
+4. `/implement` - Build it (coordinated workers, TDD)
 5. **`/validate_execution`** - Verify it was built correctly ← YOU ARE HERE
 6. `/create_handoff` - Document for next session (if needed)
 

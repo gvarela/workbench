@@ -21,7 +21,7 @@ Claude Code slash commands for managing project documentation, research, plannin
 ## Command Workflow
 
 ```mermaid
-/create_project → /create_research → /create_mockup → /explore_design → /create_design → /create_tasks → /implement_tasks → /validate_execution
+/create_project → /create_research → /create_mockup → /explore_design → /create_design → /create_tasks → /implement → /validate_execution
        ↓                  ↓                 ↓                ↓                 ↓                 ↓                   ↓                   ↓
   [Structure]       [Research.md]      [Mockups/]    [Decision record]    [Design.md]       [Tasks.md]       [Implementation]      [Validation]
                           ↓                 ↓                ↓                 ↓                 ↓                   ↓                   ↓
@@ -50,16 +50,16 @@ For multi-session work:
 These commands require [beads](https://github.com/steveyegge/beads):
 
 ```bash
-# Initialize (choose mode)
-bd init --stealth   # Stealth: .beads/ not committed (work repos)
-bd init             # Git: .beads/ tracked in git (personal projects)
+# Initialize
+bd init --stealth   # any repository with collaborators who do not use beads (writes the shared .git/info/exclude)
+bd init             # only a repository you own outright; .beads/ is still excluded, never committed
 ```
 
 **How commands use beads**:
 
 - **`/create_mockup`**: Creates `UI Q:` and `UI Assumption:` issues, blocks finalization until resolved
 - **`/create_tasks`**: Creates phase milestone and task issues with dependency chains
-- **`/implement_tasks`**: Uses `bd ready`/`bd update`/`bd close` to track implementation
+- **`/implement`** (and `/implement_inline`): Uses `bd ready`/`bd update`/`bd close` to track implementation
 - **`/update_status`**: Reads beads state as source of truth for status
 - **`/create_handoff`**: Includes open beads issues in handoff context
 - **`mockup-iteration` skill**: Creates UI questions, validates all resolved before finalization
@@ -69,15 +69,13 @@ bd init             # Git: .beads/ tracked in git (personal projects)
 ```bash
 bd ready                                    # Find available work (no blockers)
 bd show [id]                                # Review task details
-bd update [id] --status in_progress         # Claim task
+bd update [id] --claim                      # Claim task
 # ... implement ...
 bd close [id] --reason "..."                # Complete task
-# beads auto-flushes .beads/issues.jsonl after mutations
-# Git mode: commit .beads/ to persist across machines
-# Stealth mode: .beads/ stays uncommitted (local only)
+# end of session: bd dolt push only if a Dolt remote is configured (see plugin/docs/reference/beads-mode.md)
 ```
 
-**Mode Detection**: SessionStart hook auto-detects stealth vs git mode, sets `$BEADS_MODE` environment variable.
+**Persistence**: the local Dolt database under `.beads/` is the source of truth and is never committed; see `plugin/docs/reference/beads-mode.md` for the three tiers and the session-start sanity check.
 
 **Note**: For markdown-only tracking, use the `v1.0.0` tag.
 
@@ -382,15 +380,19 @@ Transforms approved design into detailed phased execution plan with embedded tas
 
 ---
 
-### `/implement_tasks` - Implement with TDD
+### `/implement` - Implement with coordinated workers
 
-Implements tasks following Test-Driven Development (Red → Green → Refactor).
+Implements the plan by coordinating fresh-context worker agents, one per task, each verified; the default execution path. Workers follow Test-Driven Development (Red → Green → Refactor).
 
 **Usage**:
 
 ```bash
-/implement_tasks docs/plans/2025-10-07-my-feature
+/implement docs/plans/2025-10-07-my-feature
 ```
+
+#### `/implement_inline`
+
+The same plan, coded inline by this session with TDD. Use when the work should run on the session model. `/wb:implement_coordinated` and `/wb:implement_tasks` remain as deprecated aliases through 3.x (removed at 4.0.0).
 
 **TDD Process**:
 
@@ -633,7 +635,7 @@ Generates phased plan with specific tasks (HOW to implement).
 #### 7. Implement with TDD
 
 ```bash
-/implement_tasks docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/implement docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
 Work through tasks.md using TDD cycle:
@@ -734,7 +736,8 @@ skills/
 ├── explore_design/SKILL.md    # Architecture discussion (optional)
 ├── create_design/SKILL.md     # Design decisions (WHAT & WHY)
 ├── create_tasks/SKILL.md  # Execution plan (HOW)
-├── implement_tasks/SKILL.md   # TDD implementation
+├── implement/SKILL.md         # Coordinated implementation (default)
+├── implement_inline/SKILL.md  # Inline implementation (this session)
 ├── validate_execution/SKILL.md # Implementation validation
 ├── create_handoff/SKILL.md    # Session handoff
 ├── resume_handoff/SKILL.md    # Resume from handoff

@@ -30,12 +30,14 @@ Full rationale and agent-application rules: [docs/reference/documentarian-philos
 
 ## Initial Response
 
+This stage needs from you: the research question, or a confirmation of the one derived from the plan's Goal.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/wb:create_research docs/plans/2025-01-08-auth/`):
    - Use `$1` as the project directory
-   - If `$2+` exists, use as research question
-   - Otherwise, prompt for research focus
+   - If `$2+` exists, use it as the research question
+   - Otherwise, read the README's Intent section (Step 2); if it has a Goal, derive the research question from it ("What in the codebase bears on: [Goal]?", narrowed to the success statements) and confirm it in one line before proceeding; if there is no Intent section, prompt for the research focus
 
 2. **If no arguments**:
 
@@ -65,12 +67,14 @@ When invoked, check for arguments:
 - Verify research.md file exists (created by `/create_project`)
 - Read the current research.md FULLY to see what's already documented
 - Check frontmatter status field
+- Read `README.md` in the project directory FULLY. If it has an `## Intent` section, record its Goal and its "Success looks like" statements; they shape decomposition (Step 3) and the coverage report (Step 8)
+- If README.md has no `## Intent` section, note "no Intent section (plan predates 3.0.0)" and carry that line into the coverage report
 
 ### Step 3: Analyze and Decompose the Research Question
 
 **Document what EXISTS in the codebase**
 
-1. **Break down the user's query into composable research areas**
+1. **Break down the user's query into composable research areas**, one area per Intent success statement it bears on when an Intent section exists, plus any area the question needs that no statement names
 2. **REMEMBER: Document what IS, not what SHOULD BE**
 3. **Work out:**
    - Underlying patterns and connections that EXIST
@@ -85,6 +89,8 @@ When invoked, check for arguments:
    - [Other areas specific to the research question]
 
 5. **Consider which specific components** to investigate
+
+Keep the mapping from research areas to success statements; Step 8 reports it.
 
 ### Step 4: Spawn Parallel Research Agents
 
@@ -198,6 +204,11 @@ The research document has been updated with:
 - Architecture documentation for [system]
 - [X] similar implementation examples
 
+Intent Coverage (from README Intent):
+
+- Statements the findings bear on: [statement]; [statement]
+- Statements the findings do not touch: [statement], or "none"
+
 Next: [choose ONE line based on the findings]
 [Multiple viable approaches documented:] Findings show multiple viable approaches — consider `/wb:explore_design` to explore directions before `/wb:create_design`.
 [Single clear approach:] Review the research and run `/create_design` when ready to create design decisions.
@@ -205,6 +216,8 @@ Next: [choose ONE line based on the findings]
 ```
 
 **Nudge discipline**: suggest `/wb:explore_design` ONLY when the findings document multiple viable approaches. The test: would each option produce a **different design.md** — different integration points, contracts, or subsystems? Options that fill the SAME architectural slot and differ only by algorithm, library, or configuration are variations of one approach — count them as ONE and use the single-approach line. Two named, precedented options are NOT automatically two approaches. This is a factual judgment about what the research documented — not a recommendation of any approach, which research never makes.
+
+**Coverage discipline**: every success statement in the README Intent appears in exactly one of the two coverage lists; a statement no finding bears on is listed as not touched, never dropped. Plans without an Intent section print `Intent Coverage: no Intent section (plan predates 3.0.0)` in place of the two lists, and the research.md section says the same.
 
 ## Important Notes
 

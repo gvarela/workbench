@@ -11,6 +11,8 @@ Validates that a project's documentation structure follows the wb workflow corre
 
 ## Initial Response
 
+This stage needs from you: nothing up front; read the findings and choose which to fix.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/wb:validate_project docs/plans/2025-01-08-my-project/`):
@@ -60,6 +62,8 @@ For each file (research.md, design.md, tasks.md):
 - ✅ tasks.md has `beads_tasks` in frontmatter
 - ✅ All beads IDs in frontmatter exist (`bd show [id]` succeeds)
 - ✅ No orphaned beads issues (beads exist that aren't in frontmatter)
+- ✅ `.beads/` is excluded or ignored (beads' Dolt directory is never meant to be committed)
+- ✅ `bd orphans` output reported (issues commit messages reference that are still open)
 
 ### 4. Status Consistency
 
@@ -149,27 +153,18 @@ Check beads integration and state:
 # Verify beads is initialized
 bd info
 
-# Check and validate beads mode (set by SessionStart hook)
-# Validation mirrors the hook's own detection: git check-ignore on .beads/
-if [ "$BEADS_MODE" = "stealth" ]; then
-  echo "📍 Stealth mode detected"
+# Session-start sanity check (see docs/reference/beads-mode.md): the right database must be open
+bd context                      # resolved database name and beads dir
+bd show [epic-id]               # the plan's epic from tasks.md frontmatter; if this fails, stop with the Wrong database message in docs/reference/beads-not-initialized.md
+bd version                      # requires bd 1.1.0 or later
 
-  if git check-ignore -q .beads/ 2>/dev/null; then
-    echo "✅ Stealth mode correctly configured (.beads/ is gitignored)"
-  else
-    echo "⚠️  WARNING: BEADS_MODE=stealth but .beads/ is not gitignored"
-    echo "   Run 'bd init --stealth' to properly configure stealth mode"
-  fi
-else
-  echo "📍 Git mode detected"
-
-  if git check-ignore -q .beads/ 2>/dev/null; then
-    echo "⚠️  WARNING: BEADS_MODE=git but .beads/ is gitignored"
-    echo "   Either un-ignore .beads/ OR switch to stealth mode"
-  else
-    echo "✅ Git mode correctly configured (.beads/ not gitignored)"
-  fi
+# .beads/ holds beads' Dolt database and is never meant to be committed
+if [ -d .beads ] && ! git check-ignore -q .beads/ 2>/dev/null; then
+  echo "⚠️  .beads/ is tracked or unignored — beads' Dolt directory is never meant to be committed; run bd init --stealth (or --setup-exclude)"
 fi
+
+# Hygiene: open issues that commit messages already reference (landed but never closed)
+bd orphans
 
 # Check beads stats
 bd stats
@@ -182,6 +177,8 @@ bd show [epic-id]
 bd show [phase-milestone-id]
 bd show [task-id]
 ```
+
+If `bd show [epic-id]` fails, present the Wrong database case from [docs/reference/beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and stop; the sanity check is skipped when the frontmatter has no `beads_epic`.
 
 Extract beads IDs from tasks.md frontmatter:
 

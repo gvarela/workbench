@@ -13,6 +13,8 @@ Supporting file: [templates.md](templates.md) — the four initial file template
 
 ## Initial Response
 
+This stage needs from you: the goal, what success looks like, and what is out of scope. Project name, base directory, and ticket are the mechanics.
+
 When invoked, check for arguments:
 
 1. **If arguments provided** (e.g., `/create_project auth-refactor docs/plans LINEAR-456`):
@@ -30,9 +32,30 @@ When invoked, check for arguments:
    1. Project name (short, kebab-case preferred, e.g., auth-refactor)
    2. Base directory (default: docs/plans)
    3. Ticket/issue reference (optional, e.g., GH-123, JIRA-456, LINEAR-789)
+   4. Intent: the goal in one sentence, what success looks like (two to four observable statements), and non-goals
 
    I'll create a timestamped project directory with research, design, and task tracking files.
    ```
+
+### Intent
+
+Every project states its intent before any file is written. Three parts, all required:
+
+- **Goal**: one sentence saying what the project is for
+- **Success looks like**: two to four observable statements (what a person could see or check when the project has done its job; not numbers, which design refines later)
+- **Non-goals**: what this project will not do
+
+Take it from the request when the request carries it. If the prose that invoked this stage (or the arguments) states a goal, an outcome, or a boundary, draft all three parts from it and confirm in one exchange:
+
+```
+I read the intent as:
+- Goal: [one sentence]
+- Success looks like: [two to four statements]
+- Non-goals: [list, or "none stated"]
+Correct, or what should change?
+```
+
+If the request carries none of it, ask for the three parts in one message before proceeding. Do not create the directory or any file while any part is empty; the Intent section is written from the confirmed text, and the amendment list starts empty.
 
 ## Process Steps
 
@@ -85,7 +108,7 @@ Create four foundation files:
 
 **1. README.md** - Navigation hub
 
-Read the "README.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in.
+Read the "README.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in. Fill the Intent section from the confirmed intent; two to four Success statements; the Amendments list starts with its placeholder line.
 
 **2. research.md** - Research documentation
 
@@ -123,6 +146,11 @@ Present the created structure:
 - Created by: [username]
 - Timestamp: [ISO-8601]
 
+🎯 Intent recorded:
+- Goal: [goal sentence]
+- Success looks like: [statement 1]; [statement 2]; ...
+- Non-goals: [list]
+
 🔄 Next Steps:
 
 1. Research the codebase:
@@ -134,8 +162,8 @@ Present the created structure:
 3. Then generate execution plan:
    /create_tasks [directory]
 
-4. Implement with TDD:
-   /implement_tasks [directory]
+4. Implement (coordinated workers; /implement_inline runs it in this session):
+   /implement [directory]
 
 Ready to begin research phase!
 ```
@@ -148,6 +176,7 @@ Ready to begin research phase!
 - `$2` - Base directory (optional, defaults to docs/plans)
 - `$3` - Ticket reference (optional)
 - `$ARGUMENTS` - All arguments as a single string
+- Intent is never an argument; it comes from the invoking prose or one question, and is confirmed before files are written
 
 ### Status Progression
 

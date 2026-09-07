@@ -2,6 +2,58 @@
 
 All notable changes to the wb plugin. Versions are release cuts — installers receive a version only when it's bumped here AND they run `claude plugin update wb@gvarela-workbench`. See [RELEASING.md](RELEASING.md) for the process.
 
+## [3.0.0] — 2026-09-06
+
+The "tools as intended" release: beads used the way beads means it, a plan that states its intent, a workflow that explains its human inputs, `implement` as the default execution path, and the alias promised for removal at 3.0.0 gone. Plan: `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/`.
+
+### ⚠️ Breaking / Requirements
+
+- **Requires bd 1.1.0 or later.** The session-start sanity check compares `bd version` against this floor.
+- **`/wb:create_execution` removed** (deprecated since 2.2.0). Use `/wb:create_tasks`.
+- **Renamed**: `/wb:implement_coordinated` → `/wb:implement`, `/wb:implement_tasks` → `/wb:implement_inline`. `implement` is the default execution path (coordinated workers, verified per task); `implement_inline` runs the same plan inline on the session model. The old names keep working as deprecated aliases through 3.x (removed at 4.0.0): each prints a one-line notice and runs the canonical skill unchanged. **Gotcha**: a session started before this release may hold a cached pre-rename skill body — restart the session (or `/reload-skills`) after updating; the alias directories keep pointer files so stale references degrade gracefully.
+- **`BEADS_MODE` and `hooks/setup-beads-mode.sh` removed.** No skill, hook, or doc branches on a beads "mode" any more; the variable was never documented as user-facing, and any local settings that referenced it stop resolving.
+- **The commit-`.beads/` guidance is gone from every skill, hook, and doc.** Beads' Dolt directory is never committed. If you committed `.beads/` in any repository: stop; exclude it (`bd init --setup-exclude` or `bd init --stealth`); set up `bd backup init <url>` or a Dolt remote if you need cross-machine continuity. The old `issues.jsonl` stays importable with `bd import`. Full model: `plugin/docs/reference/beads-mode.md`.
+- **`hooks/compact-recovery.sh` replaced by `hooks/wb-prime.sh`.** Same recovery text on compact; the new script also runs on startup, resume, clear, fork, and PreCompact.
+
+### Added
+
+- `hooks/wb-prime.sh`, modeled on `bd prime`: on SessionStart `startup`, `resume`, `clear`, and `fork` it prints a session orientation (the stage chain and what each stage requires, the `docs/plans/<date>-<name>/` layout, beads holds status and markdown holds the plan, checkpoints stop for a human, the session-start sanity check, the active plans in the repository, a pointer to `/wb:help`); on `compact` and on PreCompact it prints the compaction recovery text. A repository replaces the orientation with `.claude/wb/PRIME.md`; `wb-prime.sh --export` prints the default. Under 100ms, no bd calls.
+- Session-start sanity check (`bd context`, `bd show <beads_epic>`, `bd stats`, `bd version`) in every stage that reads a plan's beads IDs: resume_handoff, implement_tasks, implement_coordinated, update_status, validate_execution, and create_tasks on a re-run. A plan whose epic does not resolve stops with the new Wrong database case in `plugin/docs/reference/beads-not-initialized.md`.
+- `bd doctor` in the session close protocol (server mode; embedded mode is a no-op in bd 1.1.0, so the protocol falls back to `bd stale` and `bd orphans`) (CLAUDE.md, the reference doc's Hygiene section); `bd orphans` reported by validate_project's beads check, alongside its existing frontmatter orphan check.
+- Handoffs state what is portable: without a Dolt remote or backup, the handoff document is the only artifact that crosses machines and the plan's beads IDs will not resolve elsewhere (create_handoff). Memory facts in both implementation skills and create_handoff: `bd remember` memories are workspace-wide and excluded from `bd export` by default.
+- The README gains an `## Intent` section written by `create_project` at creation: a Goal, two to four "Success looks like" statements (observable, not numeric), Non-goals, and an Amendments list. `create_project` takes the intent from the invoking prose when present and confirms it in one exchange, asks for it otherwise, and never writes files while any part is empty; the confirmation echoes it back.
+- Per-stage obligations to the Intent: `create_research` derives its question from the Goal when none is given, decomposes against the success statements, and writes an `## Intent Coverage` section naming the statements its findings bear on and the ones they do not touch; `explore_design` frames the decision space against the Goal, cites it first in the `Decide:` record, and records a Goal or Non-goal change as a dated Amendments line; `create_design` refines each statement into a metric marked `(refines: "...")` with a Deferred list for the rest, traces the problem statement to the Goal, and treats a Goal or Non-goal change as a `Decide:` record plus an Amendments line before design.md is written (BARRIER 4); `create_tasks` copies the Intent-refining metrics as the Target State; `validate_execution` reports a verdict per Intent statement and writes it back beside each README statement as `→ PASS`, `→ FAIL`, or `→ DEFERRED` with the date. Plans created before 3.0.0 have no Intent section; every stage treats that as "no obligation" and says so.
+- The human-input map: `/wb:help` renders "What each stage needs from you" (what you provide, decide, and confirm, and how you know the stage did enough); `hooks/wb-prime.sh`'s orientation carries a six-line summary; every workflow stage opens with one line, "This stage needs from you: ...".
+- `/wb:help` is stateful: in a repository with an active plan, or when asked "where am I" or "what's next", it reports the plan's position (documents and their status, epic and milestone state, open `Q:` and `Decide:` issues), the next stage and what it needs from you, and what the previous stage left undone, read from the Intent evidence; without an active plan, or for a plan without an Intent section, it says which case it is in.
+- `docs/beads-guide.md` (maintainers): the model wb relies on, a contract inventory of every bd invocation under `plugin/` verified on bd 1.1.0 (with embedded-mode caveats and command semantics), the config keys and the `.beads/metadata.json` dependency, the supported version and the upgrade protocol, interpretation notes, a doc map, and a version log. CLAUDE.md rule: a change to a bd command in a shipped file updates the inventory.
+- Development rule that keeps help current: a change to a workflow stage's existence, name, scope, or intake updates help's Command Workflow, its "What each stage needs from you" table, and its Command Details, wb-prime's orientation, and the stage's intake line, in the same commit (CLAUDE.md); RELEASING.md's pre-bump verification greps for drift; the skills guide calls it a four-copy change. Nothing in shipped help or wb-prime changed for this.
+- Commit discipline for execution: `implement_coordinated` commits each task after its verifier passes (one task, one commit; plan-doc edits are separate commits between tasks); workers never commit (worker prompt and `agents/task-worker.md`); `agents/task-verifier.md` checks scope against the working tree rather than the previous commit; `implement_tasks` commits once per task after verification. Structural and behavioral changes stay apart at the task level through create_tasks' Tidy First edge rule.
+
+### Changed
+
+- `RELEASING.md` Process: non-breaking phases merge unbumped under Unreleased; a cut happens when a plan completes; the breaking phase goes last and carries the bump; every cut is tagged; majors get a three-session canary on the release branch.
+- Beads persistence: `plugin/docs/reference/beads-mode.md` is the single statement. `issues.jsonl` is written only with `export.auto` on or an explicit `bd export`; the auto-flush claim is removed from ten skill and doc sites (prompts-vwo).
+- `implement_coordinated/reference.md` "Worker Model Selection" points at the SKILL.md Step 5 tier list instead of restating it with opus as the default when unsure.
+- `plugin/docs/reference/beads-mode.md` rewritten around beads' model: the setup rule (`bd init --stealth` for any repository with collaborators who do not use beads; plain `bd init` only for a repository you own, still with `.beads/` excluded), three persistence tiers (local database; Dolt remote or `bd backup`; JSONL for interchange), the one-question close step, worktree facts, the sanity check, hygiene commands, memory facts. `beads-not-initialized.md` shows `bd init --stealth` first and gains the Wrong database case and the bd 1.1.0 floor.
+- Every skill's persist step is one question: `bd config get sync.remote` set → `bd dolt push`; `backup.enabled` true → `bd backup sync`; otherwise nothing. help's "Beads + Git Workflow" block is now "Beads persistence" (the three tiers).
+- `hooks/beads-drift-check.sh` (SessionEnd) reminds to `bd dolt push` only when a Dolt remote is configured; it no longer inspects git for `.beads/` changes.
+- validate_project's beads check warns when `.beads/` is neither excluded nor ignored instead of validating a mode.
+- Root and maintainer docs (README, CLAUDE.md, commands reference, workflow guide) render the three-tier model and the stealth-first setup rule; `bd update --claim` replaces `--status in_progress` in the examples.
+- `create_design`'s Success Metrics refine the README Intent's success statements rather than originate them; each metric names the statement it refines, and a statement no metric covers is listed as deferred with a reason.
+- Every live rendering of the workflow (help, wb-prime's orientation, the generated project README, README.md, CLAUDE.md, the commands reference, the workflow guide) names `implement` as the default execution path with `implement_inline` beside it.
+
+### Fixed
+
+- `plugin/scripts/lint` exits 1 when markdownlint reports an error, in named-file, changed-files, and `--all` modes, and exits 1 from `--fix` when findings remain; it had always exited 0 (prompts-3ke). The PostToolUse hook still exits 0.
+- `help`'s "database locked" troubleshooting named `.beads/daemon.lock` and `bd daemon`, which do not exist on embedded Dolt; it now says a lock clears when the other session's command finishes, that `bd context` shows the open database, and that `bd doctor` runs only against a Dolt server in bd 1.1.0.
+
+### Migration
+
+1. `claude plugin update wb@gvarela-workbench` from your shell, then restart Claude (or `/reload-plugins`).
+2. If you committed `.beads/` in any repository: stop; exclude it (`bd init --setup-exclude` or `bd init --stealth`); set up `bd backup init <url>` or a Dolt remote if you need continuity. The old `issues.jsonl` stays importable with `bd import`.
+3. Optionally switch to the new command names; the old ones print a notice until 4.0.0. Replace any `/wb:create_execution` with `/wb:create_tasks`.
+4. Existing plans have no Intent section; stages treat that as "no obligation" and help says so. Add one by hand to a plan you want the new checks on.
+
 ## [2.6.0] — 2026-09-05
 
 Every wb workflow skill is now model-invocable. A prose request to plan, research, design, break down, implement, validate, sync status, or hand off is honored without a typed `/wb:` command; the slash commands still work as before.

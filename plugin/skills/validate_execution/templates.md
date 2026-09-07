@@ -18,6 +18,13 @@ Generated: [YYYY-MM-DD HH:MM]
 - Automated Tests: [PASS/FAIL]
 - Manual Testing Required: YES/NO
 
+## Verdict per Intent Statement
+
+| Statement (README Intent) | Refining metrics (design.md) | Verdict | Evidence |
+| ------------------------- | ----------------------------- | ------- | -------- |
+| [statement] | [metric]; [metric] | PASS / FAIL / DEFERRED | [what was checked, one clause] |
+| no Intent section (plan predates 3.0.0) | — | — | — |
+
 ## Phase-by-Phase Validation
 
 ### Phase 1: [Name]

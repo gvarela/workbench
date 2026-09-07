@@ -26,6 +26,8 @@ This command:
 
 ## Initial Response
 
+This stage needs from you: the handoff path, and confirmation before any backward step such as reopening closed work.
+
 When invoked, check for arguments:
 
 1. **If handoff path provided** (e.g., `/resume_handoff docs/plans/2025-01-08-auth/handoff-2025-01-08-14-30.md`):
@@ -67,7 +69,7 @@ const handoffPath = $1 || /* prompt for it */;
 3. **Pull latest from remote**:
 
    ```bash
-   git pull    # Get latest commits (and beads state if in git mode)
+   git pull    # Get latest commits
    ```
 
 4. **Validate handoff currency**:
@@ -82,19 +84,28 @@ const handoffPath = $1 || /* prompt for it */;
 
 5. **Sync and check beads state**:
 
-   ```bash
-   # Mode semantics: see beads-mode.md in this plugin's docs/reference/ ($BEADS_MODE
-   # set by SessionStart hook). Git mode: beads auto-imports issues.jsonl after git pull.
+   **Session-start sanity check**: read `beads_epic` from tasks.md frontmatter. If it is present, confirm the right database is open before doing any work (see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md)):
 
-   # Check beads state regardless of mode
+   ```bash
+   bd context            # resolved database name and beads dir
+   bd show [epic-id]     # the plan's epic; must resolve
+   bd stats              # total issue count
+   bd version            # requires bd 1.1.0 or later
+   ```
+
+   If `bd show [epic-id]` fails, present the Wrong database case from [docs/reference/beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and stop. If the frontmatter has no `beads_epic`, note "plan predates beads tracking, sanity check skipped" and continue.
+
+   ```bash
+   # Persistence: see plugin/docs/reference/beads-mode.md (the local database is the source of truth)
+
+   # Check beads state
    bd stats                        # Current beads statistics
    bd list --status=in_progress    # Check active work
    bd ready                        # See what's available
    ```
 
    Compare with handoff's `beads_in_progress`:
-   - **Git mode**: Should match if no work done since handoff
-   - **Stealth mode**: May differ (beads is local, handoff is document-based)
+   - Counts should match if no work was done since the handoff; a large mismatch or zero issues means the session-start sanity check in beads-mode.md applies (`bd context`, `bd show <beads_epic>`, `bd stats`)
 
 **Absorb the context and discoveries documented**
 
@@ -342,7 +353,7 @@ Common workflows:
 **Simple Resume**:
 
 1. **`/resume_handoff`** - Load context
-2. `/implement_tasks` - Continue implementation
+2. `/implement` - Continue implementation
 3. `/validate_execution` - Verify when phase complete
 
 **Complex Resume with Validation**:
@@ -350,7 +361,7 @@ Common workflows:
 1. **`/resume_handoff`** - Load context
 2. `/validate_execution` - Check actual state
 3. Resolve any discrepancies
-4. `/implement_tasks` - Continue work
+4. `/implement` - Continue work
 
 **Chain of Handoffs**:
 

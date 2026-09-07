@@ -27,6 +27,15 @@ last_updated: [YYYY-MM-DD]
 
 [High-level documentation of what was found, answering the user's question by describing what exists - 2-3 paragraphs]
 
+## Intent Coverage
+
+Against the README Intent's "Success looks like" statements:
+
+- **Statements the findings bear on**: [statement] — [which finding, one clause]
+- **Statements the findings do not touch**: [statement], or "none"
+
+(For a plan without an Intent section: "no Intent section (plan predates 3.0.0)".)
+
 ## Detailed Findings
 
 ### [Component/Area 1]

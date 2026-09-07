@@ -25,6 +25,8 @@ Supporting files in this directory (read each when its step directs you to — n
 
 ## Initial Response
 
+This stage needs from you: confirmation of the proposed transitions; a backward transition needs a reason.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/wb:update_status docs/plans/2025-01-08-auth/`):
@@ -55,10 +57,23 @@ bd list                         # All issues with status
 bd list --status=in_progress    # Active work
 bd list --status=closed         # Completed work
 
-# Mode semantics: see beads-mode.md in this plugin's docs/reference/ ($BEADS_MODE set by SessionStart hook)
+# Persistence: see plugin/docs/reference/beads-mode.md
 ```
 
-**Note**: Beads mode doesn't affect status updates — only persistence.
+**Note**: Persistence does not affect status updates; the local database is always current.
+
+#### Session-Start Sanity Check
+
+Read `beads_epic` from tasks.md frontmatter. If it is present, confirm the right database is open before doing any work (see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md)):
+
+```bash
+bd context            # resolved database name and beads dir
+bd show [epic-id]     # the plan's epic; must resolve
+bd stats              # total issue count
+bd version            # requires bd 1.1.0 or later
+```
+
+If `bd show [epic-id]` fails, present the Wrong database case from [docs/reference/beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and stop. If the frontmatter has no `beads_epic`, note "plan predates beads tracking, sanity check skipped" and continue.
 
 Check tasks.md for beads phase IDs:
 
@@ -232,25 +247,15 @@ After all updates:
 
 ### Step 8: Persist Beads State
 
-After updating status, persist beads state (beads auto-flushes `.beads/issues.jsonl` after mutations):
+After updating status, persist beads state (one question; see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md)):
 
 ```bash
-# In git mode, commit the beads state if needed
-if [ "$BEADS_MODE" != "stealth" ]; then
-  if git diff --quiet .beads/ 2>/dev/null; then
-    echo "No beads changes to commit"
-  else
-    git add .beads/
-    git commit -m "Sync beads state after status update"
-  fi
-fi
+# Persist beads state (see plugin/docs/reference/beads-mode.md)
+if bd config get sync.remote 2>/dev/null | grep -qv "not set"; then bd dolt push; fi
+if [ "$(bd config get backup.enabled 2>/dev/null)" = "true" ]; then bd backup sync; fi
 ```
 
-**Why this matters**:
-
-- **Stealth mode**: beads state is auto-flushed locally; nothing to commit
-- **Git mode**: Persists beads state to git for cross-machine sync
-- Both modes: Ensures beads database is up-to-date
+**Why this matters**: The local database is always current; the push or sync only matters for another machine.
 
 ## Status Transition Logic
 

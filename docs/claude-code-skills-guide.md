@@ -39,7 +39,7 @@ The old distinction ("commands are explicit, skills are automatic") is now a *co
 ## File Structure and Locations
 
 | Location | Scope | Resulting name |
-|----------|-------|----------------|
+| ---------- | ------- | ---------------- |
 | Managed settings | Organization-wide (highest priority) | `/name` |
 | `~/.claude/skills/<name>/SKILL.md` | Personal, all projects | `/name` |
 | `.claude/skills/<name>/SKILL.md` | Project (shared via git) | `/name` |
@@ -123,7 +123,7 @@ Values: `"on"` (default), `"name-only"` (no description in context), `"user-invo
 The two flags produce three useful configurations:
 
 | Configuration | Frontmatter | User types `/name` | Claude auto-invokes | Description in context |
-|---------------|-------------|--------------------|---------------------|------------------------|
+| --------------- | ------------- | -------------------- | --------------------- | ------------------------ |
 | Default | (neither flag) | ✅ | ✅ | ✅ |
 | User-only | `disable-model-invocation: true` | ✅ | ❌ | ❌ |
 | Claude-only | `user-invocable: false` | ❌ (hidden) | ✅ | ✅ |
@@ -141,7 +141,7 @@ Guidance:
 ### String substitutions
 
 | Variable | Meaning |
-|----------|---------|
+| ---------- | --------- |
 | `$ARGUMENTS` | All arguments as typed after `/name` |
 | `$0`, `$1`, `$2` … | Positional arguments |
 | `$ARGUMENTS[N]` | Indexed argument |
@@ -224,7 +224,7 @@ Capabilities worth knowing:
 ### Built-in subagents
 
 | Name | Model | Tools | Notes |
-|------|-------|-------|-------|
+| ------ | ------- | ------- | ------- |
 | `Explore` | Haiku | Read-only | Fast/cheap search; skips CLAUDE.md |
 | `Plan` | Inherits | Read-only | Research for plan mode; skips CLAUDE.md |
 | `general-purpose` | Inherits | All | Default for complex multi-step tasks |
@@ -307,14 +307,15 @@ Deterministic automation on events?  → hook
 
 The wb plugin migrated to the canonical layout in v2.0.0: all former `commands/*.md` files now live at `skills/<name>/SKILL.md`, with `disable-model-invocation: true` on workflow steps and `user-invocable: false` on background-discipline skills. Remaining candidates:
 
-1. **Keep the explicit `/wb:*` workflow**, but the old rationale ("commands are user-invoked, skills are not") is obsolete. The modern equivalent of that intent is `disable-model-invocation: true`, which also keeps the stage-command descriptions out of baseline context. Since v2.6.0 every wb workflow skill is model-invocable (decision: current models judge when to invoke a skill well, and the block was costing more than it protected — a prose request to plan, research, implement, sync status, or hand off could not be honored). Descriptions are written as trigger text (what + when + what it takes) because the model now loads them; each skill's Initial Response still gates on its arguments. Only the deprecated `create_execution` alias keeps `disable-model-invocation: true`, so the model never picks it over `create_tasks`.
+1. **Keep the explicit `/wb:*` workflow**, but the old rationale ("commands are user-invoked, skills are not") is obsolete. The modern equivalent of that intent is `disable-model-invocation: true`, which also keeps the stage-command descriptions out of baseline context. Since v2.6.0 every wb workflow skill is model-invocable (decision: current models judge when to invoke a skill well, and the block was costing more than it protected — a prose request to plan, research, implement, sync status, or hand off could not be honored). Descriptions are written as trigger text (what + when + what it takes) because the model now loads them; each skill's Initial Response still gates on its arguments. Only the deprecated `implement_coordinated` and `implement_tasks` aliases keep `disable-model-invocation: true`, so the model never picks them over `implement` and `implement_inline`.
 2. **The wb skills (tdd-discipline, verification-before-completion, status-sync, etc.) are the "Claude-only" pattern** — they could declare `user-invocable: false` explicitly.
 3. **Candidate upgrades** (not yet applied):
    - `context: fork` for research-heavy commands (`create_research`, `create_product_research`)
-   - `skills: [tdd-discipline]` preload + `maxTurns` on worker agents used by `implement_coordinated`
+   - `skills: [tdd-discipline]` preload + `maxTurns` on worker agents used by `implement`
    - `memory: project` on research agents to accumulate codebase knowledge
    - `SessionEnd`/`PreCompact` hooks for deterministic beads persistence instead of relying on the status-sync skill activating
    - `displayName` in plugin.json
+4. **Adding or renaming a skill is a four-copy change**: register it in help (Command Workflow, the "What each stage needs from you" table, Command Details) and in `hooks/wb-prime.sh`'s orientation, and give it a "This stage needs from you" intake line. CLAUDE.md states the rule; RELEASING.md's pre-bump check greps for drift.
 
 ---
 
@@ -323,7 +324,7 @@ The wb plugin migrated to the canonical layout in v2.0.0: all former `commands/*
 For readers who knew the previous version of this document, these statements from it are **no longer true**:
 
 | 2025 guide said | Now |
-|-----------------|-----|
+| ----------------- | ----- |
 | Skills cannot be explicitly invoked (no `/skill-name` syntax) | Skills ARE invocable via `/skill-name` unless `user-invocable: false` |
 | Skills and slash commands are separate systems | Unified — same mechanism, `skills/` is canonical, `commands/` is legacy |
 | Skills use a flat structure, no namespaces | Recursive scanning; plugin skills get `/plugin:name` namespacing |

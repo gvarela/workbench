@@ -39,6 +39,8 @@ Your output is for someone who manages the product, not someone who writes the c
 
 ## Initial Response
 
+This stage needs from you: the product question, or a confirmation of the one derived from the plan's Goal.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/wb:create_product_research docs/plans/2025-01-08-auth/`):

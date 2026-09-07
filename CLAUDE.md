@@ -10,9 +10,9 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 
 - `.claude-plugin/` - Marketplace manifest (plugin manifest lives in `plugin/.claude-plugin/`)
 - `plugin/` - The shipped runtime: everything below is what installers receive
-- `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text; only the deprecated `create_execution` alias is user-only) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
+- `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text; only the deprecated `implement_coordinated` and `implement_tasks` aliases are user-only (they redirect to `implement` and `implement_inline` through 3.x)) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
 - `plugin/agents/` - Specialized subagent definitions
-- `plugin/hooks/` - Event handlers (SessionStart, SessionEnd, PostToolUse); `compact-recovery.sh` (SessionStart on compact) re-anchors a compacted session on the active plan directory
+- `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger and PreCompact: orientation on a fresh start, recovery text on compact; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
 - `plugin/scripts/` - Utility scripts (lint, lint-hook)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
@@ -83,7 +83,8 @@ For local dev (`--plugin-dir` install), changes take effect immediately without 
 The commands follow a strict sequential workflow:
 
 ```
-/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement_tasks → /wb:validate_execution
+/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → /wb:validate_execution
+(/wb:implement_inline runs the same plan inline in this session)
 ```
 
 For multi-session work:
@@ -111,7 +112,7 @@ The workflow separates three distinct concerns:
 3. **File Reading Protocol**: ALWAYS read files FULLY (no limit/offset) before analysis
 4. **Dual Verification**: Separate automated checks from manual verification
 5. **Zero Scope Creep**: Tasks only come from plans, no additions
-6. **Beads Required**: These commands require beads for ALL task tracking (`bd init`)
+6. **Beads Required**: These commands require beads 1.1.0 or later for ALL task tracking (`bd init --stealth` in any repository with collaborators who do not use beads; see `plugin/docs/reference/beads-mode.md`)
    - Use beads for phases AND granular tasks
    - Do NOT use TaskCreate, TaskUpdate, TodoWrite, or markdown checkboxes for tracking
    - Markdown files document the PLAN, beads tracks the STATUS
@@ -120,12 +121,13 @@ The workflow separates three distinct concerns:
 
 If any `bd` command fails:
 
-1. **Diagnose**: Run `bd info` to check for issues
+1. **Diagnose**: Run `bd info`, `bd context` (which database is open), and `bd doctor`
 2. **Report**: Tell the user the specific error and suggest fixes
 3. **Fix**: Common fixes:
-   - "beads not initialized" → `bd init`
+   - "beads not initialized" → `bd init --stealth`
    - "issue not found" → `bd list` to find correct ID
    - "database locked" → wait and retry
+   - zero issues or an unexpected database name from `bd context` → check `.beads/metadata.json` (the Wrong database case in `plugin/docs/reference/beads-not-initialized.md`)
 4. **Retry**: After fixing, re-run the failed command
 
 ### Task Tracking Philosophy
@@ -155,6 +157,8 @@ All generated documentation files use consistent YAML frontmatter:
 - User tracking: `researcher`, `planner`, `assignee`
 - Progress: `current_phase`, `total_tasks`, `completed_tasks`
 - Progress fields are written only by `/wb:update_status` (sole writer); other skills and checkpoints defer to it.
+- Any change that adds, removes, or alters a bd command in a shipped file (under `plugin/`) updates the contract inventory in [docs/beads-guide.md](docs/beads-guide.md), including its verified-on column.
+- Any change to a workflow stage's existence, name, scope, or intake updates help's Command Workflow chain, its "What each stage needs from you" table, and its Command Details, wb-prime's orientation (stage chain and the six-line summary), and that stage's "This stage needs from you" line, in the same commit. RELEASING.md's pre-bump verification greps for drift.
 
 ## Agent Spawning with Model Selection
 
@@ -207,20 +211,20 @@ bd ready              # Find available work (no blockers)
 bd show <id>          # View issue details
 bd update <id> --claim  # Claim work
 bd close <id>         # Complete work
-# beads state is local-only: .beads/ is gitignored (stealth mode); nothing to commit
+# beads state lives in the local Dolt database under .beads/, which is never committed; no remote or backup is configured here
 ```
 
 ### Session Protocol
 
 See the Session Completion section at the end of this file for the full session close protocol. Key points:
 
-1. **Before ending**: Close completed issues with `bd close`
-2. **Persist**: nothing — the embedded Dolt database under `.beads/` is local-only and gitignored; there is no Dolt remote and no JSONL export to commit
+1. **Before ending**: run `bd doctor` where it is supported (server mode; in embedded mode it is a no-op in bd 1.1.0, so run `bd stale` and `bd orphans` instead) and act on what it reports; close completed issues with `bd close`
+2. **Persist**: one question — `bd config get sync.remote`; a configured remote means `bd dolt push`, otherwise nothing (this repository has none; see `plugin/docs/reference/beads-mode.md`)
 3. **Push**: Commit and push the code and docs
 
 ### Integration with wb Commands
 
-The workbench commands (`/wb:*`) automatically detect beads and use it for phase tracking. See [docs/commands-reference.md](docs/commands-reference.md) for details.
+The workbench commands (`/wb:*`) use beads for phase tracking and run the session-start sanity check from `plugin/docs/reference/beads-mode.md` before reading a plan's issue IDs. See [docs/commands-reference.md](docs/commands-reference.md) for details.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker

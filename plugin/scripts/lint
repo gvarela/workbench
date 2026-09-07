@@ -181,7 +181,7 @@ echo ""
 ISSUES_FOUND=false
 
 # Run markdownlint on each file
-echo "$FILES" | while read -r file; do
+while read -r file; do
     if [ -f "$file" ]; then
         if markdownlint $AUTO_FIX $CONFIG_ARG "$file" 2>&1; then
             if [ -n "$AUTO_FIX" ]; then
@@ -197,7 +197,7 @@ echo "$FILES" | while read -r file; do
             fi
         fi
     fi
-done
+done <<< "$FILES"
 
 # Clean up temporary config
 if [ "$TEMP_CONFIG" = true ]; then
@@ -217,6 +217,8 @@ else
     if [ -z "$AUTO_FIX" ]; then
         echo -e "${YELLOW}⚠️  Markdown linting issues found${NC}"
         echo "Run '$0 --fix' to auto-fix issues"
-        exit 1
+    else
+        echo -e "${YELLOW}⚠️  Some issues could not be auto-fixed — see the lines above${NC}"
     fi
+    exit 1
 fi

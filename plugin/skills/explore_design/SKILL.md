@@ -51,6 +51,8 @@ If the user pushes toward implementation detail mid-discussion, note it in the t
 
 ## Initial Response
 
+This stage needs from you: reactions to the directions as they are drafted, and an explicit approval of one before anything is recorded.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/wb:explore_design docs/plans/2025-01-08-auth/`):
@@ -121,6 +123,7 @@ Two ways to use it:
 Read fully (no limit/offset):
 
 - `[project-dir]/research.md` — the factual ground truth
+- Read the project's `README.md` FULLY; record the `## Intent` section's Goal, success statements, and Non-goals if it has one. Plans without an Intent section are framed against the research question instead (say so in the framing: "no Intent section; plan predates 3.0.0").
 - Every existing doc under `[project-dir]/thoughts/` — prior explorations may already frame or partially answer the decision
 - `[project-dir]/design.md` if present — check it isn't already written (status beyond `draft` means the decision may already be formalized; surface this to the user before continuing)
 - Any files the user mentioned directly
@@ -141,16 +144,18 @@ Both greps are substring matches — count only issues whose **title begins with
 Present the decision space to the user and confirm it before diverging:
 
 1. **Name the decision(s)** — what fork(s) in the road does research reveal? Number them if there are several.
-2. **Name the constraints** — facts from research.md that bound the space (patterns to respect, contracts that exist, precedents)
+2. **Name the constraints** — facts from research.md that bound the space (patterns to respect, contracts that exist, precedents), and the Intent's success statements this decision bears on (a direction that makes a statement unreachable is out of bounds unless the Goal is amended)
 3. **Name what's already fixed** — anything the user has pre-decided (record these as user choices, not open questions)
 
 ```
 Based on the research, here's the decision space I see:
+Goal (from README Intent): [the Goal sentence, or "no Intent section; plan predates 3.0.0"]
 
 1. **[Decision axis 1]** — [what's being chosen and why it's open]
 2. **[Decision axis 2]** — [...]
 
 Constraints from research: [...]
+Success statements this decision bears on: [statement]; [statement]
 Already fixed (your prior choices): [...]
 
 Does this framing match the decision you're facing? Anything missing,
@@ -227,7 +232,7 @@ that /wb:create_design formalizes.)
 
 1. **Finalize the thoughts doc**: add the required **Synthesis** section (converged direction, rejected-with-reasons, deferred items) per the template. Verify frontmatter is complete. When editing, locate sections by their headings — the doc has been continuously rewritten during Steps 3–5, so earlier placeholder or template text may no longer exist verbatim.
 
-2. **Create and close the `Decide:` record**: read the "Decide: Record Shapes" section of [templates.md](templates.md) NOW and follow it exactly — create the issue with options + trade-offs in the description, then close it with the chosen direction + rationale + relative thoughts-doc path(s) in the close reason.
+2. **Create and close the `Decide:` record**: read the "Decide: Record Shapes" section of [templates.md](templates.md) NOW and follow it exactly — create the issue with options + trade-offs in the description, then close it with the chosen direction + rationale + relative thoughts-doc path(s) in the close reason. The description's first line cites the Goal: `Goal: [the README Goal sentence]`, before `Options considered`.
 
    Lifecycle semantics: an **open** `Decide:` issue means a pending decision (the existing convention); a **closed** one means decided, rationale in the close reason. This stage creates and closes in one session because the decision is made here. `/wb:create_design` finds it via:
 
@@ -236,6 +241,8 @@ that /wb:create_design formalizes.)
    ```
 
 3. **Verify the record is queryable**: run that exact command and confirm the new issue appears. (The grep is a substring match — consumers count only titles that BEGIN with `Decide:`, which is why the record's title must carry the prefix in first position.)
+
+4. **Record any Goal or Non-goal change**: if the converged direction changes what the plan is for or what it will not do, append a dated line under the README's `**Amendments**` list (`- YYYY-MM-DD: [what changed and why] (explore_design, [Decide: issue-id])`) and replace the placeholder line if it is still there. Success statements are not amended here; create_design refines them into metrics.
 
 If any `bd` command fails: run `bd info` to diagnose, report the specific error, fix (see Error Handling), and retry. Do not finish the stage with the beads record missing.
 

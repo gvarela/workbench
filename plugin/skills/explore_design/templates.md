@@ -68,7 +68,8 @@ Lifecycle semantics: **open** `Decide:` = pending decision (the existing plannin
 ```bash
 bd create "Decide: [decision summary, e.g. 'architecture for X stage']" \
   --type=task --priority=1 \
-  -d "Options considered: [A — one-line thesis; B — one-line thesis; C — ...].
+  -d "Goal: [the README Goal sentence].
+Options considered: [A — one-line thesis; B — one-line thesis; C — ...].
 Key trade-offs: [the axes that mattered in discussion].
 Exploration: [relative path(s) to thoughts doc(s)]"
 ```

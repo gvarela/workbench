@@ -27,7 +27,7 @@ bd list --status=in_progress    # What's claimed
 
 **Work done but not persisted**:
 
-- Issues closed this session but `.beads/` changes not committed (git mode)
+- A Dolt remote is configured but nothing has been pushed this session
 - End of session approaching
 
 **Phase complete but not closed**:
@@ -45,8 +45,7 @@ bd list --status=in_progress    # What's claimed
 ```
 📍 Beads sync reminder:
 - [X] issues updated this session
-- Commit .beads/ before ending session (git mode) — issues.jsonl is auto-flushed
-- Run `bd dolt push` if a Dolt remote is configured
+- Push to the Dolt remote if one is configured (`bd config get sync.remote`, then `bd dolt push`); otherwise nothing to persist
 
 Or if phase complete:
 - Phase [N] appears complete

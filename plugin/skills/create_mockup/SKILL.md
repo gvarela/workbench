@@ -25,6 +25,8 @@ Supporting files in this directory (read each when its step directs you to — n
 
 ## Initial Response
 
+This stage needs from you: the feature to mock up, answers to the clarifying questions, and keep, remove, or change feedback on each version.
+
 When invoked, check for arguments:
 
 1. **If directory and feature provided** (e.g., `/create_mockup docs/plans/2025-01-08-dashboard/ "user settings panel"`):

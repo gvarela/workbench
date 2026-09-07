@@ -26,6 +26,8 @@ Supporting files in this directory (read each when its step directs you to — n
 
 ## Initial Response
 
+This stage needs from you: approval of the approach, and approval of the refined metrics (each traces to an Intent success statement).
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/create_design docs/plans/2025-01-08-my-project/`):
@@ -85,7 +87,9 @@ const designFile = `${projectDir}/design.md`;
    - Note any existing design decisions
    - Identify what needs updating
 
-3. **Check for a recorded decision** (from `/wb:explore_design`):
+3. **Read README.md FULLY** and record the `## Intent` section: Goal, the "Success looks like" statements, Non-goals, and any Amendments lines. Also read research.md's `## Intent Coverage` section: statements the research never touched need a metric or an explicit deferral. Plans without an Intent section: note "no Intent section (plan predates 3.0.0)"; Step 3 then originates metrics as before.
+
+4. **Check for a recorded decision** (from `/wb:explore_design`):
 
    ```bash
    bd list -n 0 --status=closed | grep "Decide:"   # Find recorded decisions
@@ -97,7 +101,7 @@ const designFile = `${projectDir}/design.md`;
    - This record changes Step 4: you will formalize the recorded decision instead of generating options
    - **If you amend the record** (correction found during design): NEVER `bd update --notes` without carrying the existing notes forward verbatim — `--notes` replaces wholesale and silently destroys prior amendments; prefer `bd comments add` where available
 
-4. **Extract key design inputs**:
+5. **Extract key design inputs**:
    - What exists that we must work with
    - What patterns should we follow
    - What constraints limit our options
@@ -130,16 +134,20 @@ Based on research and agent findings, clearly articulate:
    - What specific problem are we solving?
    - Why does it need to be solved now?
    - What happens if we don't solve it?
+   - How the problem statement traces to the README Goal (quote the Goal; if the problem as researched is not what the Goal names, that is a Goal change: see item 4)
 
 2. **Success Metrics**:
-   - How will we measure success?
-   - What are the acceptance criteria?
-   - What are the performance requirements?
+   - Refine each Intent "Success looks like" statement into a measurable metric; every metric names the statement it refines
+   - A statement with no metric is listed as deferred, with the reason (research found nothing to measure; out of this design's scope; needs a decision)
+   - Metrics that no statement covers are allowed only with a rationale line; they usually mean the Intent is missing a statement (an amendment, item 4) or the metric is scope creep
+   - Plans without an Intent section: originate metrics from the problem statement as before, and say so
 
 3. **Constraints**:
    - Technical constraints from research
    - Business constraints
    - Time/resource constraints
+
+4. **Intent amendments**: If refinement changes what the plan is for (the Goal) or what it will not do (a Non-goal), record it before writing design.md: create a `Decide:` issue (`bd create "Decide: [what changed]" --type=task --priority=1 -d "Goal or Non-goal change found during design: [old] → [new]. Why: [reason]"`) and close it with the decision, then append a dated line under the README's `**Amendments**` list: `- YYYY-MM-DD: [what changed and why] (create_design, [Decide: issue-id])`, replacing the placeholder line if it is still there. Success statements are refined, not amended; only the Goal and Non-goals are.
 
 ### Step 4: Solution Exploration
 
@@ -204,6 +212,8 @@ Update or create design.md using the structure in [templates.md](templates.md) �
 The template includes `bd create` command snippets for tracking assumptions and pending decisions — use them as written.
 
 **⛔ BARRIER 3**: Verify no placeholder values before writing
+
+**⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; any Goal or Non-goal change has its `Decide:` record and README amendment line already in place.
 
 ### Step 6: Review and Iterate
 

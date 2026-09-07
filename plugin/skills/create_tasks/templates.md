@@ -24,7 +24,7 @@ depends_on: [research.md, design.md]
 Implementing [brief summary] as specified in design.md
 
 **Design Approach**: [from design.md]
-**Target State**: [from design.md success criteria]
+**Target State**: from design.md Success Metrics (each refining an Intent statement; deferred statements listed as such)
 
 ## Implementation Strategy
 
@@ -79,7 +79,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - [How it works now]
 - [Key function at line X]
 
-**Target State** (from design.md):
+**Target State** (from design.md Success Metrics, each refining an Intent statement):
 - [How it should work]
 - [New capability needed]
 

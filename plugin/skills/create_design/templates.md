@@ -22,9 +22,9 @@ design_approach: [selected option name]
 [Clear articulation of the problem we're solving and why it matters]
 
 ### Success Metrics
-- [Measurable outcome 1]
-- [Measurable outcome 2]
-- [Measurable outcome 3]
+- [Measurable outcome] (refines: "[Intent success statement]")
+- [Measurable outcome] (refines: "[Intent success statement]")
+- Deferred: "[Intent success statement]" — [reason], or "none"
 
 ## Design Approach
 

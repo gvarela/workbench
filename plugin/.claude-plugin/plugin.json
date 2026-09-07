@@ -1,7 +1,7 @@
 {
   "name": "wb",
   "displayName": "Workbench",
-  "version": "2.6.0",
+  "version": "3.0.0",
   "description": "Workbench for structured software development with TDD, project planning, and beads integration.",
   "author": {
     "name": "Gabriel Varela"
@@ -19,17 +19,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-beads-mode.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/wb-prime.sh",
             "timeout": 5
           }
         ]
-      },
+      }
+    ],
+    "PreCompact": [
       {
-        "matcher": "compact",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/compact-recovery.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/wb-prime.sh",
             "timeout": 5
           }
         ]

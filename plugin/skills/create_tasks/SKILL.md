@@ -42,6 +42,8 @@ Do NOT block — if the user chooses to continue, proceed.
 
 ## Initial Response
 
+This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work.
+
 When invoked, check for arguments:
 
 1. **If directory provided** (e.g., `/create_tasks docs/plans/2025-01-08-my-project/`):
@@ -155,9 +157,22 @@ bd info    # Check beads is working
 
 If beads is not initialized, prompt user: "Run `bd init` to initialize beads tracking for this project."
 
-#### 5a1. Note Beads Mode
+#### 5a1. Beads Persistence
 
-Mode is already detected: read `$BEADS_MODE` (set by the SessionStart hook). For stealth vs git semantics, see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md).
+Persistence: see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md); nothing to detect. The local database is the source of truth; a Dolt remote or `bd backup` carries it across machines.
+
+#### 5a2. Session-Start Sanity Check (re-runs only)
+
+On a re-run, when tasks.md frontmatter already carries `beads_epic`: confirm the right database is open before doing any work (see [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md)):
+
+```bash
+bd context            # resolved database name and beads dir
+bd show [epic-id]     # the plan's epic; must resolve
+bd stats              # total issue count
+bd version            # requires bd 1.1.0 or later
+```
+
+If `bd show [epic-id]` fails, present the Wrong database case from [docs/reference/beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and stop. On a first run (no `beads_epic` yet) skip this check.
 
 #### 5b. Create Epic for the Project
 
@@ -301,7 +316,7 @@ Key features of the plan:
 Next steps:
 1. Review the execution plan in tasks.md (documentation)
 2. Run `bd ready` to see available work (first tasks with no dependencies)
-3. Run `/implement_tasks` to begin implementation with TDD
+3. Run `/implement` to begin coordinated implementation (`/implement_inline` to run it in this session)
 4. Track ALL progress with beads (`bd update [id] --claim`, `bd close [id]`)
 5. Never use markdown checkboxes for status - beads is source of truth
 ```

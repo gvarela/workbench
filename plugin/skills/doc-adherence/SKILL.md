@@ -58,4 +58,4 @@ Skip step 3 = the claim is unverified.
 
 ## Relationship to the Recovery Hook
 
-The deterministic boundary signal — knowing a compaction just happened — is handled by the plugin's SessionStart(compact) hook (`hooks/compact-recovery.sh`). This skill covers the judgment call between those boundaries: recognizing when a claim needs a fresh read versus when a prior read still counts, mirroring how status-sync relates to `hooks/beads-drift-check.sh`.
+The deterministic boundary signal — knowing a compaction just happened — is handled by the plugin's SessionStart hook (`hooks/wb-prime.sh`, which prints the recovery text on compact). This skill covers the judgment call between those boundaries: recognizing when a claim needs a fresh read versus when a prior read still counts, mirroring how status-sync relates to `hooks/beads-drift-check.sh`.
