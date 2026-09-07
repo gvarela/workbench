@@ -54,7 +54,7 @@ Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by ve
 /wb:explore_design docs/plans/...  # Optional for big architecture decisions
 /wb:create_design docs/plans/...
 /wb:create_tasks docs/plans/...
-/wb:implement_tasks docs/plans/...
+/wb:implement docs/plans/...
 /wb:validate_execution docs/plans/...
 ```
 
@@ -76,8 +76,8 @@ Slash commands for project documentation and task management:
 - **`/wb:explore_design`** - Explore architecture directions and record the decision (optional)
 - **`/wb:create_design`** - Create architectural design decisions (WHAT and WHY)
 - **`/wb:create_tasks`** - Transform design into phased execution plan (HOW)
-- **`/wb:implement_tasks`** - Implement with TDD (Red-Green-Refactor)
-- **`/wb:implement_coordinated`** - Coordinate implementation with worker agents
+- **`/wb:implement`** - Implement the plan with coordinated worker agents (the default execution path)
+- **`/wb:implement_inline`** - Implement the plan inline in this session with TDD
 - **`/wb:validate_execution`** - Validate implementation matches plan
 - **`/wb:validate_project`** - Validate project documentation structure
 - **`/wb:create_handoff`** - Create session handoff for work continuity

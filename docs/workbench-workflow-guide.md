@@ -53,7 +53,7 @@ bd init             # only a repository you own outright; .beads/ is still exclu
 /wb:create_tasks docs/plans/2025-01-15-TICKET-123-my-feature
 
 # 7. Implement with TDD
-/wb:implement_tasks docs/plans/2025-01-15-TICKET-123-my-feature
+/wb:implement docs/plans/2025-01-15-TICKET-123-my-feature
 
 # 8. Validate implementation
 /wb:validate_execution docs/plans/2025-01-15-TICKET-123-my-feature
@@ -70,8 +70,8 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | explore_design | **Fable** (Opus fallback) | Divergent, judgment-dense discussion — the skill self-checks and warns on lighter models |
 | create_design | Opus; Sonnet is fine when formalizing a recorded decision | Decision-making vs. documentation |
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
-| implement_tasks | Sonnet (xhigh effort); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
-| implement_coordinated | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
+| implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
+| implement_inline | Sonnet (xhigh effort); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
 | validate_execution | Any (skill pins sonnet + high effort) | Pinned in skill frontmatter |
 
 These are defaults, not gates — usage limits and task size legitimately move you down a tier.
@@ -282,7 +282,7 @@ bd create "Write tests for [Component]" \
 
 ### Stage 7: Implementation
 
-**Command**: `/wb:implement_tasks`
+**Command**: `/wb:implement` (`/wb:implement_inline` to run it in this session)
 
 Implements using TDD with beads tracking.
 
@@ -464,7 +464,7 @@ bd create "Implement JWT middleware" \
   --blocks "[phase-1-id]"
 ```
 
-**`/wb:implement_tasks`**:
+**`/wb:implement`** (and `/wb:implement_inline`):
 
 ```bash
 # Find work

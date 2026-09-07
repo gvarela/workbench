@@ -201,8 +201,8 @@ This maintains human-readable markdown while using beads for reliable cross-sess
 
 The wb workflow now supports beads with graceful degradation:
 
-1. **create_execution**: Creates phase issues with dependencies (Step 5)
-2. **implement_tasks**: Uses bd ready/update/close for phase tracking
+1. **create_tasks** (then named create_execution): Creates phase issues with dependencies (Step 5)
+2. **implement_inline** (then named implement_tasks; `implement` coordinates the same tracking through workers): Uses bd ready/update/close for phase tracking
 3. **status-sync skill**: Detects beads vs markdown-only, reminds appropriately
 4. **update_status**: Uses beads as source of truth when available
 

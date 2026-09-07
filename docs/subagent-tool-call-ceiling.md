@@ -3,7 +3,7 @@
 **Status**: finding documented, changes NOT yet made. Ready to pick up.
 **Found**: 2026-08-19, during a long `/wb:implement_coordinated` run on an unrelated project
 (`~/Development/Personal/fitness-agent`, 1A-ii increment).
-**Affects**: `plugin/skills/implement_coordinated` primarily; `plugin/skills/create_tasks`
+**Affects**: `plugin/skills/implement` primarily; `plugin/skills/create_tasks`
 secondarily.
 
 ## The finding
@@ -63,10 +63,10 @@ for f in D.glob("agent-*.jsonl"):
 
 ## Why it hits implementation workers specifically
 
-`implement_tasks` implements directly and is unaffected. The read-only research agents spawned by
+`implement_inline` implements directly and is unaffected. The read-only research agents spawned by
 `create_research` / `create_design` sit near the median (~27 calls) and are not at risk.
 
-The exposure is `implement_coordinated`'s `task-worker`, because a realistic implementation task
+The exposure is `implement`'s `task-worker`, because a realistic implementation task
 costs roughly:
 
 | step | calls |
@@ -86,7 +86,7 @@ work, which is also the least visible.
 
 ## Defect 1 — the failure playbook recommends something that cannot work
 
-`plugin/skills/implement_coordinated/reference.md`, "Worker Failure Playbook (Step 6)" currently
+`plugin/skills/implement/reference.md`, "Worker Failure Playbook (Step 6)" currently
 says the worker "crashed or couldn't complete" and offers as **option 1**:
 
 > 1. Retry worker with same context
@@ -130,7 +130,7 @@ rather than duplicate (the repo's own NF1 instinct applies).
 
 ## Optional third change — prompt hygiene
 
-Worth considering for `implement_coordinated`'s worker prompt template: every `file:line` fact the
+Worth considering for `implement`'s worker prompt template: every `file:line` fact the
 coordinator supplies is a Read the worker does not spend, and naming the files to change removes
 the discovery sweep entirely. That is the cheapest lever — it converts coordinator context (which
 is already loaded) into worker budget (which is scarce).
