@@ -1,4 +1,4 @@
-# implement_coordinated — Output Templates
+# implement — Output Templates
 
 Templates for the documents and reports this skill produces. Read the relevant template in full before writing each output; match its structure exactly.
 

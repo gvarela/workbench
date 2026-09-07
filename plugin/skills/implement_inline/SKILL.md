@@ -1,6 +1,6 @@
 ---
-name: implement_tasks
-description: Implement a project's tasks.md in this session with TDD (red, green, refactor), beads claim and close per task, and a human checkpoint at each phase boundary. Use when the user asks to implement, build, execute, or continue a planned phase and wants the work done inline by the current session model. Takes the project directory and a phase number or continue.
+name: implement_inline
+description: Implement a project's tasks.md in this session with TDD (red, green, refactor), beads claim and close per task, and a human checkpoint at each phase boundary. Use only when the user asks for the work done inline, in this session, or on the session model rather than by workers (for example a full-Fable run). Takes the project directory and a phase number or continue.
 argument-hint: [project-directory] [phase-number|continue]
 allowed-tools: Read
 ---
@@ -17,7 +17,7 @@ This stage needs from you: the phase to run, and a go-ahead at each phase checkp
 
 When invoked, check for arguments:
 
-1. **If directory and phase provided** (e.g., `/implement_tasks docs/plans/2025-01-08-my-project/ 1`):
+1. **If directory and phase provided** (e.g., `/implement_inline docs/plans/2025-01-08-my-project/ 1`):
    - Use `$1` as project directory
    - Use `$2` as phase number (or "continue" to resume)
    - Read all documentation immediately

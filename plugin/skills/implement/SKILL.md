@@ -1,6 +1,6 @@
 ---
-name: implement_coordinated
-description: Implement a project's tasks.md by coordinating fresh-context worker agents (one per task, model chosen per task), verifying each with a task-verifier, and escalating verified failures. Use when the user asks to implement or execute a phase with workers or coordination, wants the main context kept clean, or the phase has many independent tasks. Takes the project directory and a phase number or continue.
+name: implement
+description: Implement a project's tasks.md by coordinating fresh-context worker agents (one per task, model chosen per task), verifying each with a task-verifier, and escalating verified failures. The default execution path: use when the user asks to implement, build, or execute a planned phase, asks for workers or coordination, or wants the main context kept clean. Takes the project directory and a phase number or continue.
 argument-hint: [project-directory] [phase-number|continue]
 allowed-tools: Read
 ---
@@ -26,7 +26,7 @@ This stage needs from you: the phase to run, a go-ahead at each phase checkpoint
 
 When invoked, check for arguments:
 
-1. **If directory and phase provided** (e.g., `/implement_coordinated docs/plans/2025-01-08-my-project/ 1`):
+1. **If directory and phase provided** (e.g., `/implement docs/plans/2025-01-08-my-project/ 1`):
    - Use `$1` as project directory
    - Use `$2` as phase number (or "continue" to resume)
    - Read all documentation immediately
@@ -51,7 +51,7 @@ When invoked, check for arguments:
 
 ### Core Principles
 
-All principles from `implement_tasks` PLUS:
+All principles from `implement_inline` PLUS:
 
 1. **Coordination Over Direct Implementation**: Main agent orchestrates, doesn't code
 2. **Context Extraction**: Build minimal context packages for workers
@@ -294,7 +294,7 @@ bd show ${phaseMilestoneId}
 
 **⛔ CHECKPOINT: Phase ${phase} Complete**
 
-Same verification process as original `implement_tasks`:
+Same verification process as `implement_inline`:
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -437,11 +437,11 @@ When resuming work (phase = "continue"):
 - ✅ Wait for each worker to complete before next
 - ✅ Aggregate worker outputs thoroughly
 - ✅ Handle worker failures gracefully
-- ✅ All original `implement_tasks` best practices
+- ✅ All `implement_inline` best practices
 
 ### DON'T (ABSOLUTELY FORBIDDEN)
 
-- ❌ All prohibitions from original `implement_tasks`
+- ❌ All prohibitions from `implement_inline`
 - ❌ **NEVER** spawn multiple workers in parallel (keep it simple)
 - ❌ **NEVER** let a worker commit, and never commit a task before its verifier passes
 - ❌ **NEVER** allow workers to add scope

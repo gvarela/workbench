@@ -1,10 +1,10 @@
-# implement_coordinated — Maintainer Notes
+# implement — Maintainer Notes
 
 Human-facing rationale for this skill. Not loaded at invocation; the operative prompt is [SKILL.md](SKILL.md).
 
-## Evolution from implement_tasks
+## Evolution from implement_inline
 
-This command evolves the original `implement_tasks` with one key improvement:
+This command evolves the original `implement_inline` with one key improvement:
 
 - **Coordinator Pattern**: Main agent orchestrates, workers implement in fresh context
 - **Context Efficiency**: Main window stays clean, workers are ephemeral
@@ -17,14 +17,14 @@ All learnings preserved: ⛔ BARRIER synchronization points, TDD cycle enforceme
 
 ### Context Efficiency (PRIMARY BENEFIT)
 
-**Sequential** (`implement_tasks`):
+**Sequential** (`implement_inline`):
 
 ```
 Main context grows: Research + Design + Task1 + Task2 + Task3 + ...
 Token usage: Linear growth, can exhaust window, requires compaction
 ```
 
-**Coordinated** (`implement_coordinated`):
+**Coordinated** (`implement`):
 
 ```
 Main context: Research + Design + Coordination logic (stays constant)
@@ -46,10 +46,10 @@ Token usage: Main stays constant, workers are isolated
 
 **Coordinated**: Right model per task — haiku for mechanical config/docs only, sonnet (at `effort: xhigh`) for standard implementation including bugs and refactors (default when unsure), opus for architectural, cross-cutting, or previously-failed tasks. Cost optimization per task; verified failures escalate once to a fable fix worker.
 
-## Migration from implement_tasks
+## Migration from implement_inline
 
 1. **No changes needed to documentation structure** (research.md, design.md, tasks.md)
 2. **No changes needed to beads configuration** (epic, milestones, tasks)
-3. **Switch command**: Use `/wb:implement_coordinated` instead of `/wb:implement_tasks`
+3. **Switch command**: Use `/wb:implement` instead of `/wb:implement_inline`
 
 Both commands produce identical results. The coordinated version just keeps main session context clean.

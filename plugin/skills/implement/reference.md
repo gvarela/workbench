@@ -1,4 +1,4 @@
-# implement_coordinated — Reference
+# implement — Reference
 
 Specs and playbooks consulted at specific steps. Read the relevant section in full when its step directs you here.
 

@@ -1,4 +1,4 @@
-# implement_coordinated — Sub-Agent Prompts
+# implement — Sub-Agent Prompts
 
 Verbatim prompt templates for the agents this skill spawns. Read the relevant section in full before each spawn; do not paraphrase or abbreviate these prompts.
 
