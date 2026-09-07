@@ -2,11 +2,15 @@
 
 All notable changes to the wb plugin. Versions are release cuts — installers receive a version only when it's bumped here AND they run `claude plugin update wb@gvarela-workbench`. See [RELEASING.md](RELEASING.md) for the process.
 
-## [Unreleased]
+## [3.0.0] — 2026-09-06
+
+The "tools as intended" release: beads used the way beads means it, a plan that states its intent, a workflow that explains its human inputs, `implement` as the default execution path, and the alias promised for removal at 3.0.0 gone. Plan: `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/`.
 
 ### ⚠️ Breaking / Requirements
 
 - **Requires bd 1.1.0 or later.** The session-start sanity check compares `bd version` against this floor.
+- **`/wb:create_execution` removed** (deprecated since 2.2.0). Use `/wb:create_tasks`.
+- **Renamed**: `/wb:implement_coordinated` → `/wb:implement`, `/wb:implement_tasks` → `/wb:implement_inline`. `implement` is the default execution path (coordinated workers, verified per task); `implement_inline` runs the same plan inline on the session model. The old names keep working as deprecated aliases through 3.x (removed at 4.0.0): each prints a one-line notice and runs the canonical skill unchanged. **Gotcha**: a session started before this release may hold a cached pre-rename skill body — restart the session (or `/reload-skills`) after updating; the alias directories keep pointer files so stale references degrade gracefully.
 - **`BEADS_MODE` and `hooks/setup-beads-mode.sh` removed.** No skill, hook, or doc branches on a beads "mode" any more; the variable was never documented as user-facing, and any local settings that referenced it stop resolving.
 - **The commit-`.beads/` guidance is gone from every skill, hook, and doc.** Beads' Dolt directory is never committed. If you committed `.beads/` in any repository: stop; exclude it (`bd init --setup-exclude` or `bd init --stealth`); set up `bd backup init <url>` or a Dolt remote if you need cross-machine continuity. The old `issues.jsonl` stays importable with `bd import`. Full model: `plugin/docs/reference/beads-mode.md`.
 - **`hooks/compact-recovery.sh` replaced by `hooks/wb-prime.sh`.** Same recovery text on compact; the new script also runs on startup, resume, clear, fork, and PreCompact.
@@ -36,11 +40,19 @@ All notable changes to the wb plugin. Versions are release cuts — installers r
 - validate_project's beads check warns when `.beads/` is neither excluded nor ignored instead of validating a mode.
 - Root and maintainer docs (README, CLAUDE.md, commands reference, workflow guide) render the three-tier model and the stealth-first setup rule; `bd update --claim` replaces `--status in_progress` in the examples.
 - `create_design`'s Success Metrics refine the README Intent's success statements rather than originate them; each metric names the statement it refines, and a statement no metric covers is listed as deferred with a reason.
+- Every live rendering of the workflow (help, wb-prime's orientation, the generated project README, README.md, CLAUDE.md, the commands reference, the workflow guide) names `implement` as the default execution path with `implement_inline` beside it.
 
 ### Fixed
 
 - `plugin/scripts/lint` exits 1 when markdownlint reports an error, in named-file, changed-files, and `--all` modes, and exits 1 from `--fix` when findings remain; it had always exited 0 (prompts-3ke). The PostToolUse hook still exits 0.
 - `help`'s "database locked" troubleshooting named `.beads/daemon.lock` and `bd daemon`, which do not exist on embedded Dolt; it now says a lock clears when the other session's command finishes, that `bd context` shows the open database, and that `bd doctor` runs only against a Dolt server in bd 1.1.0.
+
+### Migration
+
+1. `claude plugin update wb@gvarela-workbench` from your shell, then restart Claude (or `/reload-plugins`).
+2. If you committed `.beads/` in any repository: stop; exclude it (`bd init --setup-exclude` or `bd init --stealth`); set up `bd backup init <url>` or a Dolt remote if you need continuity. The old `issues.jsonl` stays importable with `bd import`.
+3. Optionally switch to the new command names; the old ones print a notice until 4.0.0. Replace any `/wb:create_execution` with `/wb:create_tasks`.
+4. Existing plans have no Intent section; stages treat that as "no obligation" and help says so. Add one by hand to a plan you want the new checks on.
 
 ## [2.6.0] — 2026-09-05
 
