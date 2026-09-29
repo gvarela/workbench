@@ -52,7 +52,7 @@ When invoked, check for arguments:
 
 ### Step 1: Context Discovery
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation FULLY - research.md, design.md, tasks.md ⛔⛔⛔**
+**⛔ BARRIER 1**: full context read of research.md, design.md, and tasks.md — validation against partial context reports gaps that are really unread text
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -101,7 +101,7 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Verify test coverage, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL validation agents to complete ⛔⛔⛔**
+**⛔ BARRIER 2**: every validation agent has returned — the report synthesizes all four sets of findings, and a missing one hides a deviation
 
 ### Step 3: Run Automated Verification
 

@@ -47,7 +47,7 @@ When invoked, check for arguments:
 
 ### Step 1: Read and Validate Handoff
 
-**⛔⛔⛔ BARRIER 1: STOP! Read handoff document COMPLETELY - every section matters ⛔⛔⛔**
+**⛔ BARRIER 1**: handoff read completely — a skipped section is a learning or blocker the resumed session will repeat
 
 ```javascript
 const handoffPath = $1 || /* prompt for it */;
