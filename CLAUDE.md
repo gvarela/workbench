@@ -47,6 +47,10 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - Emphasis as heading allowed (MD036)
 - Fenced code blocks without language allowed (MD040)
 
+### Claude Code Reference
+
+For how skills, subagents, hooks, and plugin manifests work, read the official docs at <https://code.claude.com/docs> (or ask the `claude-code-guide` agent, which fetches them) instead of relying on memory: fields and semantics change between Claude Code releases. Check the plugin against the installed version with `claude plugin validate ./plugin`, `claude plugin details wb@gvarela-workbench` (context cost), and `claude plugin eval`.
+
 ### Testing the Plugin
 
 ```bash

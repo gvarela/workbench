@@ -901,5 +901,5 @@ bd list   # Find correct ID
 ## Additional Resources
 
 - [Commands Reference](commands-reference.md) - Detailed command documentation
-- [Skills Guide](claude-code-skills-guide.md) - Skills documentation
-- [Hooks README](../.claude/hooks/README.md) - Hook setup and beads mode detection
+- [Claude Code documentation](https://code.claude.com/docs/en/skills) - How skills, subagents, hooks, and plugins work; read the live docs rather than a copy, because they change with every release
+- [Plugin hooks](../plugin/hooks/) - `wb-prime.sh` (SessionStart orientation and compaction recovery) and `beads-drift-check.sh` (SessionEnd)
