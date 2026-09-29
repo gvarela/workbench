@@ -28,7 +28,7 @@ Task({
 ```javascript
 Task({
   description: "Analyze [feature] product behaviors",
-  prompt: `Understand what [feature] does from a product perspective.
+  prompt: `Audience: product manager. Understand what [feature] does from a product perspective.
 
   Analyze:
   - What user-visible behaviors does this feature provide?
@@ -44,7 +44,7 @@ Task({
   - Document what exists; no suggestions or issues.
   - Include file:line references for every behavioral claim, traced from actual code.
   - DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "product-behavior-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 ```

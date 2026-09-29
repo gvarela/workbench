@@ -25,7 +25,7 @@ When doing research, your ONLY job is to document the codebase as it exists:
 
 ## Applying It to Spawned Agents
 
-Typed wb agents (`codebase-locator`, `codebase-analyzer`, `pattern-finder`, `product-behavior-analyzer`) carry this constraint in their own system prompts. **Ad-hoc `general-purpose` agents do not** — when a research skill spawns specialized one-off researchers (database, API, frontend), the spawning prompt must include the documentarian constraint explicitly. That is what the "Remind EVERY agent" instruction in the research skills exists for.
+Typed wb agents (`codebase-locator`, `codebase-analyzer`, `pattern-finder`) carry this constraint in their own system prompts. **Ad-hoc `general-purpose` agents do not** — when a research skill spawns specialized one-off researchers (database, API, frontend), the spawning prompt must include the documentarian constraint explicitly. That is what the agent-instructions paragraph in the research skills exists for.
 
 ## The Boundary
 
