@@ -51,7 +51,7 @@ When invoked, check for arguments:
 
 ### Core Principles
 
-All principles from `implement_inline` PLUS:
+Plan discipline (TDD via the workers, beads for all status tracking, phase checkpoints, one commit per verified task) plus:
 
 1. **Coordination Over Direct Implementation**: Main agent orchestrates, doesn't code
 2. **Context Extraction**: Build minimal context packages for workers
@@ -62,7 +62,7 @@ All principles from `implement_inline` PLUS:
 
 ### CRITICAL: NO SCOPE ADDITIONS - NONE
 
-Same zero-tolerance policy as original:
+Workers implement what tasks.md specifies and nothing else:
 
 - **NEVER** add features not in tasks.md
 - **NEVER** refactor beyond what's specified
@@ -294,7 +294,7 @@ bd show ${phaseMilestoneId}
 
 **⛔ CHECKPOINT: Phase ${phase} Complete — the next phase builds on what a human has accepted**
 
-Same verification process as `implement_inline`:
+Phase verification:
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -437,11 +437,9 @@ When resuming work (phase = "continue"):
 - ✅ Wait for each worker to complete before next
 - ✅ Aggregate worker outputs thoroughly
 - ✅ Handle worker failures gracefully
-- ✅ All `implement_inline` best practices
 
 ### DON'T (ABSOLUTELY FORBIDDEN)
 
-- ❌ All prohibitions from `implement_inline`
 - ❌ **NEVER** spawn multiple workers in parallel (keep it simple)
 - ❌ **NEVER** let a worker commit, and never commit a task before its verifier passes
 - ❌ **NEVER** allow workers to add scope
