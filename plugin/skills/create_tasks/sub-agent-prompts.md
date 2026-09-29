@@ -25,7 +25,7 @@ Task({
   - External dependencies needed
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 
@@ -48,7 +48,7 @@ Task({
   - Test fixtures needed
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 
@@ -67,7 +67,7 @@ Task({
   - Configuration patterns to follow
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
+  subagent_type: "wb:pattern-finder",
   model: "haiku"
 })
 ```
