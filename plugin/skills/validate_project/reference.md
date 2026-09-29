@@ -93,7 +93,7 @@ for (const id of beadsIds) {
 // Check for orphaned beads issues
 // Planning-phase records are intentionally not anchored in tasks.md frontmatter
 const planningPrefixes = ['Q:', 'Decide:', 'Validate:', 'UI Q:'];
-const allBeadsIssues = exec('bd list').parseOutput();
+const allBeadsIssues = exec('bd list --all -n 0').parseOutput();
 for (const issue of allBeadsIssues) {
   if (planningPrefixes.some(p => issue.title.startsWith(p))) {
     continue;  // exempt: planning-phase record, not an orphan
