@@ -124,7 +124,7 @@ The workflow separates three distinct concerns:
 
 If any `bd` command fails:
 
-1. **Diagnose**: Run `bd info`, `bd context` (which database is open), and `bd doctor`
+1. **Diagnose**: Run `bd info`, `bd context` (which database is open), and `bd stale` / `bd orphans`; run `bd doctor` only where it is supported (a Dolt server; in the default embedded mode it prints a not-supported note)
 2. **Report**: Tell the user the specific error and suggest fixes
 3. **Fix**: Common fixes:
    - "beads not initialized" → `bd init --stealth`
