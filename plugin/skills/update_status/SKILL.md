@@ -14,14 +14,9 @@ Supporting files in this directory (read each when its step directs you to — n
 - [templates.md](templates.md) — frontmatter update blocks and confirmation message template
 - [reference.md](reference.md) — error handling catalog
 
-## CRITICAL: Status Update Philosophy
+## Status Update Principles
 
-- **READ BEFORE WRITE**: Always read ALL documentation files FULLY before making any updates
-- **VERIFY STATE**: Confirm current state matches actual progress before transitioning
-- **CASCADING UPDATES**: Status changes may trigger updates across multiple files
-- **MAINTAIN CONSISTENCY**: Ensure all files reflect the same project reality
-- **NO REGRESSION**: Never move status backward without explicit user confirmation
-- **ATOMIC UPDATES**: Update all affected files together, not one at a time
+Read every documentation file fully before writing, and confirm the recorded state matches actual progress before proposing a transition. A status change can cascade across research.md, design.md, and tasks.md, so apply all affected updates together and leave the files describing the same project reality. Moving a status backward needs the user's explicit confirmation, because it usually signals a mistake in one of the documents. If any update fails, report the error and do not partial-update.
 
 ## Initial Response
 
@@ -45,9 +40,9 @@ When invoked, check for arguments:
 
 ## Steps to Execute
 
-### Step 1: Read Current State (CRITICAL)
+### Step 1: Read Current State
 
-**⛔ BARRIER 1**: Read ALL files FULLY before proceeding
+**⛔ BARRIER 1**: all documentation read fully — a status proposed from partial content is wrong in the direction the unread text points
 
 #### Check Beads State
 
@@ -93,7 +88,7 @@ Read all documentation files to understand current state:
 2. **Read design.md FULLY** - Check status, phase progress, implementation state
 3. **Read tasks.md FULLY** - Check current_phase, beads_tasks frontmatter (for reference only)
 
-**IMPORTANT**: Use Read tool WITHOUT limit/offset parameters
+Read each file in full (no limit/offset), because status depends on content a partial read can miss.
 
 Record current state:
 
@@ -210,7 +205,7 @@ Do you want to proceed with these updates? (yes/no)
 
 ### Step 5: Apply Updates
 
-**⛔ BARRIER 2**: Wait for user confirmation before proceeding
+**⛔ BARRIER 2**: user confirmation received — every write here changes what other stages treat as current state
 
 After user confirms, update all files.
 
@@ -227,7 +222,7 @@ bd close [phase-id] --reason "Reconciliation: marked complete in tasks.md"
 
 ### Step 6: Verify Consistency
 
-**⛔ BARRIER 3**: Verify all updates were applied correctly
+**⛔ BARRIER 3**: every write read back — a partial update leaves the files disagreeing about project state
 
 After all updates:
 
@@ -304,7 +299,7 @@ The command should intelligently detect status based on actual content.
 
 **Beads is the ONLY source of truth** for task/phase status. Use `bd list`, `bd show [id]`, `bd stats` to get authoritative status.
 
-**NEVER check markdown checkboxes** - they are documentation only and do not reflect actual status.
+Markdown checkboxes are documentation only and do not reflect actual status; read status from beads.
 
 **`update_status` is the sole writer** of the plan-doc frontmatter progress fields (`status`, `current_phase`, `completed_tasks`, `total_tasks`). Other skills and generated checkpoints point here instead of hand-editing those fields. If another instruction appears to edit them directly, treat it as stale.
 
@@ -338,7 +333,6 @@ For research and design status (not tracked in beads), use content analysis:
 - If all task issues closed AND all phase milestones closed → suggest "complete"
 - If any task issue in_progress OR closed → suggest "in-progress" and update current_phase
 - Calculate accurate percentage from beads counts
-- DO NOT count markdown checkboxes
 
 ## Error Handling
 
@@ -348,27 +342,13 @@ For research and design status (not tracked in beads), use content analysis:
 
 ### Read-Only Analysis
 
-- **NEVER modify files** without explicit user confirmation
-- **ALWAYS present the update plan** before applying changes
-- **VERIFY actual progress** by reading file contents, not just frontmatter
-
-### Atomic Updates
-
-- Update all files in the same operation
-- Don't leave files in inconsistent states
-- If any update fails, report error and don't partial-update
+Present the update plan and wait for the user's confirmation before modifying files, and verify actual progress by reading file contents, not just frontmatter.
 
 ### Git Metadata
 
 - Capture current git state when updating
 - This provides audit trail of when status changed
 - Update timestamp reflects when status was updated, not when work was done
-
-### Backward Transitions
-
-- Only allow with explicit confirmation
-- Warn user about regression
-- Require reason for moving backward
 
 ### Phase Progression
 
