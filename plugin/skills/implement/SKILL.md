@@ -69,7 +69,7 @@ Same zero-tolerance policy as original:
 - **NEVER** make "improvements" not explicitly asked for
 - **NEVER** add extra error handling, validation, or edge cases
 - **ONLY** implement what is EXPLICITLY written in tasks.md
-- If something seems missing, STOP and ask - DO NOT add it
+- If something seems missing, do not add it: record it in Implementation Notes as a follow-up. If the task cannot succeed without it, that is a plan defect; use the Plan-Defect Deviation Protocol.
 
 ## Process Steps
 
