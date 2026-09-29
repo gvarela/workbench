@@ -244,7 +244,7 @@ After each worker completes:
    ```
 
    **If PASS**:
-   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart.
+   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
    - Add to success log
    - Collect modified files for aggregation
    - Proceed to step 5 (next task)
