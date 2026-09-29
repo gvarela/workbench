@@ -125,7 +125,6 @@ workbench/
 │   ├── scripts/        # Utility scripts (lint)
 │   └── docs/reference/ # Runtime-referenced shared docs
 ├── docs/               # Maintainer guides + project plans (not shipped)
-└── general/            # General-purpose prompts
 ```
 
 ## Beads Integration

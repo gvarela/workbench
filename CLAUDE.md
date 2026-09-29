@@ -16,7 +16,6 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `plugin/scripts/` - Utility scripts (lint, lint-hook)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
-- `general/` - General-purpose prompts and templates
 - `.claude/` - Local development configuration
 
 ## Development Tools
