@@ -112,7 +112,7 @@ The workflow separates three distinct concerns:
 
 1. **Document, Don't Judge**: Research describes what EXISTS, not what should be changed
 2. **Explicit Barriers**: Commands implement synchronization points (⛔ BARRIER) to ensure complete context
-3. **File Reading Protocol**: ALWAYS read files FULLY (no limit/offset) before analysis
+3. **File Reading Protocol**: read plan documents and the files you rely on in full before analysis; if Read returns a partial view of a large file, page through the rest with offset/limit rather than acting on the first page
 4. **Dual Verification**: Separate automated checks from manual verification
 5. **Zero Scope Creep**: Tasks only come from plans, no additions
 6. **Beads Required**: These commands require beads 1.1.0 or later for ALL task tracking (`bd init --stealth` in any repository with collaborators who do not use beads; see `plugin/docs/reference/beads-mode.md`)

@@ -120,7 +120,7 @@ Two ways to use it:
 
 ⛔ BARRIER 1: all context below is read in full — framing the decision space on partial context mis-frames the fork
 
-Read fully (no limit/offset):
+Read fully (paging through with offset/limit if Read returns a partial view):
 
 - `[project-dir]/research.md` — the factual ground truth
 - Read the project's `README.md` FULLY; record the `## Intent` section's Goal, success statements, and Non-goals if it has one. Plans without an Intent section are framed against the research question instead (say so in the framing: "no Intent section; plan predates 3.0.0").

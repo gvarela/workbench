@@ -71,7 +71,7 @@ This command can be used in two ways:
 
 ### Step 1: Read Directly Mentioned Files First
 
-- Read any files the user mentions (docs, JSON, configs) in full, with no limit/offset, in the main context before spawning sub-tasks, so the decomposition rests on full context.
+- Read any files the user mentions (docs, JSON, configs) in full in the main context before spawning sub-tasks (if Read returns a partial view of a large file, page through the rest with offset/limit), so the decomposition rests on full context.
 
 ⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
@@ -266,7 +266,7 @@ Research documents are self-contained, focus on behaviors, flows, and capabiliti
 
 ### File Reading
 
-- **File reading**: Always read mentioned files FULLY (no limit/offset) before spawning sub-tasks
+- **File reading**: read mentioned files in full before spawning sub-tasks
 - Have sub-agents document examples and usage patterns as they exist
 - Keep the main agent focused on synthesis, not deep file reading
 - Sub-agents must include file:line references for all claims

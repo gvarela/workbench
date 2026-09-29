@@ -577,7 +577,7 @@ If automated verification fails after implementation:
 - Skip writing tests first (except for the noted exceptions).
 - Move to the next phase without verification, or implement multiple phases without checkpoints unless explicitly instructed.
 - Close manual verification without user confirmation.
-- Use limit/offset when reading files.
+- Act on a partial read: if Read returns a partial view of a large file, page through the rest with offset/limit.
 - Use TaskCreate/TaskUpdate/TodoWrite or markdown checkboxes for tracking; beads is the source of truth, markdown documents the plan.
 
 ## Synchronization Points

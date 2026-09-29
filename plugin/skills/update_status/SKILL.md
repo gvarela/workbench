@@ -88,7 +88,7 @@ Read all documentation files to understand current state:
 2. **Read design.md FULLY** - Check status, phase progress, implementation state
 3. **Read tasks.md FULLY** - Check current_phase, beads_tasks frontmatter (for reference only)
 
-Read each file in full (no limit/offset), because status depends on content a partial read can miss.
+Read each file in full (paging through with offset/limit if Read returns a partial view), because status depends on content a partial read can miss.
 
 Record current state:
 
