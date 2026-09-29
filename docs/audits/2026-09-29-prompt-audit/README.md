@@ -10,12 +10,12 @@ This is an audit of the wb plugin's prompt surface for dated prompting patterns 
   - `create_tasks` and `explore_design` are also audited against Claude Fable 5.1, because they recommend it.
 - **Provenance.** Three sources ground the findings:
   - The repository's own convention, CLAUDE.md "Working with Commands": mark each sync point once and give the reason in a plain sentence. It was added in 4dd28ca on 2026-09-05.
-  - The blind trial of 2026-09-05, recorded in beads memory `wb-barrier-volume-not-discriminator`. Loud barrier wording did not hold a wait-for-all gate, and CAPS/NEVER performed the same as plain "Do not".
+  - The blind trial of 2026-09-05, recorded in beads memory `wb-barrier-volume-not-discriminator`. On one ambiguous trap, loud barrier wording did no better than a single marker with a reason, and CAPS/NEVER performed the same as plain "Do not". The trial is small (Sonnet only, no tools, 3 runs per cell), so it shows that volume did not help, not that wording cannot hold a gate; in its clear-cut fixture both wordings waited 3/3. The adversarial review below grades it that way.
   - `git blame`: every loud barrier line dates from before the convention.
 
 ## Summary
 
-The most important finding is **loud emphasis the repository has already decided against**. Nine skills still used `⛔⛔⛔ BARRIER n: STOP! … ⛔⛔⛔` barriers, 18 lines in all. Each one contradicted the one-marker, stated-reason convention in CLAUDE.md, and the repository's own trial showed the volume buys nothing. Around them were blocks of CRITICAL / MUST / NEVER / "ABSOLUTELY FORBIDDEN" text, and the documentarian rule was restated eight to ten times per research skill. Current models follow a once-stated instruction literally, so repetition and caps now cause rigidity and over-application rather than compliance. The proposed diff rewrites every barrier to the house form, each with a reason, and states each scope rule once in plain language. Lines in `plugin/` that carry a caps marker drop from 98 to 13.
+The most important finding is **loud emphasis the repository has already decided against**. Nine skills still used `⛔⛔⛔ BARRIER n: STOP! … ⛔⛔⛔` barriers, 18 lines in all. Each one contradicted the one-marker, stated-reason convention in CLAUDE.md, and the public prompting guidance says the same thing ("If you emphasize many lines, none of them stands out", code.claude.com best-practices); the repository's own small trial found no gain from the louder form. Around them were blocks of CRITICAL / MUST / NEVER / "ABSOLUTELY FORBIDDEN" text, and the documentarian rule was restated eight to ten times per research skill. Current models follow a once-stated instruction literally, so repetition and caps now cause rigidity and over-application rather than compliance. The proposed diff rewrites every barrier to the house form, each with a reason, and states each scope rule once in plain language. Lines in `plugin/` that carry a caps marker drop from 98 to 13.
 
 The second is **instructions that contradict each other or the code**. Examples:
 
@@ -75,6 +75,28 @@ These findings concern configuration rather than prompt text. Both manifests pas
 - **Skill `model: sonnet`** on `validate_execution` and `research-validation` switches the session model for the rest of that turn. Invoking either from an Opus or Fable session runs it on Sonnet. If that is intended, it is correct. If the goal was a cheaper isolated run, `context: fork` sets the forked subagent's model instead.
 - **The eval harness plan** (`docs/plans/2026-06-10-wb-eval-harness`, still skeletons) should build on `claude plugin eval`. That command is generally available and runs `evals/<case>/prompt.md` plus `graders/*.md` with a with/without-plugin baseline arm. Its `llm`, `regex`, `tool_used`, and `tool_order` graders fit this repository's blind-trial method, and `/skill-doctor` reports per-skill cost and never-invoked skills.
 - **Minor items.** The two PostToolUse entries could be one `"Write|Edit"` matcher. The lint-hook failure message says `./scripts/lint`, which does not resolve in an installed plugin.
+
+## Adversarial review and follow-ups (2026-09-29)
+
+After the audit, a sweep of the maintainer docs and an adversarial review of every doc finding tested 25 claims against the live Claude Code docs, the public prompting docs, the CLI, and git history. The evidence is in [review/](review/): the ground-truth facts ([FACTS.md](review/FACTS.md)), the two doc sweeps ([sweep1](review/sweep1.md), [sweep2](review/sweep2.md)), the claims under review ([CLAIMS.md](review/CLAIMS.md)), and the three verdict files ([M](review/M.md) Claude Code mechanics, [P](review/P.md) prompting guidance, [R](review/R.md) repository facts). Result: 13 confirmed, 9 partially confirmed, 3 refuted.
+
+**Corrections to this audit.**
+
+- Subagents run in the background in an interactive session ("Claude can't ask for the foreground", sub-agents docs), so a wait-for-agents barrier is enforced by the skill's wording, not by the harness. The barrier rewrites stand; each now also names the completion signal.
+- The `wb:` prefix commits are verified live, not only inferred: on Claude Code 2.1.285 an Agent-tool spawn with `subagent_type: "codebase-locator"` fails with "Agent type 'codebase-locator' not found", and `wb:codebase-locator` runs the plugin agent (Haiku 4.5, as its frontmatter pins). Bare names work only for `claude --agent`. The failure was silent in practice because the error lists the right names and the model retries.
+- Thinking prose is not cruft: `ultrathink` adds an in-context instruction and leaves effort unchanged, and the model "responds to that guidance within" the effort level (model-config docs). No audit commit removed thinking prose.
+- The "read only the part you need" guidance has no public source; the public reason to reword "no limit/offset" is mechanical (Read returns a partial view past its token limit).
+
+**Follow-up commits on this branch.**
+
+- Effort: the "spawn at `effort: xhigh`" instructions in `implement` could not take effect (the Agent tool takes a model, not an effort; `task-worker` sets none, so workers inherit the session's effort, which Claude Code defaults to `medium` on Opus 5.5 and Sonnet 5.5). Removed, and CLAUDE.md now says effort lives in frontmatter.
+- Barriers: every wait-for-agents barrier names the completion notification.
+- Reading: "read fully (no limit/offset)" became "read fully, paging through a partial view".
+- Docs: PreCompact described accurately (README, CLAUDE.md, the hook header); `bd doctor` qualified in CLAUDE.md; `commands-reference.md` brought in line with the plugin; the Claude Desktop product-research prompt re-synced in current style; the workflow guide's install steps, the lint README's hook location, the README's agent and skill lists, the ceiling doc's status, and a superseded beads-learnings rule corrected.
+
+**Refuted, not acted on.** `claude plugin update` refreshes the marketplace itself, so CLAUDE.md needs no extra `marketplace update` step (the bd memory describing one is specific to a local-directory marketplace). The generated beads block's "YOU must push" does not conflict with Claude Code: auto mode allows pushing by default, and the classifier reads CLAUDE.md.
+
+**Still your decision.** An `effort:` level for `task-worker` (measure with `claude plugin eval` first); removing the PreCompact registration from `plugin.json`; whether to change the bd-generated beads block (whether `bd init` rewrites hand edits inside its markers is unverified); `implement_inline` over 500 lines; the no-op `allowed-tools: Read` fields; and the `model: sonnet` pins on two skills.
 
 ## Verifying before merge
 
