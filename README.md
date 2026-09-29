@@ -58,7 +58,7 @@ Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by ve
 /wb:validate_execution docs/plans/...
 ```
 
-**Skills** (auto-activated): `project-structure`, `mockup-iteration`, `tdd-discipline`, `verification-before-completion`, `status-sync`, `review-prep`
+**Skills** (auto-activated): `project-structure`, `doc-adherence`, `tdd-discipline`, `verification-before-completion`, `status-sync`. `mockup-iteration` and `review-prep` run when you or the model invoke them.
 
 Auto-activation depends on the model electing these skills, which in practice happens rarely inside workflow-command sessions. During coordinated execution the discipline is guaranteed structurally instead: task-workers preload `tdd-discipline` and every task passes through `task-verifier`. The auto-activated skills primarily protect **solo and ad-hoc** changes made outside the workflow commands.
 
@@ -92,6 +92,8 @@ Specialized agents for codebase analysis:
 - **`codebase-locator`** - Find specific components and files
 - **`codebase-analyzer`** - Analyze implementation details with file:line references
 - **`pattern-finder`** - Find similar patterns and implementations
+- **`research-validator`** - Check a research document's paths, snippets, and claims against the code
+- **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`
 - **`task-verifier`** - Verify task completion against requirements
 
 ### Skills (auto-activated)
@@ -99,10 +101,14 @@ Specialized agents for codebase analysis:
 Background capabilities that Claude automatically invokes:
 
 - **`project-structure`** - Enforces document separation (research.md, design.md, tasks.md)
-- **`mockup-iteration`** - Iterate on UI mockups with KEEP/REMOVE/CHANGE tracking
+- **`doc-adherence`** - Requires claims about a plan document to come from a read of that file in the current context
 - **`tdd-discipline`** - Enforces RED-GREEN-REFACTOR cycle before writing production code
 - **`verification-before-completion`** - Requires running verification before claiming work is done
 - **`status-sync`** - Monitors for status drift and reminds to sync
+
+Invoked by you (or by the model when you ask for it):
+
+- **`mockup-iteration`** - Iterate on UI mockups with KEEP/REMOVE/CHANGE tracking
 - **`review-prep`** - Interactive code review walkthrough using tmux and nvim
 
 ### Hooks
