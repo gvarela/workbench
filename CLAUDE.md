@@ -198,7 +198,7 @@ When creating new prompts or commands:
 
 ## Git Workflow
 
-- The main branch is `main`
+- Branch from `dev` and open PRs against `dev`. `main` is the install channel and moves only when a release is cut: a `dev` → `main` PR that carries the version bump (see [RELEASING.md](RELEASING.md))
 - Commit messages should be descriptive
 - Run `./plugin/scripts/lint` before committing markdown files
 - Keep the repository organized by category
