@@ -104,7 +104,7 @@ const handoffPath = $1 || /* prompt for it */;
    bd ready                        # See what's available
    ```
 
-   Compare with handoff's `beads_in_progress`:
+   Compare with the handoff's `beads_active_phase` and its "Beads Tracking State" section:
    - Counts should match if no work was done since the handoff; a large mismatch or zero issues means the session-start sanity check in beads-mode.md applies (`bd context`, `bd show <beads_epic>`, `bd stats`)
 
 **Absorb the context and discoveries documented**
