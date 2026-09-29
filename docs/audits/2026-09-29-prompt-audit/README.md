@@ -96,7 +96,7 @@ After the audit, a sweep of the maintainer docs and an adversarial review of eve
 
 **Refuted, not acted on.** `claude plugin update` refreshes the marketplace itself, so CLAUDE.md needs no extra `marketplace update` step (the bd memory describing one is specific to a local-directory marketplace). The generated beads block's "YOU must push" does not conflict with Claude Code: auto mode allows pushing by default, and the classifier reads CLAUDE.md.
 
-**Still your decision.** An `effort:` level for `task-worker` (measure with `claude plugin eval` first); removing the PreCompact registration from `plugin.json`; whether to change the bd-generated beads block (whether `bd init` rewrites hand edits inside its markers is unverified); `implement_inline` over 500 lines; the no-op `allowed-tools: Read` fields; and the `model: sonnet` pins on two skills.
+**Still your decision.** Whether `task-worker`'s `effort: medium` (set after a live check that spawns can't set effort) holds up: watch the verifier pass rate or compare `medium` and `high` with `claude plugin eval`; removing the PreCompact registration from `plugin.json`; whether to change the bd-generated beads block (whether `bd init` rewrites hand edits inside its markers is unverified); `implement_inline` over 500 lines; the no-op `allowed-tools: Read` fields; and the `model: sonnet` pins on two skills.
 
 ## Verifying before merge
 
