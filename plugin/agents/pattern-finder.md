@@ -99,11 +99,14 @@ feature/
 - Consistent error response format
 
 ### Where Each Variant Is Used
+
 - Which files follow this pattern
 - Which variant appears in which scenario
 
 ### Deprecated or Superseded Approaches Present
+
 - Approaches still in the codebase that newer code has replaced (state as observed facts, no judgment)
+
 ```
 
 ## Search Techniques

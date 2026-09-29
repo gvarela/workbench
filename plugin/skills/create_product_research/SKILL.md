@@ -93,7 +93,6 @@ This command can be used in two ways:
    - What integrations or external services are involved?
    - What configuration controls behavior? What can be changed without code?
 
-
 2. **Work out:**
    - The user-visible surface of this feature — screens, APIs, messages, states
    - How this feature connects to adjacent features the user also touches
