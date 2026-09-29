@@ -17,11 +17,11 @@ This stage needs from you: the goal, what success looks like, and what is out of
 
 When invoked, check for arguments:
 
-1. **If arguments provided** (e.g., `/create_project auth-refactor docs/plans LINEAR-456`):
+1. **If arguments provided** (e.g., `/wb:create_project auth-refactor docs/plans LINEAR-456`):
    - Parse: `$1` = project-name, `$2` = base-dir, `$3` = ticket-ref
    - Skip prompting and proceed directly to Step 2
 
-2. **If partial arguments** (e.g., `/create_project auth-refactor`):
+2. **If partial arguments** (e.g., `/wb:create_project auth-refactor`):
    - Use provided arguments and prompt only for missing ones
 
 3. **If no arguments**:
@@ -154,16 +154,17 @@ Present the created structure:
 🔄 Next Steps:
 
 1. Research the codebase:
-   /create_research [directory]
+   /wb:create_research [directory]
+   (optional) /wb:explore_design [directory] when the research shows competing directions
 
 2. After research, create design:
-   /create_design [directory]
+   /wb:create_design [directory]
 
 3. Then generate execution plan:
-   /create_tasks [directory]
+   /wb:create_tasks [directory]
 
-4. Implement (coordinated workers; /implement_inline runs it in this session):
-   /implement [directory]
+4. Implement (coordinated workers; /wb:implement_inline runs it in this session):
+   /wb:implement [directory]
 
 Ready to begin research phase!
 ```

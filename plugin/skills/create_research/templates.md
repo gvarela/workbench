@@ -135,6 +135,6 @@ Based on the research findings:
 2. [Another uncovered area, or omit]
 3. Review the research document
 4. [Only when findings show multiple viable approaches: Findings show multiple viable approaches — consider `/wb:explore_design` to explore directions before `/wb:create_design`.]
-5. Run `/create_design` to create design decisions
+5. Run `/wb:create_design` to create design decisions
 
 ````

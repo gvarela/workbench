@@ -61,7 +61,7 @@ When invoked, check for arguments:
 ### Step 2: Validate Project Structure
 
 - Check that the specified directory exists
-- Verify research.md file exists (created by `/create_project`)
+- Verify research.md file exists (created by `/wb:create_project`)
 - Read the current research.md FULLY to see what's already documented
 - Check frontmatter status field
 - Read `README.md` in the project directory FULLY. If it has an `## Intent` section, record its Goal and its "Success looks like" statements; they shape decomposition (Step 3) and the coverage report (Step 8)
@@ -195,7 +195,7 @@ Intent Coverage (from README Intent):
 
 Next: [choose ONE line based on the findings]
 [Multiple viable approaches documented:] Findings show multiple viable approaches — consider `/wb:explore_design` to explore directions before `/wb:create_design`.
-[Single clear approach:] Review the research and run `/create_design` when ready to create design decisions.
+[Single clear approach:] Review the research and run `/wb:create_design` when ready to create design decisions.
 
 ```
 

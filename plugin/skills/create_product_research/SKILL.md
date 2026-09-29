@@ -63,9 +63,9 @@ When invoked, check for arguments:
 
 This command can be used in two ways:
 
-1. **Within the wb pipeline**: After `/create_project` creates the directory structure. The `product-research.md` file will be created alongside `research.md` — they serve different audiences for the same project.
+1. **Within the wb pipeline**: After `/wb:create_project` creates the directory structure. The `product-research.md` file will be created alongside `research.md` — they serve different audiences for the same project.
 
-2. **Standalone**: A PM can run this without `/create_project`. If the directory exists but `product-research.md` doesn't, create it fresh. If the directory doesn't exist, create it.
+2. **Standalone**: A PM can run this without `/wb:create_project`. If the directory exists but `product-research.md` doesn't, create it fresh. If the directory doesn't exist, create it.
 
 ## Steps to Execute After Receiving the Research Query
 
