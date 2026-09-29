@@ -68,7 +68,7 @@ Task({
 
   DO NOT write any files. Return your findings as a report.`,
   subagent_type: "wb:pattern-finder",
-  model: "haiku"
+  model: "sonnet"
 })
 ```
 
