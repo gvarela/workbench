@@ -3,6 +3,7 @@ name: create_tasks
 description: Turn an approved design.md into docs/plans/<project>/tasks.md: phased, executable tasks with file:line targets and verification, plus the beads epic, milestones, task issues, and dependencies. Use when design is approved and the user asks to plan the implementation, break the work down, create tasks, or set up beads for a project. Recommended on Fable. Takes the project directory.
 argument-hint: [project-directory]
 allowed-tools: Read
+effort: high
 ---
 
 # Create Execution Plan
@@ -295,7 +296,7 @@ Beads tracking:
 - Epic: [epic-id]
 - Phase milestone issues created with dependencies
 - ALL granular tasks created as beads issues
-- Task dependencies set up (setup → impl → test → integration)
+- Task dependencies set from consumed outputs (branching where tasks are independent)
 - Use `bd ready` to find available work
 - Total beads issues: [count] ([X] phase milestones + [Y] granular tasks)
 

@@ -205,15 +205,6 @@ Note: Update this section with findings as you implement.
 
 ---
 
-## 📝 Completed Tasks Archive
-
-Move completed tasks here weekly to keep active list focused.
-
-### Week of [YYYY-MM-DD]
-- [x] Task description (completed YYYY-MM-DD HH:MM)
-
----
-
 ## 🚧 Blockers & Notes
 
 ### Current Blockers
