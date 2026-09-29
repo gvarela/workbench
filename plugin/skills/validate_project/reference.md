@@ -72,7 +72,7 @@ if (design.status === 'complete' && tasks.status !== 'complete') {
 // Check beads is initialized
 const beadsCheck = exec('bd info');
 if (beadsCheck.failed) {
-  ERROR('Beads is not initialized. Run: bd init');
+  ERROR('Beads is not initialized. Run: bd init --stealth (see beads-mode.md for when plain bd init applies)');
 }
 
 // Extract beads IDs from frontmatter

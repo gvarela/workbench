@@ -142,7 +142,7 @@ bd list -n 0 --status=closed | grep "Decide:"
 ### Initialize (once per project)
 
 ```bash
-bd init
+bd init --stealth   # any repository with collaborators who do not use beads (see plugin/docs/reference/beads-mode.md)
 ```
 
 ### Execution Workflow
@@ -280,7 +280,7 @@ Restores context from handoff. Syncs beads and continues work. A phase that has 
 **"beads not initialized"**
 
 ```bash
-bd init
+bd init --stealth   # or plain bd init only for a repository you own outright
 ```
 
 **"issue not found"**
