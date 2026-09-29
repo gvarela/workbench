@@ -113,7 +113,7 @@ markdown report with Status: PASS or FAIL.
 **Retry 1:**
 
 ```
-Verification failed. Spawn a fix worker using the task-worker agent with a fable model override at effort: high (use opus if fable is unavailable in this session).
+Verification failed. Spawn a fix worker using the task-worker agent with a fable model override (use opus if fable is unavailable in this session).
 
 Provide:
 - Task ID: ${taskId}

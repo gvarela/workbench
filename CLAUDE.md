@@ -170,9 +170,9 @@ Commands support model hints when spawning agents. Pay for judgment, not through
 - `haiku`: File searches, pattern matching, mechanical tasks. No `effort` support — never annotate haiku agents or spawns
 - `sonnet`: Default for analysis AND implementation (near-Opus coding quality at lower cost)
 - `opus`: Design and architectural or cross-cutting implementation
-- `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure. Fable spawns use `effort: high`, never `xhigh`
+- `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure
 
-`effort` (`low` → `xhigh`) is a second cost lever on sonnet/opus spawns: "sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Typical annotations: implementation workers `xhigh`, analyzers `medium`, verifiers `high`.
+`effort` (`low` → `max`) is a second cost lever, set in an agent's or skill's frontmatter: a spawn can override the model but not the effort, so an agent without `effort:` runs at the session's level (Claude Code defaults Opus 5.5 and Sonnet 5.5 to `medium`). "Sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Current frontmatter: analyzers `medium`, verifiers `high`, `task-worker` unset (session effort).
 
 ## Working with Commands
 

@@ -196,7 +196,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
    - Opus: Architectural or cross-cutting tasks
    - Fable: never as a first spawn — the escalation target after a verified failure (Step 6)
 
-   When spawning with sonnet or opus, set `effort: xhigh` for the coding work; fable spawns use `effort: high`. Never set effort on haiku spawns (errors on Haiku 4.5). The verify-then-retry loop below is what makes the cheap default safe — fix workers escalate to fable, one attempt.
+   The spawn sets only the model: the Agent tool has no effort parameter, so a worker runs at the `effort` in `task-worker.md` frontmatter, which is unset, so it inherits the session's effort (Claude Code defaults Opus 5.5 and Sonnet 5.5 to `medium`). The verify-then-retry loop below is what makes the cheap default safe — fix workers escalate to fable, one attempt.
 5. **Spawn the `task-worker` agent** with the chosen model as a per-spawn override (the agent has the tdd-discipline skill preloaded and carries the TDD contract in its own definition). **Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW** and build the worker prompt from its "Worker Prompt Template" — task ID/title/description, the context package, beads commands (`bd update [id] --claim`, `bd close [id]`), and the expected-output contract. Use the template verbatim with values filled in.
 6. **Collect worker output** when complete
 7. **Proceed to verification** (Step 6)
