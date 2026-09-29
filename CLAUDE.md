@@ -165,10 +165,10 @@ All generated documentation files use consistent YAML frontmatter:
 
 ## Agent Spawning with Model Selection
 
-Commands support model hints when spawning agents. Pay for judgment, not throughput:
+Commands support model hints when spawning agents; a per-spawn `model` overrides the agent's frontmatter, so keep the two in agreement. The aliases mean the current models only on the Anthropic API (on Bedrock and Google Cloud `sonnet` resolves to Sonnet 4.5; see Claude Code's model-config docs). Pay for judgment, not throughput:
 
 - `haiku`: File searches and other mechanical tasks (`codebase-locator`); judgment-bearing search such as picking representative patterns goes to Sonnet at `low` effort (`pattern-finder`). No `effort` support — never annotate haiku agents or spawns
-- `sonnet`: Default for analysis AND implementation (near-Opus coding quality at lower cost)
+- `sonnet`: Default for analysis AND implementation. Sonnet 5.5 is $2/$10 per MTok against Opus 5.5's $4/$20 and Fable 5.1's $10/$50; judge cost per completed task, not per token, and measure before moving a stage up or down a tier
 - `opus`: Design, architectural or cross-cutting implementation, and the quality gates (`task-verifier`, `research-validator`): Opus 5.5 is the stronger reviewer (more bugs caught, fewer false alarms) and only about twice Sonnet 5.5's price
 - `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure
 

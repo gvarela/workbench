@@ -63,7 +63,7 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | Stage | Suggested session model | Why |
 | ------- | ------------------------- | ----- |
 | create_project, create_handoff, help | Sonnet | Interviews and doc writing |
-| create_research / create_product_research | Sonnet (high effort) | Synthesis of subagent reports |
+| create_research / create_product_research | Sonnet (high effort); Opus for large or high-stakes research | Synthesis of subagent reports; Opus 5.5 is less likely to state a claim the sources don't support |
 | explore_design | **Fable** (Opus fallback) | Divergent, judgment-dense discussion — the skill self-checks and warns on lighter models |
 | create_design | Opus; Sonnet is fine when formalizing a recorded decision | Decision-making vs. documentation |
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
