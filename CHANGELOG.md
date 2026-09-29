@@ -19,7 +19,7 @@ Prompt audit against current Claude Code and Claude model guidance, with an adve
 - "Read files fully (no limit/offset)" becomes "read fully, paging through a partial view with offset/limit".
 - `implement` makes one automatic fix attempt after a verified failure (the skill previously said both one and two).
 - `review-prep` no longer triggers on the bare word "review".
-- Model tiers for the 5.5 generation: `task-verifier` and `research-validator` run on Opus (the quality gates; Opus 5.5 is the stronger reviewer at about twice Sonnet 5.5's price); `pattern-finder` moves from Haiku to Sonnet at `effort: low`; `validate_execution` and `research-validation` no longer pin `model: sonnet`, so they run on the session model. Spawn blocks pass the same models as the agent files, since a per-spawn model overrides frontmatter.
+- Model tiers for the 5.5 generation: `task-verifier` and `research-validator` run on Opus (the quality gates; Opus 5.5 is the stronger reviewer at about twice Sonnet 5.5's price); `pattern-finder` moves from Haiku to Sonnet at `effort: low`; `validate_execution` and `research-validation` pin `model: opus` instead of `sonnet`, so review work runs on Opus from any session, including a Fable one. Spawn blocks pass the same models as the agent files, since a per-spawn model overrides frontmatter.
 
 ### Fixed
 

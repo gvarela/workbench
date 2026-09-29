@@ -69,7 +69,7 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
 | implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
 | implement_inline | Sonnet (Claude Code's default `medium`; `high` for harder phases); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
-| validate_execution | Opus (the skill pins high effort) | A review task: Opus 5.5 catches more with fewer false alarms |
+| validate_execution | Any (the skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
 
 These are defaults, not gates — usage limits and task size legitimately move you down a tier.
 

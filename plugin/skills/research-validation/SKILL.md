@@ -6,6 +6,7 @@ allowed-tools:
   - Grep
   - Glob
   - Bash(test:*, ls:*)
+model: opus
 effort: high
 ---
 
