@@ -88,6 +88,6 @@ Task({
   Return a structured validation report with PASS/FAIL/UNCERTAIN per claim.
   DO NOT modify the document. Only report findings.`,
   subagent_type: "wb:research-validator",
-  model: "sonnet"
+  model: "opus"
 })
 ```

@@ -2,7 +2,7 @@
 name: task-verifier
 description: Verifies task completion by running tests, checking scope adherence, and validating implementation against requirements. Returns structured pass/fail report.
 tools: Bash, Read, Grep, Glob
-model: sonnet
+model: opus
 effort: high
 ---
 
