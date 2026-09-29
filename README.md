@@ -124,7 +124,7 @@ workbench/
 │   ├── hooks/          # Event handlers
 │   ├── scripts/        # Utility scripts (lint)
 │   └── docs/reference/ # Runtime-referenced shared docs
-├── docs/               # Maintainer guides + project plans (not shipped)
+└── docs/               # Maintainer guides + project plans (not shipped)
 ```
 
 ## Beads Integration
