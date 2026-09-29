@@ -57,7 +57,7 @@ Plan discipline (TDD via the workers, beads for all status tracking, phase check
 2. **Context Extraction**: Build minimal context packages for workers
 3. **Sequential Execution**: Simple, predictable, one task at a time
 4. **Worker Isolation**: Each worker operates in fresh context
-5. **Model Selection**: Right model per task via per-spawn override on the task-worker agent (haiku/sonnet/opus)
+5. **Model Selection**: Right model per task via per-spawn override on the task-worker agent (haiku/sonnet/opus; fable only as the escalation target)
 6. **Main Session Stays Clean**: No context accumulation in coordinator
 
 ### CRITICAL: NO SCOPE ADDITIONS - NONE
