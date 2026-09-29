@@ -93,15 +93,14 @@ This command can be used in two ways:
    - What integrations or external services are involved?
    - What configuration controls behavior? What can be changed without code?
 
-2. **REMEMBER: Document what IS, not what SHOULD BE**
 
-3. **Work out:**
+2. **Work out:**
    - The user-visible surface of this feature — screens, APIs, messages, states
    - How this feature connects to adjacent features the user also touches
    - What a PM needs to know to make decisions about this area
    - Which parts of the codebase actually implement user-facing behavior
 
-4. **Identify research areas** to investigate:
+3. **Identify research areas** to investigate:
    - User-facing features and capabilities
    - User flows (happy path and error paths)
    - Data involved (what's collected, stored, displayed)
@@ -109,7 +108,7 @@ This command can be used in two ways:
    - Integration points with other systems
    - Error states and recovery paths
 
-5. **Consider which specific components** to investigate
+4. **Consider which specific components** to investigate
 
 ### Step 4: Spawn Parallel Research Agents
 
@@ -159,12 +158,11 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 **Document ONLY what EXISTS, in product language**
 
 1. **Compile all sub-agent results**
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Prioritize live codebase findings** as primary source of truth
-4. **Connect findings across different components**
-5. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
-6. **DO NOT add recommendations or improvements unless explicitly requested**
-7. **Organize into three layers**:
+2. **Prioritize live codebase findings** as primary source of truth
+3. **Connect findings across different components**
+4. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
+5. **DO NOT add recommendations or improvements unless explicitly requested**
+6. **Organize into three layers**:
 
 **Layer 1 — Product Overview** (the PM reads this):
 
@@ -202,7 +200,6 @@ Before writing:
 - **NO** generic examples — use REAL data from THIS codebase
 - **NO** assumptions — only documented FACTS
 - **Document what IS, not what SHOULD BE**
-- **Remember one final time: Document what IS, not what SHOULD BE**
 
 ### Step 7: Validate the Written Document
 
@@ -266,16 +263,7 @@ Next: Review the research and run `/wb:create_design` when ready (or `/wb:explor
 
 ## Important Notes
 
-### Documentation Philosophy
-
-- **CRITICAL**: You and all sub-agents are documentarians, not evaluators
-- **REMEMBER**: Document what IS, not what SHOULD BE
-- **AUDIENCE**: Product managers — write for them, not for engineers
-- **NO RECOMMENDATIONS**: Only describe the current state of the software
-- Focus on behaviors, flows, and capabilities over implementation details
-- Research documents should be self-contained with all necessary context
-- Each sub-agent prompt should be specific and focused on read-only operations
-- Document cross-component connections and how systems interact
+Research documents are self-contained, focus on behaviors, flows, and capabilities over implementation details, and describe how components connect.
 
 ### File Reading
 

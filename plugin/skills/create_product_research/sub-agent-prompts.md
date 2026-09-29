@@ -39,13 +39,10 @@ Task({
 
   Start with [specific files if known].
 
-  CRITICAL INSTRUCTIONS:
-  - Explain as PRODUCT BEHAVIORS, not code implementation
-  - Write for a product manager, not an engineer
-  - Document what EXISTS — Document what IS, not what SHOULD BE
-  - DO NOT suggest improvements or identify issues
-  - Include file:line references for EVERY behavioral claim
-  - Trace actual code — do NOT guess or infer
+  Constraints:
+  - Explain PRODUCT BEHAVIORS for a product manager, not code implementation.
+  - Document what exists; no suggestions or issues.
+  - Include file:line references for every behavioral claim, traced from actual code.
   - DO NOT write any files. Return your findings as a report.`,
   subagent_type: "product-behavior-analyzer",
   model: "sonnet"
@@ -68,8 +65,6 @@ Task({
   - Configuration management approach
 
   Summarize at a HIGH LEVEL suitable for a product manager to understand the engineering approach, not the engineering details.
-
-  REMEMBER: Document what IS, not what SHOULD BE. No recommendations.
 
   DO NOT write any files. Return your findings as a report.`,
   subagent_type: "pattern-finder",

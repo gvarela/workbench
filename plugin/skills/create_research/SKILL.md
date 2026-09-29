@@ -72,20 +72,19 @@ When invoked, check for arguments:
 **Document what EXISTS in the codebase**
 
 1. **Break down the user's query into composable research areas**, one area per Intent success statement it bears on when an Intent section exists, plus any area the question needs that no statement names
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Work out:**
+2. **Work out:**
    - Underlying patterns and connections that EXIST
    - Architectural implementations CURRENTLY IN PLACE
    - Which directories, files, or patterns are ACTUALLY PRESENT
 
-4. **Identify research areas** to investigate:
+3. **Identify research areas** to investigate:
    - Authentication flow (if relevant)
    - User validation points (if relevant)
    - API endpoints (if relevant)
    - Database schema (if relevant)
    - [Other areas specific to the research question]
 
-5. **Consider which specific components** to investigate
+4. **Consider which specific components** to investigate
 
 Keep the mapping from research areas to success statements; Step 8 reports it.
 
@@ -132,13 +131,12 @@ const agents = [
 **Document ONLY what EXISTS**
 
 1. **Compile all sub-agent results**
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Prioritize live codebase findings** as primary source of truth
-4. **Connect findings across different components**
-5. **Include specific file paths and line numbers** for reference
-6. **Highlight patterns, connections, and architectural decisions THAT EXIST**
-7. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
-8. **DO NOT add recommendations or improvements unless explicitly requested**
+2. **Prioritize live codebase findings** as primary source of truth
+3. **Connect findings across different components**
+4. **Include specific file paths and line numbers** for reference
+5. **Highlight patterns, connections, and architectural decisions THAT EXIST**
+6. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
+7. **DO NOT add recommendations or improvements unless explicitly requested**
 
 ### Step 6: Document Findings
 
@@ -151,7 +149,6 @@ Before writing:
 - **NO** "[To be added]" or similar placeholders
 - **NO** generic examples - use REAL code from THIS codebase
 - **NO** assumptions - only documented FACTS
-- **Remember one final time: Document what IS, not what SHOULD BE**
 
 ### Step 7: Handle Follow-Up Questions
 
@@ -208,15 +205,7 @@ Next: [choose ONE line based on the findings]
 
 ## Important Notes
 
-### Documentation Philosophy
-
-- **CRITICAL**: You and all sub-agents are documentarians, not evaluators
-- **REMEMBER**: Document what IS, not what SHOULD BE
-- **NO RECOMMENDATIONS**: Only describe the current state of the codebase
-- Focus on finding concrete file paths and line numbers for developer reference
-- Research documents should be self-contained with all necessary context
-- Each sub-agent prompt should be specific and focused on read-only documentation operations
-- Document cross-component connections and how systems interact
+Research documents are self-contained, cite file paths and line numbers, and describe how components connect.
 
 ### File Reading
 
