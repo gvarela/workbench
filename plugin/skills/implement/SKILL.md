@@ -205,7 +205,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
 
 ### Step 6: After Each Worker Completes
 
-**⛔ BARRIER 2: worker output collected and verified before the next task — the next worker builds on this task's landed state**
+**⛔ BARRIER 2: the worker's completion notification received and its output verified before the next task — the next worker builds on this task's landed state**
 
 After each worker completes:
 

@@ -108,7 +108,7 @@ Sub-agents are read-only: they gather information and return findings, and you w
 
 Read the "Analysis Agent Prompts (Step 2)" section of [sub-agent-prompts.md](sub-agent-prompts.md) NOW and follow it exactly.
 
-⛔ BARRIER 2: the dependency, test, and pattern agents have all returned — a plan built on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: the dependency, test, and pattern agents have all returned (subagents run in the background, so wait for a completion notification from each one) — a plan built on a partial set misses what the missing report would have changed
 
 ### Step 3: Determine Implementation Strategy
 
@@ -416,7 +416,7 @@ Project each task's cost with rough arithmetic:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: After reading documents - ensure full context
-2. **⛔ BARRIER 2**: After spawning agents - wait for ALL agents
+2. **⛔ BARRIER 2**: After spawning agents - wait for every agent's completion notification
 3. **⛔ BARRIER 3**: Before writing tasks.md - verify no placeholders
 4. **Step 5**: Create beads issues for phase tracking
 5. **⛔ CHECKPOINT**: Between phases - require human verification

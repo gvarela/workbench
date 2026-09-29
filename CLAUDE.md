@@ -146,7 +146,7 @@ When modifying commands, maintain these patterns:
 
 ```markdown
 ⛔ BARRIER 1: full context read — analysis on partial context produces placeholders
-⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 ⛔ BARRIER 3: no placeholder values — a placeholder that ships becomes a task nobody can execute
 ⛔ CHECKPOINT: human verification between phases — the next phase builds on what a human has accepted
 ```
@@ -184,7 +184,7 @@ When creating or modifying commands:
 4. Maintain the documentarian philosophy for research
 5. Separate automated from manual verification
 6. Read files fully before processing
-7. Spawn independent agents in parallel; synthesize only after all have returned
+7. Spawn independent agents in parallel; synthesize only after every agent's completion notification has arrived (in an interactive session Claude Code runs subagents in the background, so the wait is the skill's instruction, not the harness)
 
 ## Best Practices
 

@@ -150,7 +150,7 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 
 **Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel. Every claim carries a file:line reference.
 
-⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 
 ### Step 5: Synthesize Findings into Three Layers
 
@@ -208,7 +208,7 @@ The validator reads the written file directly — no need to pass findings in co
 
 Use the **Validation Agent** prompt from `sub-agent-prompts.md` § "Validation Agent (Step 7)".
 
-⛔ BARRIER 4: the validation agent has returned — the frontmatter status and any fixes depend on its verdict
+⛔ BARRIER 4: the validation agent has returned (its completion notification has arrived) — the frontmatter status and any fixes depend on its verdict
 
 After validation returns:
 

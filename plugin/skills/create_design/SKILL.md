@@ -113,7 +113,7 @@ Sub-agents are read-only: they gather information and return findings, and you w
 
 Spawn the three agents concurrently using the prompts in [sub-agent-prompts.md](sub-agent-prompts.md) → **Step 2 Agent Prompts**.
 
-⛔ BARRIER 2: every spawned agent has returned — a design synthesized on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — a design synthesized on a partial set misses what the missing report would have changed
 
 ### Step 3: Problem Definition
 
@@ -327,7 +327,7 @@ Use agent findings to strengthen design:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: After reading research - ensure full understanding
-2. **⛔ BARRIER 2**: After agent spawning - wait for ALL agents
+2. **⛔ BARRIER 2**: After agent spawning - wait for every agent's completion notification
 3. **⛔ DECISION POINT**: After presenting options - get approach approval (with a closed `Decide:` record: confirmation of the recorded decision instead)
 4. **⛔ BARRIER 3**: Before writing - verify no placeholders
 5. **⛔ APPROVAL GATE**: After writing design - get explicit approval

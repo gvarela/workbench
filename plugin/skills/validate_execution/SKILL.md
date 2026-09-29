@@ -101,7 +101,7 @@ Sub-agents gather information and return findings without writing files; the mai
 
 Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Verify test coverage, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
 
-**⛔ BARRIER 2**: every validation agent has returned — the report synthesizes all four sets of findings, and a missing one hides a deviation
+**⛔ BARRIER 2**: every validation agent has returned (subagents run in the background, so wait for a completion notification from each one) — the report synthesizes all four sets of findings, and a missing one hides a deviation
 
 ### Step 3: Run Automated Verification
 
@@ -228,5 +228,5 @@ Recommended workflow:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: Read all documentation first
-2. **⛔ BARRIER 2**: Wait for all validation agents
+2. **⛔ BARRIER 2**: Wait for every validation agent's completion notification
 3. **⛔ BARRIER 3**: Complete all automated checks before writing the report

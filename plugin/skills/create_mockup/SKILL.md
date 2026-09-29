@@ -60,7 +60,7 @@ Spawn parallel agents to document what EXISTS:
 
 Read the five agent prompts in [sub-agent-prompts.md](sub-agent-prompts.md) NOW before spawning — use each verbatim.
 
-**⛔ BARRIER 2**: Wait for ALL agents to complete before proceeding.
+**⛔ BARRIER 2**: every agent has returned (subagents run in the background, so wait for a completion notification from each one) — the mockup draws on all of their findings.
 
 ### Step 2: Synthesize Research
 

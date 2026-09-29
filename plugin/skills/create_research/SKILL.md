@@ -124,7 +124,7 @@ const agents = [
 
 **Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel.
 
-⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 
 ### Step 5: Synthesize Findings
 
