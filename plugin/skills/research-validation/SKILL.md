@@ -6,7 +6,6 @@ allowed-tools:
   - Grep
   - Glob
   - Bash(test:*, ls:*)
-model: sonnet
 effort: high
 ---
 

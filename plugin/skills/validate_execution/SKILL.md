@@ -3,7 +3,6 @@ name: validate_execution
 description: Validate that an implemented plan matches design.md and tasks.md: run the automated checks, compare the implementation to the requirements, and produce a pass/fail report with gaps. Use after a phase or project is implemented when the user asks to validate, verify, or review whether the plan was done correctly. Takes the project directory.
 argument-hint: [project-directory]
 allowed-tools: Read
-model: sonnet
 effort: high
 ---
 
