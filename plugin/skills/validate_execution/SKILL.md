@@ -162,7 +162,7 @@ Read [templates.md](templates.md) NOW and create the validation report using its
 
 If validation passes with minor issues:
 
-1. Update tasks.md to reflect actual completion status
+1. Run `/wb:update_status` to reconcile tasks.md with beads (it is the sole writer of progress fields)
 2. Document any approved deviations
 3. Note lessons learned for future projects
 

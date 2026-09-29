@@ -251,7 +251,7 @@ As you work:
 
 1. **Stay consistent** with patterns discovered in handoff
 2. **Reference solutions** to problems already solved
-3. **Update tasks.md** checkboxes as you complete work
+3. **Close beads tasks** as you complete them; `/wb:update_status` reconciles tasks.md
 4. **Document new discoveries** for potential future handoff
 5. **Run verification** commands from handoff
 
@@ -295,7 +295,7 @@ If the handoff seems outdated:
    ```
 
 2. **Compare with tasks.md**:
-   - More tasks checked than handoff indicates?
+   - More task issues closed in beads than the handoff indicates?
    - Different phase than handoff shows?
 
 3. **If stale, analyze the delta**:
