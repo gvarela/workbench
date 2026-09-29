@@ -170,8 +170,6 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 
 **Document ONLY what EXISTS, in product language**
 
-**IMPORTANT**: Wait for ALL sub-agent tasks to complete before proceeding
-
 1. **Compile all sub-agent results**
 2. **REMEMBER: Document what IS, not what SHOULD BE**
 3. **Prioritize live codebase findings** as primary source of truth
@@ -280,14 +278,6 @@ Next: Review the research and run `/wb:create_design` when ready (or `/wb:explor
 
 ## Important Notes
 
-### Critical Ordering
-
-- **ALWAYS** read mentioned files first before spawning sub-tasks (Step 1)
-- **ALWAYS** wait for all sub-agents to complete before synthesizing (Step 4)
-- **ALWAYS** write the document before validating (Step 6 before Step 7)
-- **ALWAYS** wait for validation before confirming completion (Step 7)
-- **NEVER** write the research document with placeholder values
-
 ### Documentation Philosophy
 
 - **CRITICAL**: You and all sub-agents are documentarians, not evaluators
@@ -318,10 +308,3 @@ Next: Review the research and run `/wb:create_design` when ready (or `/wb:explor
 - FAIL results must be fixed (re-check the code, update document, re-validate)
 - UNCERTAIN results are noted in the Validation Notes section for human review
 - The `validation_status` frontmatter field tracks overall validation state
-
-### Synchronization Points
-
-1. ⛔ **BARRIER 1**: After reading mentioned files — Do not proceed until ALL files are read
-2. ⛔ **BARRIER 2**: After spawning research agents — Wait for ALL agents to complete
-3. ⛔ **BARRIER 3**: Before writing output — Verify no placeholder values
-4. ⛔ **BARRIER 4**: After spawning validation agent — Wait for validation to complete

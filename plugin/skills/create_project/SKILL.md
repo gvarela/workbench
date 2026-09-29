@@ -122,7 +122,7 @@ Read the "design.md Template" section of [templates.md](templates.md) NOW and cr
 
 Read the "tasks.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in.
 
-**⛔ BARRIER 1**: Ensure all files are created with proper frontmatter before proceeding
+⛔ BARRIER 1: all four files exist with frontmatter — the summary and next steps report them as created
 
 ### Step 5: Confirm Creation
 
@@ -185,13 +185,6 @@ Files progress through defined states:
 - `research.md`: draft → in-progress → complete
 - `design.md`: draft → ready → implementing → complete
 - `tasks.md`: not-started → in-progress → complete
-
-### Synchronization Points
-
-Commands use explicit barriers:
-
-1. **⛔ BARRIER 1**: After creating all files
-2. **Final Confirmation**: Present complete structure
 
 ## Error Handling
 

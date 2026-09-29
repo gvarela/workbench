@@ -142,8 +142,6 @@ const agents = [
 
 **Document ONLY what EXISTS**
 
-**IMPORTANT**: Wait for ALL sub-agent tasks to complete before proceeding
-
 1. **Compile all sub-agent results**
 2. **REMEMBER: Document what IS, not what SHOULD BE**
 3. **Prioritize live codebase findings** as primary source of truth
@@ -221,12 +219,6 @@ Next: [choose ONE line based on the findings]
 
 ## Important Notes
 
-### Critical Ordering
-
-- **ALWAYS** read mentioned files first before spawning sub-tasks (Step 1)
-- **ALWAYS** wait for all sub-agents to complete before synthesizing (Step 4)
-- **NEVER** write the research document with placeholder values
-
 ### Documentation Philosophy
 
 - **CRITICAL**: You and all sub-agents are documentarians, not evaluators
@@ -242,9 +234,3 @@ Next: [choose ONE line based on the findings]
 - **File reading**: Always read mentioned files FULLY (no limit/offset) before spawning sub-tasks
 - Have sub-agents document examples and usage patterns as they exist
 - Keep the main agent focused on synthesis, not deep file reading
-
-### Synchronization Points
-
-1. ⛔ **BARRIER 1**: After reading mentioned files - Do not proceed until ALL files are read
-2. ⛔ **BARRIER 2**: After spawning agents - Wait for ALL agents to complete
-3. ⛔ **BARRIER 3**: Before writing output - Verify no placeholder values
