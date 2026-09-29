@@ -97,7 +97,7 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 **Use parallel agents to verify implementation comprehensively:**
 
-**CRITICAL: Sub-agents gather information and return findings. They do NOT write files. YOU (the main agent) will write the validation report after synthesizing their findings.**
+Sub-agents gather information and return findings without writing files; the main agent writes the validation report after synthesizing them, so the report has one author and one voice.
 
 Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Verify test coverage, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
 
@@ -176,11 +176,7 @@ If validation fails:
 
 ### Validation Philosophy
 
-1. **Be Objective**: Assess what IS, not what SHOULD BE
-2. **Be Thorough**: Check everything, assume nothing
-3. **Be Constructive**: Identify issues with solutions
-4. **Be Precise**: Use file:line references for all claims
-5. **Be Practical**: Focus on what matters for deployment
+Assess what IS, not what SHOULD BE. Cite file:line for every claim, pair each issue with a proposed fix, and weigh findings by what matters for deployment.
 
 ### What Makes a PASS vs FAIL
 
