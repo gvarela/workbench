@@ -132,7 +132,7 @@ Create `mockups/v001/decisions.md` using the "decisions.md Template" in [templat
 
 Create `mockups/v001/mockup.html` using the "HTML Mockup Template" in [templates.md](templates.md).
 
-**Critical requirements:**
+**Requirements for the HTML mockup:**
 
 1. **Import app's actual stylesheets** based on research
 2. **Use discovered component HTML patterns** (copy structure from file:line references)
@@ -251,7 +251,7 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 
 ### Research First
 
-- ALWAYS research existing UI before proposing
+- Research existing UI before proposing (BARRIER 1)
 - Reference specific file:line locations
 - Follow established patterns unless explicitly breaking them
 
@@ -263,7 +263,7 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 
 ### Versioning
 
-- Never overwrite - always create new version
+- Each iteration is a new version; earlier versions stay intact
 - Document what changed and why
 - Keep decision trail for design.md
 
