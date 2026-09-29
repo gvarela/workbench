@@ -91,7 +91,7 @@ For each implementation task:
 
 ### Step 1: Read and Understand Context
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation files FULLY - NO SHORTCUTS ⛔⛔⛔**
+**⛔ BARRIER 1: research.md, design.md, and tasks.md read in full — implementing from partial reads produces work that misses the plan**
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -312,7 +312,7 @@ Follow project testing patterns identified in research.md.
 
 ### Step 5: Run Phase Verification
 
-**⛔ BARRIER 2**: Complete ALL tasks in the phase before verification
+**⛔ BARRIER 2: every phase task closed — verification on a partial phase reports work that has not landed**
 
 #### Automated Verification
 
@@ -334,7 +334,7 @@ After implementation, update the "Modified Files" section in tasks.md. Read the 
 
 ### Step 6: Phase Checkpoint
 
-**⛔ CHECKPOINT: Phase [N] Complete**
+**⛔ CHECKPOINT: Phase [N] Complete — the next phase builds on what a human has accepted**
 
 Complete these steps IN ORDER before proceeding to next phase:
 

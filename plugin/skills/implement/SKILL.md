@@ -75,7 +75,7 @@ Same zero-tolerance policy as original:
 
 ### Step 1: Read and Understand Context
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation files FULLY - NO SHORTCUTS ⛔⛔⛔**
+**⛔ BARRIER 1: research.md, design.md, and tasks.md read in full — a context package built from partial reads sends gaps to every worker**
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -171,7 +171,7 @@ beads_tasks:
 
 ### Step 4: Find Available Work
 
-**⛔ BARRIER 2: Get ready tasks from beads**
+Find ready work in beads (a lookup, not a synchronization point).
 
 Query beads to find what's ready to work on:
 
@@ -210,7 +210,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
 
 ### Step 6: After Each Worker Completes
 
-**⛔ BARRIER 3: Collect output and verify before next task**
+**⛔ BARRIER 2: worker output collected and verified before the next task — the next worker builds on this task's landed state**
 
 After each worker completes:
 
@@ -273,7 +273,7 @@ After each worker completes:
 
 ### Step 7: Aggregate Results
 
-**⛔ BARRIER 4: All phase tasks complete**
+**⛔ BARRIER 3: every phase task closed — aggregating and verifying on a partial phase reports work that has not landed**
 
 After all workers for the phase complete, aggregate their outputs:
 
@@ -292,7 +292,7 @@ bd show ${phaseMilestoneId}
 
 ### Step 8: Run Phase Verification
 
-**⛔ CHECKPOINT: Phase ${phase} Complete**
+**⛔ CHECKPOINT: Phase ${phase} Complete — the next phase builds on what a human has accepted**
 
 Same verification process as `implement_inline`:
 
