@@ -161,7 +161,7 @@ should be revisited.
 - **On confirmation**: treat the recorded direction as the approved approach and proceed to Step 5. The thoughts doc(s) supply the rejected alternatives and rationale for the design document.
 - **If the user wants to revisit**: suggest re-running `/wb:explore_design [project-dir]` — do not re-litigate the decision here with freshly generated options.
 
-**If no decision record exists**, proceed below — unchanged:
+**If no decision record exists**, generate options as follows:
 
 **Interactive Design Discussion**
 
