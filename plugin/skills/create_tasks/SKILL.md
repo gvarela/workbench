@@ -9,13 +9,9 @@ allowed-tools: Read
 
 Transforms design decisions into a detailed, phased execution plan with embedded tasks. Focuses on HOW to implement what was designed.
 
-## CRITICAL: This Document is About HOW - It Must NOT Contain
+## Scope: HOW only
 
-- **NO new scope** — every task derives from design.md; if something seems missing, STOP and surface it, do not add it
-- **NO re-deciding WHAT or WHY** — design decisions are settled input; if one looks wrong, halt and send it back to `/wb:create_design`, don't quietly plan around it
-- **NO invented requirements** — no extra hardening, edge cases, or "improvements" the design doesn't call for
-- **NO research content** — reference research.md by file:line; don't restate or extend its findings
-- **NO placeholders** — every task specific and executable (enforced at BARRIER 3)
+Every task derives from design.md. If something seems missing, surface it to the user rather than adding it; if a design decision looks wrong, halt and send it back to /wb:create_design rather than planning around it. Extra hardening, edge cases, or improvements the design does not call for are new scope. Reference research.md by file:line instead of restating it. Every task is specific and executable (checked at BARRIER 3).
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
@@ -100,7 +96,6 @@ const tasksFile = `${projectDir}/tasks.md`;
 **Decide HOW to bridge from current state to target state**
 
 Synthesize research (current state) and design (target state) to determine the implementation path.
-Remember: Now you're planning HOW to build what was designed.
 
 ### Step 2: Spawn Analysis Agents
 
@@ -108,7 +103,7 @@ Remember: Now you're planning HOW to build what was designed.
 
 After reading all documents, spawn specialized agents in parallel:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write tasks.md after synthesizing their findings.**
+Sub-agents are read-only: they gather information and return findings, and you write tasks.md after synthesizing them.
 
 Read the "Analysis Agent Prompts (Step 2)" section of [sub-agent-prompts.md](sub-agent-prompts.md) NOW and follow it exactly.
 
@@ -147,7 +142,7 @@ Read the "tasks.md Document Template" section of [templates.md](templates.md) NO
 
 Create beads issues to track ALL work (phases AND granular tasks) across sessions.
 
-**Critical**: Beads is the source of truth for status. Every task checkbox in tasks.md gets a corresponding beads issue.
+Beads is the source of truth for status. Every task in tasks.md gets a corresponding beads issue.
 
 #### 5a. Verify Beads is Initialized
 
@@ -195,7 +190,7 @@ Read the "Phase Milestone Creation Examples (Step 5c)" section of [examples.md](
 
 #### 5d. Create Task Issues for Each Task
 
-**CRITICAL**: Create a beads issue for EVERY task checkbox in the execution plan.
+Create a beads issue for every task in the execution plan; a task without an issue is invisible to `bd ready` and to workers.
 
 For each task in each phase:
 

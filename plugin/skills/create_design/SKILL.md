@@ -14,15 +14,9 @@ Supporting files in this directory (read each when its step directs you to — n
 - [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim prompts for the three Step 2 verification agents
 - [templates.md](templates.md) — design.md output template
 
-## CRITICAL: This Document is About WHAT and WHY - NEVER HOW
+## Scope: WHAT and WHY, not HOW
 
-- **DO NOT** include implementation sequences or step-by-step procedures
-- **DO NOT** specify HOW to code solutions
-- **DO NOT** create task lists or phase breakdowns
-- **DO NOT** detail file modifications or code changes
-- **ONLY** document WHAT needs to be built and WHY those choices were made
-- **ONLY** architectural decisions and technical approach
-- The HOW comes later in the execution plan - NOT HERE
+design.md records architectural decisions and the reasoning behind them: what to build, why, what is in and out of scope, success criteria, risks. Implementation sequences, code changes, file-modification lists, and task or phase breakdowns belong in tasks.md, which is written later from this document. Keeping them out means the design stays changeable: if the approach turns out wrong, it can be replaced without redoing execution planning.
 
 ## Initial Response
 
@@ -107,10 +101,7 @@ const designFile = `${projectDir}/design.md`;
    - What constraints limit our options
    - What gaps might affect our design
 
-**Decide WHAT to build, not HOW to build it**
-
 Synthesize the research into design constraints and opportunities.
-Remember: You are deciding WHAT and WHY, not HOW.
 
 ### Step 2: Spawn Verification Agents
 
@@ -118,7 +109,7 @@ Remember: You are deciding WHAT and WHY, not HOW.
 
 After reading research, spawn specialized agents in parallel to gather additional context:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write design.md after synthesizing their findings.**
+Sub-agents are read-only: they gather information and return findings, and you write design.md after synthesizing them.
 
 Spawn the three agents concurrently using the prompts in [sub-agent-prompts.md](sub-agent-prompts.md) → **Step 2 Agent Prompts**.
 
@@ -304,8 +295,6 @@ The template includes `bd create` command snippets for tracking assumptions and 
 - ❌ Test writing tasks (HOW to test it)
 - ❌ File modification lists (HOW to change code)
 - ❌ Command sequences (HOW to execute changes)
-
-**REMEMBER: If it describes HOW to do something, it DOES NOT belong in design**
 
 ### Handling Knowledge Gaps
 

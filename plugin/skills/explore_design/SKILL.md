@@ -36,16 +36,16 @@ Continue on [model], or restart this stage in a stronger session?
 
 Do NOT block — if the user chooses to continue, proceed. This is guidance, not enforcement.
 
-## CRITICAL: This Stage Produces POSSIBILITIES, Not Commitments
+## This stage produces possibilities, not commitments
 
-These rules hold for the ENTIRE session, every step:
+These hold for the whole session:
 
-- **Directions are possibilities with trade-offs, NEVER decisions** — present nothing as chosen until the user explicitly chooses it
-- **NO implementation detail** — no code, no file-modification lists, no step-by-step procedures (that's execution planning)
-- **NO task breakdowns or phase plans** (that's `/wb:create_tasks`)
-- **NO writing or seeding design.md** (that's `/wb:create_design`)
-- **NO chosen answer unless the user chose it** — do not let a favorite emerge in your framing; steelman every direction
-- **Convergence happens ONLY on an explicit user signal** at the Step 5 CHECKPOINT — never infer approval from enthusiasm, silence, or leading questions
+- **Directions are possibilities with trade-offs, not decisions** — present nothing as chosen until the user explicitly chooses it
+- **No implementation detail** — no code, no file-modification lists, no step-by-step procedures (that's execution planning)
+- **No task breakdowns or phase plans** (that's `/wb:create_tasks`)
+- **No writing or seeding design.md** (that's `/wb:create_design`)
+- **No chosen answer unless the user chose it** — do not let a favorite emerge in your framing; steelman every direction
+- **Convergence happens only on an explicit user signal** at the Step 5 CHECKPOINT — do not infer approval from enthusiasm, silence, or leading questions
 
 If the user pushes toward implementation detail mid-discussion, note it in the thoughts doc as a consideration and steer back to the decision level.
 

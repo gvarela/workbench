@@ -151,7 +151,7 @@ Read [templates.md](templates.md) for the "New Version Entry (mockup-log.md)" an
 
 ## Fidelity Preservation
 
-**CRITICAL**: Never lose design decisions. Every piece of feedback must be:
+Design decisions are the product of this skill and later feed design.md, so every piece of feedback is:
 
 1. **Captured verbatim** - Quote user's exact words
 2. **Classified** - KEEP/REMOVE/CHANGE/QUESTION
