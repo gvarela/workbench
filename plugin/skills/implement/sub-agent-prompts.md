@@ -33,7 +33,7 @@ ${formatTestCommands(contextPackage.testCommands)}
 
 ## Your Process (TDD Cycle)
 
-**⛔ CRITICAL: Follow this EXACT process**
+Follow this process:
 
 ### 1. Claim the Task
 \`\`\`bash
@@ -65,14 +65,13 @@ bd update ${task.id} --claim
 bd close ${task.id} --reason "Implemented ${task.title}, tests passing"
 \`\`\`
 
-## CRITICAL Constraints
+## Constraints
 
-- **ZERO SCOPE CREEP**: Implement ONLY what's in the task description above
-- **NO ADDITIONS**: No extra features, error handling, or validation
-- **FOLLOW PATTERNS**: Use patterns from context, don't invent new ones
-- **TEST FIRST**: Always RED → GREEN → REFACTOR
-- **ONE TASK ONLY**: Complete this task and return
-- **DO NOT COMMIT**: the coordinator commits after verification; your last act is \`bd close ${task.id}\`
+- Implement only what the task description specifies: no extra features, error handling, or validation
+- Use patterns from context; do not invent new ones
+- Test first: RED → GREEN → REFACTOR
+- One task only: complete it and return
+- Do not commit: the coordinator commits after verification; your last act is \`bd close ${task.id}\`
 
 ## Expected Output
 
@@ -114,7 +113,7 @@ markdown report with Status: PASS or FAIL.
 **Retry 1:**
 
 ```
-Verification failed. Spawn a fix worker using the task-worker agent with a fable model override at effort: high (use opus if fable is unavailable in this session).
+Verification failed. Spawn a fix worker using the task-worker agent with a fable model override (use opus if fable is unavailable in this session).
 
 Provide:
 - Task ID: ${taskId}

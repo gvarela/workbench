@@ -51,31 +51,26 @@ When invoked, check for arguments:
 
 ### Core Principles
 
-All principles from `implement_inline` PLUS:
+Plan discipline (TDD via the workers, beads for all status tracking, phase checkpoints, one commit per verified task) plus:
 
 1. **Coordination Over Direct Implementation**: Main agent orchestrates, doesn't code
 2. **Context Extraction**: Build minimal context packages for workers
 3. **Sequential Execution**: Simple, predictable, one task at a time
 4. **Worker Isolation**: Each worker operates in fresh context
-5. **Model Selection**: Right model per task via per-spawn override on the task-worker agent (haiku/sonnet/opus)
+5. **Model Selection**: Right model per task via per-spawn override on the task-worker agent (haiku/sonnet/opus; fable only as the escalation target)
 6. **Main Session Stays Clean**: No context accumulation in coordinator
 
-### CRITICAL: NO SCOPE ADDITIONS - NONE
+### Scope
 
-Same zero-tolerance policy as original:
+Workers implement what tasks.md specifies and nothing else: the verifier fails extras, and each extra widens what the next phase must trust. Do not add features, refactors, error handling, or abstractions the task does not name.
 
-- **NEVER** add features not in tasks.md
-- **NEVER** refactor beyond what's specified
-- **NEVER** make "improvements" not explicitly asked for
-- **NEVER** add extra error handling, validation, or edge cases
-- **ONLY** implement what is EXPLICITLY written in tasks.md
-- If something seems missing, STOP and ask - DO NOT add it
+If something seems missing, do not add it: record it in Implementation Notes as a follow-up. If the task cannot succeed without it, that is a plan defect; use the Plan-Defect Deviation Protocol.
 
 ## Process Steps
 
 ### Step 1: Read and Understand Context
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation files FULLY - NO SHORTCUTS ⛔⛔⛔**
+**⛔ BARRIER 1: research.md, design.md, and tasks.md read in full — a context package built from partial reads sends gaps to every worker**
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -120,7 +115,7 @@ After reading all documentation, prepare to spawn workers sequentially.
 
 ### Step 2: Verify Beads Configuration
 
-**CRITICAL**: Use beads for ALL task tracking (phases AND granular tasks).
+Use beads for all task tracking (phases and granular tasks).
 
 #### Verify Beads is Initialized
 
@@ -171,7 +166,7 @@ beads_tasks:
 
 ### Step 4: Find Available Work
 
-**⛔ BARRIER 2: Get ready tasks from beads**
+Find ready work in beads (a lookup, not a synchronization point).
 
 Query beads to find what's ready to work on:
 
@@ -201,7 +196,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
    - Opus: Architectural or cross-cutting tasks
    - Fable: never as a first spawn — the escalation target after a verified failure (Step 6)
 
-   When spawning with sonnet or opus, set `effort: xhigh` for the coding work; fable spawns use `effort: high`. Never set effort on haiku spawns (errors on Haiku 4.5). The verify-then-retry loop below is what makes the cheap default safe — fix workers escalate to fable, one attempt.
+   The spawn sets only the model: the Agent tool has no effort parameter, so every worker runs at the `effort` in `task-worker.md` frontmatter (`medium`), whatever model the spawn picks and whatever effort this session runs at. Escalation raises the model, not the effort. The verify-then-retry loop below is what makes the cheap default safe — fix workers escalate to fable, one attempt.
 5. **Spawn the `task-worker` agent** with the chosen model as a per-spawn override (the agent has the tdd-discipline skill preloaded and carries the TDD contract in its own definition). **Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW** and build the worker prompt from its "Worker Prompt Template" — task ID/title/description, the context package, beads commands (`bd update [id] --claim`, `bd close [id]`), and the expected-output contract. Use the template verbatim with values filled in.
 6. **Collect worker output** when complete
 7. **Proceed to verification** (Step 6)
@@ -210,7 +205,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
 
 ### Step 6: After Each Worker Completes
 
-**⛔ BARRIER 3: Collect output and verify before next task**
+**⛔ BARRIER 2: the worker's completion notification received and its output verified before the next task — the next worker builds on this task's landed state**
 
 After each worker completes:
 
@@ -244,7 +239,7 @@ After each worker completes:
    ```
 
    **If PASS**:
-   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart.
+   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
    - Add to success log
    - Collect modified files for aggregation
    - Proceed to step 5 (next task)
@@ -252,8 +247,8 @@ After each worker completes:
    **If FAIL** — first judge the failure type from the verifier report:
 
    - **Implementation defect** (task is achievable as specified; the worker got it wrong):
-     - Attempt automatic fix (up to 2 retries) using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), re-verifying after each retry.
-     - **After the fable retry fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
+     - Attempt one automatic fix using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), then re-verify.
+     - **If re-verification fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
    - **Plan defect** (task cannot succeed AS SPECIFIED — a design assumption doesn't survive contact with the code): do NOT spawn fix workers; retries cannot fix a task that is wrong as specified. Follow the "Plan-Defect Deviation Protocol" in [reference.md](reference.md) — file a design-revision issue, block dependent tasks, halt the phase for a human checkpoint.
 
 5. **Add to aggregated lists** (after pass):
@@ -273,7 +268,7 @@ After each worker completes:
 
 ### Step 7: Aggregate Results
 
-**⛔ BARRIER 4: All phase tasks complete**
+**⛔ BARRIER 3: every phase task closed — aggregating and verifying on a partial phase reports work that has not landed**
 
 After all workers for the phase complete, aggregate their outputs:
 
@@ -292,9 +287,9 @@ bd show ${phaseMilestoneId}
 
 ### Step 8: Run Phase Verification
 
-**⛔ CHECKPOINT: Phase ${phase} Complete**
+**⛔ CHECKPOINT: Phase ${phase} Complete — the next phase builds on what a human has accepted**
 
-Same verification process as `implement_inline`:
+Phase verification:
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -437,15 +432,10 @@ When resuming work (phase = "continue"):
 - ✅ Wait for each worker to complete before next
 - ✅ Aggregate worker outputs thoroughly
 - ✅ Handle worker failures gracefully
-- ✅ All `implement_inline` best practices
 
-### DON'T (ABSOLUTELY FORBIDDEN)
+### Do not
 
-- ❌ All prohibitions from `implement_inline`
-- ❌ **NEVER** spawn multiple workers in parallel (keep it simple)
-- ❌ **NEVER** let a worker commit, and never commit a task before its verifier passes
-- ❌ **NEVER** allow workers to add scope
-- ❌ **NEVER** pass entire docs to workers (extract context)
-- ❌ **NEVER** proceed without waiting for worker completion
-- ❌ **NEVER** skip worker output aggregation
-- ❌ **NEVER** close phase milestone before manual verification
+- Spawn workers in parallel: each verifier assumes a working tree holding only one task.
+- Let a worker commit, or commit a task before its verifier passes.
+- Pass entire docs to workers; extract the context package.
+- Skip worker output aggregation, or close the phase milestone before manual verification.

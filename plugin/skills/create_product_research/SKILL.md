@@ -63,20 +63,17 @@ When invoked, check for arguments:
 
 This command can be used in two ways:
 
-1. **Within the wb pipeline**: After `/create_project` creates the directory structure. The `product-research.md` file will be created alongside `research.md` — they serve different audiences for the same project.
+1. **Within the wb pipeline**: After `/wb:create_project` creates the directory structure. The `product-research.md` file will be created alongside `research.md` — they serve different audiences for the same project.
 
-2. **Standalone**: A PM can run this without `/create_project`. If the directory exists but `product-research.md` doesn't, create it fresh. If the directory doesn't exist, create it.
+2. **Standalone**: A PM can run this without `/wb:create_project`. If the directory exists but `product-research.md` doesn't, create it fresh. If the directory doesn't exist, create it.
 
 ## Steps to Execute After Receiving the Research Query
 
-### Step 1: Read Any Directly Mentioned Files First (CRITICAL)
+### Step 1: Read Directly Mentioned Files First
 
-- If the user mentions specific files (docs, JSON, configs), read them FULLY first
-- **IMPORTANT**: Use the Read tool WITHOUT limit/offset parameters to read entire files
-- **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
-- This ensures you have full context before decomposing the research
+- Read any files the user mentions (docs, JSON, configs) in full in the main context before spawning sub-tasks (if Read returns a partial view of a large file, page through the rest with offset/limit), so the decomposition rests on full context.
 
-**⛔⛔⛔ BARRIER 1: STOP! Do NOT proceed to Step 2 until ALL mentioned files are FULLY read ⛔⛔⛔**
+⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
 ### Step 2: Validate Project Structure
 
@@ -96,15 +93,13 @@ This command can be used in two ways:
    - What integrations or external services are involved?
    - What configuration controls behavior? What can be changed without code?
 
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-
-3. **Work out:**
+2. **Work out:**
    - The user-visible surface of this feature — screens, APIs, messages, states
    - How this feature connects to adjacent features the user also touches
    - What a PM needs to know to make decisions about this area
    - Which parts of the codebase actually implement user-facing behavior
 
-4. **Identify research areas** to investigate:
+3. **Identify research areas** to investigate:
    - User-facing features and capabilities
    - User flows (happy path and error paths)
    - Data involved (what's collected, stored, displayed)
@@ -112,13 +107,13 @@ This command can be used in two ways:
    - Integration points with other systems
    - Error states and recovery paths
 
-5. **Consider which specific components** to investigate
+4. **Consider which specific components** to investigate
 
 ### Step 4: Spawn Parallel Research Agents
 
 Create multiple agents to research different aspects concurrently:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings as reports. They do NOT write files. YOU (the main agent) will write product-research.md after synthesizing their findings.**
+Sub-agents are read-only: they return findings as reports and do not write files. You write product-research.md after synthesizing their findings.
 
 ```
 ## Parallel Research Strategy
@@ -153,32 +148,20 @@ Use the **Pattern Finder** prompt from `sub-agent-prompts.md` § "Pattern Finder
 
 Spawn all agents concurrently for efficiency. Each returns a report; none write files.
 
-**CRITICAL Agent Instructions (MUST follow exactly):**
+**Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel. Every claim carries a file:line reference.
 
-- **Each agent describes what the software does, NOT how the code works**
-- **Agents MUST describe what exists without ANY judgment**
-- **Document what IS, not what SHOULD BE — NO EXCEPTIONS**
-- **Agents MUST include file:line references for every claim**
-- **Use specific agent types for their strengths**
-- **Run multiple agents in parallel for speed**
-- **ALWAYS wait for ALL agents before synthesizing**
-- **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
-
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL sub-agents to complete — DO NOT proceed until EVERY agent returns ⛔⛔⛔**
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 
 ### Step 5: Synthesize Findings into Three Layers
 
 **Document ONLY what EXISTS, in product language**
 
-**IMPORTANT**: Wait for ALL sub-agent tasks to complete before proceeding
-
 1. **Compile all sub-agent results**
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Prioritize live codebase findings** as primary source of truth
-4. **Connect findings across different components**
-5. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
-6. **DO NOT add recommendations or improvements unless explicitly requested**
-7. **Organize into three layers**:
+2. **Prioritize live codebase findings** as primary source of truth
+3. **Connect findings across different components**
+4. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
+5. **DO NOT add recommendations or improvements unless explicitly requested**
+6. **Organize into three layers**:
 
 **Layer 1 — Product Overview** (the PM reads this):
 
@@ -208,7 +191,7 @@ Write the product-research.md file. **Keep the main agent focused on synthesis �
 
 Use the **product-research.md Template** from `templates.md` § "product-research.md Template".
 
-**⛔⛔⛔ BARRIER 3: STOP! Verify NO placeholder values — ALL data MUST be from ACTUAL codebase ⛔⛔⛔**
+⛔ BARRIER 3: no placeholder values — a placeholder that ships reads as a finding nobody verified
 
 Before writing:
 
@@ -216,7 +199,6 @@ Before writing:
 - **NO** generic examples — use REAL data from THIS codebase
 - **NO** assumptions — only documented FACTS
 - **Document what IS, not what SHOULD BE**
-- **Remember one final time: Document what IS, not what SHOULD BE**
 
 ### Step 7: Validate the Written Document
 
@@ -226,7 +208,7 @@ The validator reads the written file directly — no need to pass findings in co
 
 Use the **Validation Agent** prompt from `sub-agent-prompts.md` § "Validation Agent (Step 7)".
 
-**⛔⛔⛔ BARRIER 4: STOP! Wait for validation agent to complete before proceeding ⛔⛔⛔**
+⛔ BARRIER 4: the validation agent has returned (its completion notification has arrived) — the frontmatter status and any fixes depend on its verdict
 
 After validation returns:
 
@@ -280,28 +262,11 @@ Next: Review the research and run `/wb:create_design` when ready (or `/wb:explor
 
 ## Important Notes
 
-### Critical Ordering
-
-- **ALWAYS** read mentioned files first before spawning sub-tasks (Step 1)
-- **ALWAYS** wait for all sub-agents to complete before synthesizing (Step 4)
-- **ALWAYS** write the document before validating (Step 6 before Step 7)
-- **ALWAYS** wait for validation before confirming completion (Step 7)
-- **NEVER** write the research document with placeholder values
-
-### Documentation Philosophy
-
-- **CRITICAL**: You and all sub-agents are documentarians, not evaluators
-- **REMEMBER**: Document what IS, not what SHOULD BE
-- **AUDIENCE**: Product managers — write for them, not for engineers
-- **NO RECOMMENDATIONS**: Only describe the current state of the software
-- Focus on behaviors, flows, and capabilities over implementation details
-- Research documents should be self-contained with all necessary context
-- Each sub-agent prompt should be specific and focused on read-only operations
-- Document cross-component connections and how systems interact
+Research documents are self-contained, focus on behaviors, flows, and capabilities over implementation details, and describe how components connect.
 
 ### File Reading
 
-- **File reading**: Always read mentioned files FULLY (no limit/offset) before spawning sub-tasks
+- **File reading**: read mentioned files in full before spawning sub-tasks
 - Have sub-agents document examples and usage patterns as they exist
 - Keep the main agent focused on synthesis, not deep file reading
 - Sub-agents must include file:line references for all claims
@@ -318,10 +283,3 @@ Next: Review the research and run `/wb:create_design` when ready (or `/wb:explor
 - FAIL results must be fixed (re-check the code, update document, re-validate)
 - UNCERTAIN results are noted in the Validation Notes section for human review
 - The `validation_status` frontmatter field tracks overall validation state
-
-### Synchronization Points
-
-1. ⛔ **BARRIER 1**: After reading mentioned files — Do not proceed until ALL files are read
-2. ⛔ **BARRIER 2**: After spawning research agents — Wait for ALL agents to complete
-3. ⛔ **BARRIER 3**: Before writing output — Verify no placeholder values
-4. ⛔ **BARRIER 4**: After spawning validation agent — Wait for validation to complete

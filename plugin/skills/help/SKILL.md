@@ -37,7 +37,7 @@ Run this first, before any topic. It decides which of three cases you are in.
    Left undone by the previous stage: <gaps, or none>
    ```
 
-   The next stage is the first in the chain whose document is missing or whose status is not `complete` (research), `approved`/`implementing` (design), or whose phase milestone is open (implementation), then validation. Gaps come from the evidence: success statements research's Intent Coverage lists as not touched; statements with no `(refines:)` metric and no `Deferred:` entry; metrics that refine nothing; statements without a verdict suffix after validation ran; open `Q:` or `Decide:` issues; a milestone whose tasks are all closed but that is still open.
+   The next stage is the first in the chain whose document is missing or whose status is not `complete` (research), `ready`/`implementing` (design), or whose phase milestone is open (implementation), then validation. Gaps come from the evidence: success statements research's Intent Coverage lists as not touched; statements with no `(refines:)` metric and no `Deferred:` entry; metrics that refine nothing; statements without a verdict suffix after validation ran; open `Q:` or `Decide:` issues; a milestone whose tasks are all closed but that is still open.
 5. **The three cases**:
    - **Case A, no active plan**: print `No active plan here (no docs/plans, or every plan is complete).` and render the reference card (Topics and Command Workflow below, plus the requested topic).
    - **Case B, active plan without an Intent section**: print the position block with `Left undone by the previous stage: not measurable without an Intent section (plan predates 3.0.0)`, then the requested topic.
@@ -142,7 +142,7 @@ bd list -n 0 --status=closed | grep "Decide:"
 ### Initialize (once per project)
 
 ```bash
-bd init
+bd init --stealth   # any repository with collaborators who do not use beads (see plugin/docs/reference/beads-mode.md)
 ```
 
 ### Execution Workflow
@@ -280,7 +280,7 @@ Restores context from handoff. Syncs beads and continues work. A phase that has 
 **"beads not initialized"**
 
 ```bash
-bd init
+bd init --stealth   # or plain bd init only for a repository you own outright
 ```
 
 **"issue not found"**

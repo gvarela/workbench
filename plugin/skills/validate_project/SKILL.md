@@ -116,7 +116,7 @@ For each file (research.md, design.md, tasks.md):
 
 ### Step 1: Read All Documentation
 
-**⛔ BARRIER 1: Read ALL files FULLY - no shortcuts**
+**⛔ BARRIER 1**: all files read in full — validation against partial content reports false gaps
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -224,24 +224,7 @@ Would you like me to:
 
 ## Important Guidelines
 
-### DO
-
-- ✅ Read ALL files fully before reporting
-- ✅ Use beads commands to verify state (`bd show`, `bd list`, `bd stats`)
-- ✅ Report both errors and warnings with clear severity
-- ✅ Provide specific, actionable fix suggestions
-- ✅ Validate beads IDs actually exist, don't assume
-- ✅ Check for consistency across all files
-- ✅ Offer to help fix issues after reporting
-
-### DON'T
-
-- ❌ Make assumptions about what "should" be there
-- ❌ Automatically fix issues without user confirmation
-- ❌ Skip checks if some files are missing
-- ❌ Report vague problems without specific locations
-- ❌ Validate against old workflow patterns (TaskCreate, checkboxes, etc.)
-- ❌ Use limit/offset when reading files
+Verify claims against the files and beads instead of assuming what "should" be there: read every file in full, run `bd show` on every frontmatter ID, and keep checking the remaining files when one is missing. Report each problem with its severity, a specific location, and an actionable fix, then offer fixes; change nothing without the user's confirmation. Judge the project against the current workflow (beads for status, markdown for the plan).
 
 ## Synchronization Points
 

@@ -47,7 +47,7 @@ When invoked, check for arguments:
 
 ### Step 1: Gather Current State
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL project docs AND review conversation history ⛔⛔⛔**
+**⛔ BARRIER 1**: project docs read fully and conversation history reviewed — the handoff is the only carrier of what this session learned, and anything skipped here is lost when the session ends
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;

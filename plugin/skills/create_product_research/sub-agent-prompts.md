@@ -18,7 +18,7 @@ Task({
 
   Focus on [specific directories if known].
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-locator",
+  subagent_type: "wb:codebase-locator",
   model: "haiku"
 })
 ```
@@ -28,7 +28,7 @@ Task({
 ```javascript
 Task({
   description: "Analyze [feature] product behaviors",
-  prompt: `Understand what [feature] does from a product perspective.
+  prompt: `Audience: product manager. Understand what [feature] does from a product perspective.
 
   Analyze:
   - What user-visible behaviors does this feature provide?
@@ -39,15 +39,12 @@ Task({
 
   Start with [specific files if known].
 
-  CRITICAL INSTRUCTIONS:
-  - Explain as PRODUCT BEHAVIORS, not code implementation
-  - Write for a product manager, not an engineer
-  - Document what EXISTS — Document what IS, not what SHOULD BE
-  - DO NOT suggest improvements or identify issues
-  - Include file:line references for EVERY behavioral claim
-  - Trace actual code — do NOT guess or infer
+  Constraints:
+  - Explain PRODUCT BEHAVIORS for a product manager, not code implementation.
+  - Document what exists; no suggestions or issues.
+  - Include file:line references for every behavioral claim, traced from actual code.
   - DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "product-behavior-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 ```
@@ -69,11 +66,9 @@ Task({
 
   Summarize at a HIGH LEVEL suitable for a product manager to understand the engineering approach, not the engineering details.
 
-  REMEMBER: Document what IS, not what SHOULD BE. No recommendations.
-
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
-  model: "haiku"
+  subagent_type: "wb:pattern-finder",
+  model: "sonnet"
 })
 ```
 
@@ -92,7 +87,7 @@ Task({
 
   Return a structured validation report with PASS/FAIL/UNCERTAIN per claim.
   DO NOT modify the document. Only report findings.`,
-  subagent_type: "research-validator",
-  model: "sonnet"
+  subagent_type: "wb:research-validator",
+  model: "opus"
 })
 ```

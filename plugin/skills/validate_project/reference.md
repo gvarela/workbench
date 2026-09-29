@@ -72,7 +72,7 @@ if (design.status === 'complete' && tasks.status !== 'complete') {
 // Check beads is initialized
 const beadsCheck = exec('bd info');
 if (beadsCheck.failed) {
-  ERROR('Beads is not initialized. Run: bd init');
+  ERROR('Beads is not initialized. Run: bd init --stealth (see beads-mode.md for when plain bd init applies)');
 }
 
 // Extract beads IDs from frontmatter
@@ -93,7 +93,7 @@ for (const id of beadsIds) {
 // Check for orphaned beads issues
 // Planning-phase records are intentionally not anchored in tasks.md frontmatter
 const planningPrefixes = ['Q:', 'Decide:', 'Validate:', 'UI Q:'];
-const allBeadsIssues = exec('bd list').parseOutput();
+const allBeadsIssues = exec('bd list --all -n 0').parseOutput();
 for (const issue of allBeadsIssues) {
   if (planningPrefixes.some(p => issue.title.startsWith(p))) {
     continue;  // exempt: planning-phase record, not an orphan

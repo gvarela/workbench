@@ -17,12 +17,9 @@ Comprehensive guide to the wb commands workflow, beads integration, and best pra
 ### Installation
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd prompts
-
-# Install globally for Claude Code
-./scripts/install-commands --claude
+# Install the plugin from its marketplace
+claude plugin marketplace add gvarela/workbench
+claude plugin install wb@gvarela-workbench
 
 # Initialize beads in your project
 cd ~/your-project
@@ -66,13 +63,13 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | Stage | Suggested session model | Why |
 | ------- | ------------------------- | ----- |
 | create_project, create_handoff, help | Sonnet | Interviews and doc writing |
-| create_research / create_product_research | Sonnet (high effort) | Synthesis of subagent reports |
+| create_research / create_product_research | Sonnet (high effort); Opus for large or high-stakes research | Synthesis of subagent reports; Opus 5.5 is less likely to state a claim the sources don't support |
 | explore_design | **Fable** (Opus fallback) | Divergent, judgment-dense discussion — the skill self-checks and warns on lighter models |
 | create_design | Opus; Sonnet is fine when formalizing a recorded decision | Decision-making vs. documentation |
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
 | implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
-| implement_inline | Sonnet (xhigh effort); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
-| validate_execution | Any (skill pins sonnet + high effort) | Pinned in skill frontmatter |
+| implement_inline | Sonnet (Claude Code's default `medium`; `high` for harder phases); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
+| validate_execution | Any (the skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
 
 These are defaults, not gates — usage limits and task size legitimately move you down a tier.
 
@@ -901,5 +898,5 @@ bd list   # Find correct ID
 ## Additional Resources
 
 - [Commands Reference](commands-reference.md) - Detailed command documentation
-- [Skills Guide](claude-code-skills-guide.md) - Skills documentation
-- [Hooks README](../.claude/hooks/README.md) - Hook setup and beads mode detection
+- [Claude Code documentation](https://code.claude.com/docs/en/skills) - How skills, subagents, hooks, and plugins work; read the live docs rather than a copy, because they change with every release
+- [Plugin hooks](../plugin/hooks/) - `wb-prime.sh` (SessionStart orientation and compaction recovery) and `beads-drift-check.sh` (SessionEnd)

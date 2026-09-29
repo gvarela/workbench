@@ -2,6 +2,30 @@
 
 All notable changes to the wb plugin. Versions are release cuts — installers receive a version only when it's bumped here AND they run `claude plugin update wb@gvarela-workbench`. See [RELEASING.md](RELEASING.md) for the process.
 
+## [Unreleased]
+
+Prompt audit against current Claude Code and Claude model guidance, with an adversarial review of the findings. The report and evidence are in `docs/audits/2026-09-29-prompt-audit/`.
+
+### ⚠️ Breaking
+
+- **`wb:product-behavior-analyzer` removed.** It was folded into `wb:codebase-analyzer`, which now takes an Audience input (engineering by default, product on request). `/wb:create_product_research` spawns the analyzer with a product audience.
+
+### Changed
+
+- Barriers use one ⛔ marker and a stated reason instead of triple-marker "STOP!" lines, and every wait-for-agents barrier says to wait for each agent's completion notification (subagents run in the background in interactive sessions).
+- Caps emphasis (CRITICAL / MUST / NEVER) and repeated restatements are rewritten as plain rules with reasons across skills and agents.
+- Agent spawns use the scoped `wb:` names; a bare name fails with "Agent type not found" on the Agent tool.
+- `task-worker` runs at `effort: medium` from its frontmatter. The "spawn workers at `effort: xhigh`" instructions are removed: a spawn can set the model but not the effort.
+- "Read files fully (no limit/offset)" becomes "read fully, paging through a partial view with offset/limit".
+- `implement` makes one automatic fix attempt after a verified failure (the skill previously said both one and two).
+- `review-prep` no longer triggers on the bare word "review".
+- Model tiers for the 5.5 generation: `task-verifier` and `research-validator` run on Opus (the quality gates; Opus 5.5 is the stronger reviewer at about twice Sonnet 5.5's price); `pattern-finder` moves from Haiku to Sonnet at `effort: low`; `validate_execution` and `research-validation` pin `model: opus` instead of `sonnet`, so review work runs on Opus from any session, including a Fable one. Spawn blocks pass the same models as the agent files, since a per-spawn model overrides frontmatter.
+
+### Fixed
+
+- `/wb:help` checks design status `ready`, not the nonexistent `approved`; `bd init --stealth` is the default init fix; `resume_handoff` reads the `beads_active_phase` field the handoff writes; leftover checkbox-status wording replaced with beads.
+- Maintainer docs: PreCompact described accurately (its output never reaches the model), `commands-reference.md` and the Claude Desktop product-research prompt re-synced, install steps, hook locations, and agent lists corrected; `docs/claude-code-skills-guide.md` retired in favour of the live Claude Code docs; branch flow documented (PRs target `dev`, `main` moves only at release cuts).
+
 ## [3.0.0] — 2026-09-06
 
 The "tools as intended" release: beads used the way beads means it, a plan that states its intent, a workflow that explains its human inputs, `implement` as the default execution path, and the alias promised for removal at 3.0.0 gone. Plan: `docs/plans/2026-09-05-prompts-h7c-implement-rename-3.0/`.

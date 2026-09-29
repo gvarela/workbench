@@ -12,11 +12,10 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `plugin/` - The shipped runtime: everything below is what installers receive
 - `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text; only the deprecated `implement_coordinated` and `implement_tasks` aliases are user-only (they redirect to `implement` and `implement_inline` through 3.x)) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
 - `plugin/agents/` - Specialized subagent definitions
-- `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger and PreCompact: orientation on a fresh start, recovery text on compact; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
+- `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger: orientation on a fresh start, recovery text on compact; also registered on PreCompact, whose output the model never sees; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
 - `plugin/scripts/` - Utility scripts (lint, lint-hook)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
-- `general/` - General-purpose prompts and templates
 - `.claude/` - Local development configuration
 
 ## Development Tools
@@ -47,6 +46,10 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - Inline HTML allowed (MD033)
 - Emphasis as heading allowed (MD036)
 - Fenced code blocks without language allowed (MD040)
+
+### Claude Code Reference
+
+For how skills, subagents, hooks, and plugin manifests work, read the official docs at <https://code.claude.com/docs> (or ask the `claude-code-guide` agent, which fetches them) instead of relying on memory: fields and semantics change between Claude Code releases. Check the plugin against the installed version with `claude plugin validate ./plugin`, `claude plugin details wb@gvarela-workbench` (context cost), and `claude plugin eval`.
 
 ### Testing the Plugin
 
@@ -109,7 +112,7 @@ The workflow separates three distinct concerns:
 
 1. **Document, Don't Judge**: Research describes what EXISTS, not what should be changed
 2. **Explicit Barriers**: Commands implement synchronization points (⛔ BARRIER) to ensure complete context
-3. **File Reading Protocol**: ALWAYS read files FULLY (no limit/offset) before analysis
+3. **File Reading Protocol**: read plan documents and the files you rely on in full before analysis; if Read returns a partial view of a large file, page through the rest with offset/limit rather than acting on the first page
 4. **Dual Verification**: Separate automated checks from manual verification
 5. **Zero Scope Creep**: Tasks only come from plans, no additions
 6. **Beads Required**: These commands require beads 1.1.0 or later for ALL task tracking (`bd init --stealth` in any repository with collaborators who do not use beads; see `plugin/docs/reference/beads-mode.md`)
@@ -121,7 +124,7 @@ The workflow separates three distinct concerns:
 
 If any `bd` command fails:
 
-1. **Diagnose**: Run `bd info`, `bd context` (which database is open), and `bd doctor`
+1. **Diagnose**: Run `bd info`, `bd context` (which database is open), and `bd stale` / `bd orphans`; run `bd doctor` only where it is supported (a Dolt server; in the default embedded mode it prints a not-supported note)
 2. **Report**: Tell the user the specific error and suggest fixes
 3. **Fix**: Common fixes:
    - "beads not initialized" → `bd init --stealth`
@@ -143,7 +146,7 @@ When modifying commands, maintain these patterns:
 
 ```markdown
 ⛔ BARRIER 1: full context read — analysis on partial context produces placeholders
-⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 ⛔ BARRIER 3: no placeholder values — a placeholder that ships becomes a task nobody can execute
 ⛔ CHECKPOINT: human verification between phases — the next phase builds on what a human has accepted
 ```
@@ -162,14 +165,14 @@ All generated documentation files use consistent YAML frontmatter:
 
 ## Agent Spawning with Model Selection
 
-Commands support model hints when spawning agents. Pay for judgment, not throughput:
+Commands support model hints when spawning agents; a per-spawn `model` overrides the agent's frontmatter, so keep the two in agreement. The aliases mean the current models only on the Anthropic API (on Bedrock and Google Cloud `sonnet` resolves to Sonnet 4.5; see Claude Code's model-config docs). Pay for judgment, not throughput:
 
-- `haiku`: File searches, pattern matching, mechanical tasks. No `effort` support — never annotate haiku agents or spawns
-- `sonnet`: Default for analysis AND implementation (near-Opus coding quality at lower cost)
-- `opus`: Design and architectural or cross-cutting implementation
-- `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure. Fable spawns use `effort: high`, never `xhigh`
+- `haiku`: File searches and other mechanical tasks (`codebase-locator`); judgment-bearing search such as picking representative patterns goes to Sonnet at `low` effort (`pattern-finder`). No `effort` support — never annotate haiku agents or spawns
+- `sonnet`: Default for analysis AND implementation. Sonnet 5.5 is $2/$10 per MTok against Opus 5.5's $4/$20 and Fable 5.1's $10/$50; judge cost per completed task, not per token, and measure before moving a stage up or down a tier
+- `opus`: Design, architectural or cross-cutting implementation, and the quality gates (`task-verifier`, `research-validator`): Opus 5.5 is the stronger reviewer (more bugs caught, fewer false alarms) and only about twice Sonnet 5.5's price
+- `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure
 
-`effort` (`low` → `xhigh`) is a second cost lever on sonnet/opus spawns: "sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Typical annotations: implementation workers `xhigh`, analyzers `medium`, verifiers `high`.
+`effort` (`low` → `max`) is a second cost lever, set in an agent's or skill's frontmatter: a spawn can override the model but not the effort, so an agent without `effort:` runs at the session's level (Claude Code defaults Opus 5.5 and Sonnet 5.5 to `medium`). "Sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Current frontmatter: `task-worker` `medium` (the documented starting point for well-specified coding, and independent of the coordinator's session effort; raise it if verifier pass rates drop), analyzers `medium`, `pattern-finder` `low`, verifiers `high`; haiku agents unset.
 
 ## Working with Commands
 
@@ -181,7 +184,7 @@ When creating or modifying commands:
 4. Maintain the documentarian philosophy for research
 5. Separate automated from manual verification
 6. Read files fully before processing
-7. Spawn independent agents in parallel; synthesize only after all have returned
+7. Spawn independent agents in parallel; synthesize only after every agent's completion notification has arrived (in an interactive session Claude Code runs subagents in the background, so the wait is the skill's instruction, not the harness)
 
 ## Best Practices
 
@@ -195,7 +198,7 @@ When creating new prompts or commands:
 
 ## Git Workflow
 
-- The main branch is `main`
+- Branch from `dev` and open PRs against `dev`. `main` is the install channel and moves only when a release is cut: a `dev` → `main` PR that carries the version bump (see [RELEASING.md](RELEASING.md))
 - Commit messages should be descriptive
 - Run `./plugin/scripts/lint` before committing markdown files
 - Keep the repository organized by category
