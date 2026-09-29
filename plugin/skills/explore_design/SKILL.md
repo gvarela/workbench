@@ -118,7 +118,7 @@ Two ways to use it:
 
    Stop here. Do not proceed on partial research.
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL context FULLY before framing anything ⛔⛔⛔**
+⛔ BARRIER 1: all context below is read in full — framing the decision space on partial context mis-frames the fork
 
 Read fully (no limit/offset):
 

@@ -48,7 +48,7 @@ When invoked, check for arguments:
 
 ### Step 1: Research Existing UI
 
-**⛔⛔⛔ BARRIER 1: STOP! Research current UI patterns before proposing anything ⛔⛔⛔**
+⛔ BARRIER 1: current UI patterns are researched before anything is proposed — a mockup drafted without them invents components the app does not have
 
 Spawn parallel agents to document what EXISTS:
 

@@ -66,7 +66,7 @@ If critical questions block design decisions, resolve them first or document as 
 
 ### Step 1: Read and Analyze Research
 
-**⛔⛔⛔ BARRIER 1: STOP! Read research.md and existing design.md FULLY - NO SKIMMING ⛔⛔⛔**
+⛔ BARRIER 1: research.md, design.md, and README.md are read in full — design decisions made on a partial read contradict facts research already established
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -122,7 +122,7 @@ After reading research, spawn specialized agents in parallel to gather additiona
 
 Spawn the three agents concurrently using the prompts in [sub-agent-prompts.md](sub-agent-prompts.md) → **Step 2 Agent Prompts**.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL agents to complete - NO EXCEPTIONS ⛔⛔⛔**
+⛔ BARRIER 2: every spawned agent has returned — a design synthesized on a partial set misses what the missing report would have changed
 
 ### Step 3: Problem Definition
 

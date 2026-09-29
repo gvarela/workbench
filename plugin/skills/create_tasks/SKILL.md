@@ -70,7 +70,7 @@ When invoked, check for arguments:
 
 ### Step 1: Read Foundation Documents
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documents FULLY - research.md, design.md, tasks.md ⛔⛔⛔**
+⛔ BARRIER 1: research.md, design.md, and tasks.md are read in full — task specs written on partial context become placeholders nobody can execute
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -112,7 +112,7 @@ After reading all documents, spawn specialized agents in parallel:
 
 Read the "Analysis Agent Prompts (Step 2)" section of [sub-agent-prompts.md](sub-agent-prompts.md) NOW and follow it exactly.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL agents - dependency, test, pattern agents ⛔⛔⛔**
+⛔ BARRIER 2: the dependency, test, and pattern agents have all returned — a plan built on a partial set misses what the missing report would have changed
 
 ### Step 3: Determine Implementation Strategy
 
@@ -141,7 +141,7 @@ Update or create tasks.md with the following structure:
 
 Read the "tasks.md Document Template" section of [templates.md](templates.md) NOW and follow it exactly.
 
-**⛔⛔⛔ BARRIER 3: STOP! Verify NO placeholder values - ALL tasks MUST be specific and executable ⛔⛔⛔**
+⛔ BARRIER 3: no placeholder values remain — a placeholder that ships becomes a task nobody can execute
 
 ### Step 5: Create Beads Issues
 
