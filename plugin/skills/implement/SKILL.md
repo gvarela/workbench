@@ -60,16 +60,11 @@ Plan discipline (TDD via the workers, beads for all status tracking, phase check
 5. **Model Selection**: Right model per task via per-spawn override on the task-worker agent (haiku/sonnet/opus; fable only as the escalation target)
 6. **Main Session Stays Clean**: No context accumulation in coordinator
 
-### CRITICAL: NO SCOPE ADDITIONS - NONE
+### Scope
 
-Workers implement what tasks.md specifies and nothing else:
+Workers implement what tasks.md specifies and nothing else: the verifier fails extras, and each extra widens what the next phase must trust. Do not add features, refactors, error handling, or abstractions the task does not name.
 
-- **NEVER** add features not in tasks.md
-- **NEVER** refactor beyond what's specified
-- **NEVER** make "improvements" not explicitly asked for
-- **NEVER** add extra error handling, validation, or edge cases
-- **ONLY** implement what is EXPLICITLY written in tasks.md
-- If something seems missing, do not add it: record it in Implementation Notes as a follow-up. If the task cannot succeed without it, that is a plan defect; use the Plan-Defect Deviation Protocol.
+If something seems missing, do not add it: record it in Implementation Notes as a follow-up. If the task cannot succeed without it, that is a plan defect; use the Plan-Defect Deviation Protocol.
 
 ## Process Steps
 
@@ -120,7 +115,7 @@ After reading all documentation, prepare to spawn workers sequentially.
 
 ### Step 2: Verify Beads Configuration
 
-**CRITICAL**: Use beads for ALL task tracking (phases AND granular tasks).
+Use beads for all task tracking (phases and granular tasks).
 
 #### Verify Beads is Initialized
 
@@ -438,12 +433,9 @@ When resuming work (phase = "continue"):
 - ✅ Aggregate worker outputs thoroughly
 - ✅ Handle worker failures gracefully
 
-### DON'T (ABSOLUTELY FORBIDDEN)
+### Do not
 
-- ❌ **NEVER** spawn multiple workers in parallel (keep it simple)
-- ❌ **NEVER** let a worker commit, and never commit a task before its verifier passes
-- ❌ **NEVER** allow workers to add scope
-- ❌ **NEVER** pass entire docs to workers (extract context)
-- ❌ **NEVER** proceed without waiting for worker completion
-- ❌ **NEVER** skip worker output aggregation
-- ❌ **NEVER** close phase milestone before manual verification
+- Spawn workers in parallel: each verifier assumes a working tree holding only one task.
+- Let a worker commit, or commit a task before its verifier passes.
+- Pass entire docs to workers; extract the context package.
+- Skip worker output aggregation, or close the phase milestone before manual verification.
