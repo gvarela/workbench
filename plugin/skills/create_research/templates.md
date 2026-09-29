@@ -131,8 +131,8 @@ To see full question details: `bd show [id]`
 
 Based on the research findings:
 
-1. [Suggested next action based on findings]
-2. [Another logical next step]
+1. [Area the findings did not cover that design will need answered, stated as a question about what exists]
+2. [Another uncovered area, or omit]
 3. Review the research document
 4. [Only when findings show multiple viable approaches: Findings show multiple viable approaches — consider `/wb:explore_design` to explore directions before `/wb:create_design`.]
 5. Run `/create_design` to create design decisions
