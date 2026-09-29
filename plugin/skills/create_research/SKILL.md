@@ -52,12 +52,9 @@ When invoked, check for arguments:
 
 ## Steps to Execute After Receiving the Research Query
 
-### Step 1: Read Any Directly Mentioned Files First (CRITICAL)
+### Step 1: Read Directly Mentioned Files First
 
-- If the user mentions specific files (docs, JSON, configs), read them FULLY first
-- **IMPORTANT**: Use the Read tool WITHOUT limit/offset parameters to read entire files
-- **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
-- This ensures you have full context before decomposing the research
+- Read any files the user mentions (docs, JSON, configs) in full, with no limit/offset, in the main context before spawning sub-tasks, so the decomposition rests on full context.
 
 ⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
@@ -96,7 +93,7 @@ Keep the mapping from research areas to success statements; Step 8 reports it.
 
 Create multiple Task agents to research different aspects concurrently using our specialized agents:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write research.md after synthesizing their findings.**
+Sub-agents are read-only: they return findings and do not write files. You write research.md after synthesizing their findings.
 
 ```
 ## Parallel Research Strategy
@@ -126,15 +123,7 @@ const agents = [
 // All agents work in parallel for efficiency
 ```
 
-**CRITICAL Agent Instructions (MUST follow exactly):**
-
-- **Each agent is a documentarian, NOT a critic or consultant**
-- **Agents MUST describe what exists without ANY judgment**
-- **Document what IS, not what SHOULD BE - NO EXCEPTIONS**
-- **Use specific agent types for their strengths**
-- **Run multiple agents in parallel for speed**
-- **ALWAYS wait for ALL agents before synthesizing**
-- **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
+**Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel.
 
 ⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
 

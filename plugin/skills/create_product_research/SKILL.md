@@ -69,12 +69,9 @@ This command can be used in two ways:
 
 ## Steps to Execute After Receiving the Research Query
 
-### Step 1: Read Any Directly Mentioned Files First (CRITICAL)
+### Step 1: Read Directly Mentioned Files First
 
-- If the user mentions specific files (docs, JSON, configs), read them FULLY first
-- **IMPORTANT**: Use the Read tool WITHOUT limit/offset parameters to read entire files
-- **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
-- This ensures you have full context before decomposing the research
+- Read any files the user mentions (docs, JSON, configs) in full, with no limit/offset, in the main context before spawning sub-tasks, so the decomposition rests on full context.
 
 ⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
@@ -118,7 +115,7 @@ This command can be used in two ways:
 
 Create multiple agents to research different aspects concurrently:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings as reports. They do NOT write files. YOU (the main agent) will write product-research.md after synthesizing their findings.**
+Sub-agents are read-only: they return findings as reports and do not write files. You write product-research.md after synthesizing their findings.
 
 ```
 ## Parallel Research Strategy
@@ -153,16 +150,7 @@ Use the **Pattern Finder** prompt from `sub-agent-prompts.md` § "Pattern Finder
 
 Spawn all agents concurrently for efficiency. Each returns a report; none write files.
 
-**CRITICAL Agent Instructions (MUST follow exactly):**
-
-- **Each agent describes what the software does, NOT how the code works**
-- **Agents MUST describe what exists without ANY judgment**
-- **Document what IS, not what SHOULD BE — NO EXCEPTIONS**
-- **Agents MUST include file:line references for every claim**
-- **Use specific agent types for their strengths**
-- **Run multiple agents in parallel for speed**
-- **ALWAYS wait for ALL agents before synthesizing**
-- **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
+**Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel. Every claim carries a file:line reference.
 
 ⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
 
