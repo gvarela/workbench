@@ -1,6 +1,6 @@
 ---
 name: research-validation
-description: Validates research documents against the actual codebase. Checks file paths exist, code snippets match, and behavioral claims are accurate. Use when "validate research", "check research accuracy", "verify research", or "is this research still accurate".
+description: Validate a research document (research.md or product-research.md) against the current codebase: file paths exist, code snippets match, behavioral claims hold. Use when the user asks to validate, verify, or fact-check research, or asks whether research is still accurate after the code changed. Takes an optional project directory.
 allowed-tools:
   - Read
   - Grep
@@ -21,14 +21,6 @@ NO TRUST WITHOUT VERIFICATION
 ```
 
 If the research document says it, check it against the code. Every path, every snippet, every behavioral claim.
-
-## When to Validate
-
-- Code changed since research was written
-- Before a planning session that depends on research
-- When anyone says "is this still accurate?"
-- After a refactor or major feature change
-- Before making product decisions based on research
 
 ## How to Validate
 
