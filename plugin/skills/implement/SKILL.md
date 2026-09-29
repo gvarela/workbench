@@ -252,8 +252,8 @@ After each worker completes:
    **If FAIL** — first judge the failure type from the verifier report:
 
    - **Implementation defect** (task is achievable as specified; the worker got it wrong):
-     - Attempt automatic fix (up to 2 retries) using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), re-verifying after each retry.
-     - **After the fable retry fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
+     - Attempt one automatic fix using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), then re-verify.
+     - **If re-verification fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
    - **Plan defect** (task cannot succeed AS SPECIFIED — a design assumption doesn't survive contact with the code): do NOT spawn fix workers; retries cannot fix a task that is wrong as specified. Follow the "Plan-Defect Deviation Protocol" in [reference.md](reference.md) — file a design-revision issue, block dependent tasks, halt the phase for a human checkpoint.
 
 5. **Add to aggregated lists** (after pass):
