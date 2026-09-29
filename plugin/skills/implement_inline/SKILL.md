@@ -488,7 +488,7 @@ When resuming work (phase = "continue"):
 
 ### When to Skip TDD
 
-Some tasks may not need test-first approach:
+These task types are the named exceptions to tdd-discipline's Iron Law, because they add no new production behavior:
 
 - Configuration changes
 - Documentation updates
