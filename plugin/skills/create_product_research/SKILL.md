@@ -76,7 +76,7 @@ This command can be used in two ways:
 - **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
 - This ensures you have full context before decomposing the research
 
-**⛔⛔⛔ BARRIER 1: STOP! Do NOT proceed to Step 2 until ALL mentioned files are FULLY read ⛔⛔⛔**
+⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
 ### Step 2: Validate Project Structure
 
@@ -164,7 +164,7 @@ Spawn all agents concurrently for efficiency. Each returns a report; none write 
 - **ALWAYS wait for ALL agents before synthesizing**
 - **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL sub-agents to complete — DO NOT proceed until EVERY agent returns ⛔⛔⛔**
+⛔ BARRIER 2: every spawned agent has returned — synthesis on a partial set misses what the missing report would have changed
 
 ### Step 5: Synthesize Findings into Three Layers
 
@@ -208,7 +208,7 @@ Write the product-research.md file. **Keep the main agent focused on synthesis �
 
 Use the **product-research.md Template** from `templates.md` § "product-research.md Template".
 
-**⛔⛔⛔ BARRIER 3: STOP! Verify NO placeholder values — ALL data MUST be from ACTUAL codebase ⛔⛔⛔**
+⛔ BARRIER 3: no placeholder values — a placeholder that ships reads as a finding nobody verified
 
 Before writing:
 
@@ -226,7 +226,7 @@ The validator reads the written file directly — no need to pass findings in co
 
 Use the **Validation Agent** prompt from `sub-agent-prompts.md` § "Validation Agent (Step 7)".
 
-**⛔⛔⛔ BARRIER 4: STOP! Wait for validation agent to complete before proceeding ⛔⛔⛔**
+⛔ BARRIER 4: the validation agent has returned — the frontmatter status and any fixes depend on its verdict
 
 After validation returns:
 
