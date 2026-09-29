@@ -245,7 +245,7 @@ _Explicitly excluded during mockup iteration_
 During iteration, user can say:
 
 | Command | Action |
-|---------|--------|
+| ------- | ------ |
 | "keep [X]" | Add to Confirmed, preserve in next version |
 | "remove [X]" | Add to Rejected, cut from next version |
 | "change [X] to [Y]" | Note modification for next version |
