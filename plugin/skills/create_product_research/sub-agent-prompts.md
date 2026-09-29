@@ -18,7 +18,7 @@ Task({
 
   Focus on [specific directories if known].
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-locator",
+  subagent_type: "wb:codebase-locator",
   model: "haiku"
 })
 ```
@@ -67,7 +67,7 @@ Task({
   Summarize at a HIGH LEVEL suitable for a product manager to understand the engineering approach, not the engineering details.
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
+  subagent_type: "wb:pattern-finder",
   model: "haiku"
 })
 ```
@@ -87,7 +87,7 @@ Task({
 
   Return a structured validation report with PASS/FAIL/UNCERTAIN per claim.
   DO NOT modify the document. Only report findings.`,
-  subagent_type: "research-validator",
+  subagent_type: "wb:research-validator",
   model: "sonnet"
 })
 ```
