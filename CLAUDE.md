@@ -12,7 +12,7 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `plugin/` - The shipped runtime: everything below is what installers receive
 - `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text; only the deprecated `implement_coordinated` and `implement_tasks` aliases are user-only (they redirect to `implement` and `implement_inline` through 3.x)) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
 - `plugin/agents/` - Specialized subagent definitions
-- `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger and PreCompact: orientation on a fresh start, recovery text on compact; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
+- `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger: orientation on a fresh start, recovery text on compact; also registered on PreCompact, whose output the model never sees; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
 - `plugin/scripts/` - Utility scripts (lint, lint-hook)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)

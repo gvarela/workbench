@@ -108,7 +108,7 @@ Background capabilities that Claude automatically invokes:
 ### Hooks
 
 - **SessionStart** - `wb-prime.sh`: orientation on startup, resume, clear, and fork (stage chain, plan layout, the beads sanity check, active plans); recovery text on compact. Override with `.claude/wb/PRIME.md`; print the default with `hooks/wb-prime.sh --export`
-- **PreCompact** - `wb-prime.sh` again, so the recovery text is present when the summary is written
+- **PreCompact** - `wb-prime.sh` is also registered here, but PreCompact output never reaches the model or the summary; the recovery text arrives through SessionStart's `compact` source
 - **SessionEnd** - Reminds to `bd dolt push` only when a Dolt remote is configured (silent otherwise)
 - **PostToolUse** - Lints markdown files after Write/Edit operations
 
