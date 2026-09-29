@@ -120,7 +120,7 @@ const tasksFile = `${projectDir}/tasks.md`;
 4. **Read tasks.md FULLY**:
    - Identify current phase from frontmatter
    - Count completed vs remaining tasks
-   - Locate the next unchecked task
+   - Note which tasks beads reports as ready (`bd ready`)
 
 **Implement ONLY what's specified**
 
