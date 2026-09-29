@@ -17,12 +17,9 @@ Comprehensive guide to the wb commands workflow, beads integration, and best pra
 ### Installation
 
 ```bash
-# Clone repository
-git clone <repository-url>
-cd prompts
-
-# Install globally for Claude Code
-./scripts/install-commands --claude
+# Install the plugin from its marketplace
+claude plugin marketplace add gvarela/workbench
+claude plugin install wb@gvarela-workbench
 
 # Initialize beads in your project
 cd ~/your-project
