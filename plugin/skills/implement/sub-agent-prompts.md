@@ -93,6 +93,8 @@ If you encounter errors or blockers:
 
 ## Verification Agent Prompt (Step 6)
 
+Spawn with `subagent_type: "wb:task-verifier"` and no `model` parameter (its definition sets the model; see SKILL.md Step 6).
+
 ```
 Use the task-verifier agent to verify task completion.
 
@@ -122,6 +124,6 @@ Provide:
 - Instructions: Fix the specific issues identified. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context.
+**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter.
 
 **If re-verification fails**: add the task to the phase checkpoint's blocking list and continue to the next task. Do not spawn a second fix worker.

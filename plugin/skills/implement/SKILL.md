@@ -223,7 +223,7 @@ After each worker completes:
 
 3. **Verify task completion**:
 
-   Spawn the task-verifier agent using the "Verification Agent Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md) — read it before spawning. The agent runs tests, checks scope adherence, and returns a structured markdown report with Status: PASS or FAIL.
+   Spawn `wb:task-verifier` using the "Verification Agent Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md) — read it before spawning. Pass no `model` parameter: the verifier's definition pins Opus at `high` effort, and a per-spawn model overrides the definition, so passing the worker's model would run the quality gate on the cheaper model. The agent runs tests, checks scope adherence, and returns a structured markdown report with Status: PASS or FAIL.
 
 4. **Parse verification result autonomously**:
 
