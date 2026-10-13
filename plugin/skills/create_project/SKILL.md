@@ -17,11 +17,11 @@ This stage needs from you: the goal, what success looks like, and what is out of
 
 When invoked, check for arguments:
 
-1. **If arguments provided** (e.g., `/create_project auth-refactor docs/plans LINEAR-456`):
+1. **If arguments provided** (e.g., `/wb:create_project auth-refactor docs/plans LINEAR-456`):
    - Parse: `$1` = project-name, `$2` = base-dir, `$3` = ticket-ref
    - Skip prompting and proceed directly to Step 2
 
-2. **If partial arguments** (e.g., `/create_project auth-refactor`):
+2. **If partial arguments** (e.g., `/wb:create_project auth-refactor`):
    - Use provided arguments and prompt only for missing ones
 
 3. **If no arguments**:
@@ -122,7 +122,7 @@ Read the "design.md Template" section of [templates.md](templates.md) NOW and cr
 
 Read the "tasks.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in.
 
-**⛔ BARRIER 1**: Ensure all files are created with proper frontmatter before proceeding
+⛔ BARRIER 1: all four files exist with frontmatter — the summary and next steps report them as created
 
 ### Step 5: Confirm Creation
 
@@ -154,16 +154,17 @@ Present the created structure:
 🔄 Next Steps:
 
 1. Research the codebase:
-   /create_research [directory]
+   /wb:create_research [directory]
+   (optional) /wb:explore_design [directory] when the research shows competing directions
 
 2. After research, create design:
-   /create_design [directory]
+   /wb:create_design [directory]
 
 3. Then generate execution plan:
-   /create_tasks [directory]
+   /wb:create_tasks [directory]
 
-4. Implement (coordinated workers; /implement_inline runs it in this session):
-   /implement [directory]
+4. Implement (coordinated workers; /wb:implement_inline runs it in this session):
+   /wb:implement [directory]
 
 Ready to begin research phase!
 ```
@@ -185,13 +186,6 @@ Files progress through defined states:
 - `research.md`: draft → in-progress → complete
 - `design.md`: draft → ready → implementing → complete
 - `tasks.md`: not-started → in-progress → complete
-
-### Synchronization Points
-
-Commands use explicit barriers:
-
-1. **⛔ BARRIER 1**: After creating all files
-2. **Final Confirmation**: Present complete structure
 
 ## Error Handling
 

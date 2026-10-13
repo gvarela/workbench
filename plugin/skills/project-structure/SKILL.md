@@ -1,6 +1,6 @@
 ---
 name: project-structure
-description: Enforces project documentation structure in docs/plans/ directories - research.md for facts, design.md for decisions, tasks.md for implementation, thoughts/ for explorations.
+description: Use when writing or editing research.md, design.md, tasks.md, or a thoughts/ doc under docs/plans/, or when deciding which document a piece of content belongs in: research.md for facts, design.md for decisions and rationale, tasks.md for implementation steps, thoughts/ for explorations.
 user-invocable: false
 ---
 

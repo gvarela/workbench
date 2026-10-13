@@ -36,16 +36,16 @@ Continue on [model], or restart this stage in a stronger session?
 
 Do NOT block — if the user chooses to continue, proceed. This is guidance, not enforcement.
 
-## CRITICAL: This Stage Produces POSSIBILITIES, Not Commitments
+## This stage produces possibilities, not commitments
 
-These rules hold for the ENTIRE session, every step:
+These hold for the whole session:
 
-- **Directions are possibilities with trade-offs, NEVER decisions** — present nothing as chosen until the user explicitly chooses it
-- **NO implementation detail** — no code, no file-modification lists, no step-by-step procedures (that's execution planning)
-- **NO task breakdowns or phase plans** (that's `/wb:create_tasks`)
-- **NO writing or seeding design.md** (that's `/wb:create_design`)
-- **NO chosen answer unless the user chose it** — do not let a favorite emerge in your framing; steelman every direction
-- **Convergence happens ONLY on an explicit user signal** at the Step 5 CHECKPOINT — never infer approval from enthusiasm, silence, or leading questions
+- **Directions are possibilities with trade-offs, not decisions** — present nothing as chosen until the user explicitly chooses it
+- **No implementation detail** — no code, no file-modification lists, no step-by-step procedures (that's execution planning)
+- **No task breakdowns or phase plans** (that's `/wb:create_tasks`)
+- **No writing or seeding design.md** (that's `/wb:create_design`)
+- **No chosen answer unless the user chose it** — do not let a favorite emerge in your framing; steelman every direction
+- **Convergence happens only on an explicit user signal** at the Step 5 CHECKPOINT — do not infer approval from enthusiasm, silence, or leading questions
 
 If the user pushes toward implementation detail mid-discussion, note it in the thoughts doc as a consideration and steer back to the decision level.
 
@@ -118,9 +118,9 @@ Two ways to use it:
 
    Stop here. Do not proceed on partial research.
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL context FULLY before framing anything ⛔⛔⛔**
+⛔ BARRIER 1: all context below is read in full — framing the decision space on partial context mis-frames the fork
 
-Read fully (no limit/offset):
+Read fully (paging through with offset/limit if Read returns a partial view):
 
 - `[project-dir]/research.md` — the factual ground truth
 - Read the project's `README.md` FULLY; record the `## Intent` section's Goal, success statements, and Non-goals if it has one. Plans without an Intent section are framed against the research question instead (say so in the framing: "no Intent section; plan predates 3.0.0").

@@ -16,21 +16,22 @@ Claude Code slash commands for managing project documentation, research, plannin
 
 **Zero Scope Creep**: Tasks come from plans only - no additions
 
-**Complete Context**: Always read files FULLY before analysis
+**Complete Context**: Read plan documents and relied-on files in full before analysis (if Read returns a partial view of a large file, page through with offset/limit)
 
 ## Command Workflow
 
-```mermaid
-/create_project → /create_research → /create_mockup → /explore_design → /create_design → /create_tasks → /implement → /validate_execution
-       ↓                  ↓                 ↓                ↓                 ↓                 ↓                   ↓                   ↓
-  [Structure]       [Research.md]      [Mockups/]    [Decision record]    [Design.md]       [Tasks.md]       [Implementation]      [Validation]
-                          ↓                 ↓                ↓                 ↓                 ↓                   ↓                   ↓
-                    [What EXISTS]     [UI Patterns]    [Directions]     [WHAT & WHY]     [HOW to do it]        [TDD Cycle]        [Verification]
-                                            ↓
-                                  [HTML + Screenshots]
+```text
+/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → /wb:validate_execution
+       ↓                    ↓                        ↓                             ↓                    ↓                 ↓                   ↓
+  [Structure]          [research.md]          [Decision record]               [design.md]          [tasks.md]      [Implementation]     [Validation]
+                            ↓                        ↓                             ↓                    ↓                 ↓                   ↓
+                      [What EXISTS]             [Directions]                  [WHAT & WHY]        [HOW to do it]       [TDD cycle]        [Verification]
+
+/wb:implement_inline runs the same plan inline in this session, as an alternative to /wb:implement.
+/wb:create_mockup is an optional UI side-branch after research (mockups feed design).
 
 For multi-session work:
-[Session 1] → /create_handoff → [Session 2] → /resume_handoff → [Continue work]
+[Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [Continue work]
 ```
 
 ### Workflow Stages
@@ -57,11 +58,11 @@ bd init             # only a repository you own outright; .beads/ is still exclu
 
 **How commands use beads**:
 
-- **`/create_mockup`**: Creates `UI Q:` and `UI Assumption:` issues, blocks finalization until resolved
-- **`/create_tasks`**: Creates phase milestone and task issues with dependency chains
-- **`/implement`** (and `/implement_inline`): Uses `bd ready`/`bd update`/`bd close` to track implementation
-- **`/update_status`**: Reads beads state as source of truth for status
-- **`/create_handoff`**: Includes open beads issues in handoff context
+- **`/wb:create_mockup`**: Creates `UI Q:` and `UI Assumption:` issues, blocks finalization until resolved
+- **`/wb:create_tasks`**: Creates phase milestone and task issues with dependency chains
+- **`/wb:implement`** (and `/wb:implement_inline`): Uses `bd ready`/`bd update`/`bd close` to track implementation
+- **`/wb:update_status`**: Reads beads state as source of truth for status
+- **`/wb:create_handoff`**: Includes open beads issues in handoff context
 - **`mockup-iteration` skill**: Creates UI questions, validates all resolved before finalization
 
 **Beads workflow**:
@@ -83,16 +84,16 @@ bd close [id] --reason "..."                # Complete task
 
 ## Commands Reference
 
-### `/create_project` - Initialize Project Documentation
+### `/wb:create_project` - Initialize Project Documentation
 
 Creates a comprehensive documentation structure with Git metadata tracking.
 
 **Usage**:
 
 ```bash
-/create_project my-feature
-/create_project my-feature docs/projects
-/create_project my-feature docs/projects LINEAR-789
+/wb:create_project my-feature
+/wb:create_project my-feature docs/projects
+/wb:create_project my-feature docs/projects LINEAR-789
 ```
 
 **Creates**:
@@ -115,39 +116,22 @@ docs/plans/2025-10-07-LINEAR-789-my-feature/
 
 ---
 
-### `/research` - Quick Codebase Research (Conversational)
-
-Conducts fast research without file output - for quick answers.
-
-**Usage**:
-
-```bash
-/research
-> How does our authentication middleware work?
-```
-
-**Returns**: Conversational findings with file:line references
-
-**When to use**: Quick questions, no documentation needed
-
----
-
-### `/create_research` - Document Research Findings
+### `/wb:create_research` - Document Research Findings
 
 Conducts comprehensive research with parallel agents and saves detailed findings.
 
 **Usage**:
 
 ```bash
-/create_research docs/plans/2025-10-07-my-feature
+/wb:create_research docs/plans/2025-10-07-my-feature
 > Research how we handle API rate limiting and error recovery
 ```
 
 **Critical Behaviors**:
 
-- **⛔ BARRIER 1**: Reads mentioned files FULLY first
-- **⛔ BARRIER 2**: Waits for ALL agents to complete
-- **⛔ BARRIER 3**: No placeholder values in output
+- **⛔ BARRIER 1**: Mentioned files are read in full first, because analysis on partial context produces placeholders
+- **⛔ BARRIER 2**: Waits until every spawned agent has returned (subagents run in the background, so it waits for a completion notification from each), because synthesis on a partial set misses what the missing report would have changed
+- **⛔ BARRIER 3**: No placeholder values in output, because a placeholder that ships becomes a task nobody can execute
 
 **Agent Strategy**:
 
@@ -171,14 +155,14 @@ Pattern Finder Agents → Find similar implementations
 
 ---
 
-### `/create_mockup` - Research UI Patterns and Create Mockups
+### `/wb:create_mockup` - Research UI Patterns and Create Mockups
 
 Researches existing UI patterns, styles, and layouts, then creates versioned mockups with HTML and visual validation.
 
 **Usage**:
 
 ```bash
-/create_mockup docs/plans/2025-10-07-my-feature "user settings panel"
+/wb:create_mockup docs/plans/2025-10-07-my-feature "user settings panel"
 ```
 
 **Research Process**:
@@ -258,7 +242,7 @@ After initial mockup, provide feedback naturally:
 
 ```bash
 # 1. Create initial mockup
-/create_mockup docs/plans/2025-10-07-feature "settings panel"
+/wb:create_mockup docs/plans/2025-10-07-feature "settings panel"
 > Research finds: Tailwind, Font Awesome icons, existing settings.jsx
 > Creates ASCII + HTML mockup with actual styles
 > Shows screenshot
@@ -277,21 +261,21 @@ After initial mockup, provide feedback naturally:
 
 **Integration**:
 
-- Feeds into `/create_design` with validated UI requirements
+- Feeds into `/wb:create_design` with validated UI requirements
 - Mockup files referenced in design.md
 - Screenshots included in documentation
 - Decision log informs architectural choices
 
 ---
 
-### `/create_design` - Create Design Document
+### `/wb:create_design` - Create Design Document
 
 Creates architectural design decisions based on validated research. Focuses on WHAT to build and WHY.
 
 **Usage**:
 
 ```bash
-/create_design docs/plans/2025-10-07-my-feature
+/wb:create_design docs/plans/2025-10-07-my-feature
 ```
 
 **Interactive Process**:
@@ -322,14 +306,14 @@ Creates architectural design decisions based on validated research. Focuses on W
 
 ---
 
-### `/create_tasks` - Create Execution Plan
+### `/wb:create_tasks` - Create Execution Plan
 
 Transforms approved design into detailed phased execution plan with embedded tasks.
 
 **Usage**:
 
 ```bash
-/create_tasks docs/plans/2025-10-07-my-feature
+/wb:create_tasks docs/plans/2025-10-07-my-feature
 ```
 
 **Planning Process**:
@@ -350,23 +334,25 @@ Transforms approved design into detailed phased execution plan with embedded tas
 - Integration points
 
 ### Tasks
-- [ ] Setup tasks (directories, dependencies, config)
-- [ ] Implementation tasks (specific components)
-- [ ] Testing tasks (unit, integration)
-- [ ] Integration tasks (connections)
+- Setup tasks (directories, dependencies, config)
+- Implementation tasks (specific components)
+- Testing tasks (unit, integration)
+- Integration tasks (connections)
 
 ### Success Criteria
 #### Automated Verification
-- [ ] Unit tests pass
-- [ ] Integration tests pass
-- [ ] Build succeeds
+- Unit tests pass
+- Integration tests pass
+- Build succeeds
 
 #### Manual Verification
-- [ ] Feature works as designed
-- [ ] No regressions
+- Feature works as designed
+- No regressions
 
 ### ⛔ CHECKPOINT: Phase 1 Complete
 ```
+
+The markdown documents the plan. Live status is tracked in beads: each task becomes a beads issue under a phase milestone, with dependencies, and progress is read from `bd ready` / `bd update <id> --claim` / `bd close <id>`, never from checkboxes.
 
 **Features**:
 
@@ -375,22 +361,22 @@ Transforms approved design into detailed phased execution plan with embedded tas
 - Comprehensive test coverage from agent analysis
 - Rollback procedures for each phase
 - Quick test commands per phase
-- Progress tracking
+- Progress tracked in beads
 - Modified files tracking
 
 ---
 
-### `/implement` - Implement with coordinated workers
+### `/wb:implement` - Implement with coordinated workers
 
 Implements the plan by coordinating fresh-context worker agents, one per task, each verified; the default execution path. Workers follow Test-Driven Development (Red → Green → Refactor).
 
 **Usage**:
 
 ```bash
-/implement docs/plans/2025-10-07-my-feature
+/wb:implement docs/plans/2025-10-07-my-feature
 ```
 
-#### `/implement_inline`
+#### `/wb:implement_inline`
 
 The same plan, coded inline by this session with TDD. Use when the work should run on the session model. `/wb:implement_coordinated` and `/wb:implement_tasks` remain as deprecated aliases through 3.x (removed at 4.0.0).
 
@@ -408,18 +394,18 @@ The same plan, coded inline by this session with TDD. Use when the work should r
 - Follow TDD cycle strictly
 - Respect phase boundaries
 - Stop at checkpoints for human verification
-- Update task checkboxes as you complete work
+- Claim and close each task in beads (`bd update <id> --claim`, `bd close <id>`); do not track status with markdown checkboxes
 
 ---
 
-### `/validate_execution` - Validate Implementation
+### `/wb:validate_execution` - Validate Implementation
 
 Validates that execution plan was correctly implemented. Run after implementation is complete.
 
 **Usage**:
 
 ```bash
-/validate_execution docs/plans/2025-10-07-my-feature
+/wb:validate_execution docs/plans/2025-10-07-my-feature
 ```
 
 **Validation Process**:
@@ -439,14 +425,14 @@ Validates that execution plan was correctly implemented. Run after implementatio
 
 ---
 
-### `/create_handoff` - Create Session Handoff
+### `/wb:create_handoff` - Create Session Handoff
 
 Creates comprehensive handoff document for session transfer.
 
 **Usage**:
 
 ```bash
-/create_handoff docs/plans/2025-10-07-my-feature
+/wb:create_handoff docs/plans/2025-10-07-my-feature
 ```
 
 **Captures**:
@@ -462,14 +448,14 @@ Creates comprehensive handoff document for session transfer.
 
 ---
 
-### `/resume_handoff` - Resume from Handoff
+### `/wb:resume_handoff` - Resume from Handoff
 
 Resumes work from a handoff document created in previous session.
 
 **Usage**:
 
 ```bash
-/resume_handoff docs/plans/2025-10-07-my-feature/handoff-2025-01-08-14-30.md
+/wb:resume_handoff docs/plans/2025-10-07-my-feature/handoff-2025-01-08-14-30.md
 ```
 
 **Restoration**:
@@ -482,19 +468,19 @@ Resumes work from a handoff document created in previous session.
 
 ---
 
-### `/update_status` - Update Project Status
+### `/wb:update_status` - Update Project Status
 
 Intelligently updates status across all documentation files based on actual progress.
 
 **Usage**:
 
 ```bash
-/update_status docs/plans/2025-10-07-my-feature
+/wb:update_status docs/plans/2025-10-07-my-feature
 ```
 
 **What It Does**:
 
-1. **Reads ALL files FULLY** - Analyzes research.md, design.md, tasks.md
+1. **Reads all files in full** - Analyzes research.md, design.md, tasks.md
 2. **Determines actual state** - Checks content, not just frontmatter
 3. **Proposes updates** - Shows what will change and why
 4. **Applies consistently** - Updates all files atomically
@@ -510,7 +496,7 @@ tasks.md: not-started → in-progress → complete
 
 **Smart Detection**:
 
-- Detects completion percentage from checked tasks
+- Detects completion percentage from closed beads issues
 - Identifies current active phase
 - Validates status transitions across files
 - Prevents invalid state changes
@@ -530,24 +516,24 @@ tasks.md: not-started → in-progress → complete
 
 ### 📚 File Reading Protocol
 
-**ALWAYS**:
+Read plan documents and relied-on files in full, and do it before spawning agents:
 
 ```
-1. Read mentioned files FULLY (no limit/offset)
+1. Read mentioned files in full (if Read returns a partial view of a large file, page through with offset/limit)
 2. Read BEFORE spawning agents
-3. Build context in main thread first
-4. NEVER use partial reads
+3. Build context in the main thread first
+4. Do not analyze from a partial read
 ```
 
 ### 🚧 Synchronization Barriers
 
-Commands implement explicit barriers:
+Each real synchronization point is marked once, with a plain-sentence reason:
 
 ```
-⛔ BARRIER 1: After file reading - full context required
-⛔ BARRIER 2: After agent spawning - wait for ALL
-⛔ BARRIER 3: Before writing - no placeholders allowed
-⛔ CHECKPOINT: Between phases - human verification required
+⛔ BARRIER: full context read - analysis on partial context produces placeholders
+⛔ BARRIER: every spawned agent has returned - subagents run in the background, so wait for a completion notification from each
+⛔ BARRIER: no placeholder values - a placeholder that ships becomes a task nobody can execute
+⛔ CHECKPOINT: human verification between phases - the next phase builds on what a human has accepted
 ```
 
 ### 🤖 Agent Instructions
@@ -586,7 +572,7 @@ Plans separate verification into:
 #### 1. Initialize Project
 
 ```bash
-/create_project add-auth-middleware docs/projects LINEAR-789
+/wb:create_project add-auth-middleware docs/projects LINEAR-789
 ```
 
 Creates timestamped directory with metadata-rich files.
@@ -594,7 +580,7 @@ Creates timestamped directory with metadata-rich files.
 #### 2. Research Codebase
 
 ```bash
-/create_research docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/wb:create_research docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 > Research current middleware architecture, auth patterns, and session handling
 ```
 
@@ -603,7 +589,7 @@ Spawns parallel agents, documents findings objectively.
 #### 3. Create UI Mockup (Optional - for UI features)
 
 ```bash
-/create_mockup docs/projects/2025-10-07-LINEAR-789-add-auth-middleware "login form"
+/wb:create_mockup docs/projects/2025-10-07-LINEAR-789-add-auth-middleware "login form"
 ```
 
 Researches UI patterns, creates HTML mockup with app styles, iterates with visual feedback.
@@ -611,7 +597,7 @@ Researches UI patterns, creates HTML mockup with app styles, iterates with visua
 #### 4. Explore Design Options (Optional - for big architecture decisions)
 
 ```bash
-/explore_design docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/wb:explore_design docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
 Facilitated architecture discussion: frames the decision, explores 2–4 directions with trade-offs, converges on explicit approval. Records the decision as a closed `Decide:` issue plus a thoughts/ doc. Invoke when research surfaced multiple viable approaches or the choice is hard to reverse; skip for well-scoped fixes.
@@ -619,7 +605,7 @@ Facilitated architecture discussion: frames the decision, explores 2–4 directi
 #### 5. Create Design
 
 ```bash
-/create_design docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/wb:create_design docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
 Interactive discussion → Design decisions (WHAT and WHY). Includes UI requirements from mockup if created. Formalizes the recorded decision when explore_design ran.
@@ -627,7 +613,7 @@ Interactive discussion → Design decisions (WHAT and WHY). Includes UI requirem
 #### 6. Create Execution Plan
 
 ```bash
-/create_tasks docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/wb:create_tasks docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
 Generates phased plan with specific tasks (HOW to implement).
@@ -635,17 +621,10 @@ Generates phased plan with specific tasks (HOW to implement).
 #### 7. Implement with TDD
 
 ```bash
-/implement docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
+/wb:implement docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
-Work through tasks.md using TDD cycle:
-
-```markdown
-- [x] Review existing middleware (completed 2025-10-07 14:30)
-- [x] Set up test environment (completed 2025-10-07 15:15)
-- [>] Implement auth check function
-- [ ] Add session validation
-```
+Work through the tasks in tasks.md using the TDD cycle. Status lives in beads: find work with `bd ready`, claim it with `bd update <id> --claim`, and finish it with `bd close <id> --reason "..."`.
 
 Progress fields are reconciled by `/wb:update_status` (the sole writer) rather than hand-edited during implementation — running it after each phase keeps frontmatter like this in sync:
 
@@ -697,7 +676,7 @@ Files move through defined states:
 
 **research.md**: `draft` → `in-progress` → `complete`
 
-**plan.md**: `draft` → `ready` → `implementing` → `complete`
+**design.md**: `draft` → `ready` → `implementing` → `complete`
 
 **tasks.md**: `not-started` → `in-progress` → `complete`
 
@@ -712,7 +691,7 @@ Default: `docs/plans/YYYY-MM-DD-[TICKET-]project-name/`
 Customize base directory per command:
 
 ```bash
-/create_project feature custom/location
+/wb:create_project feature custom/location
 ```
 
 ### Ticket Formats
@@ -750,7 +729,7 @@ skills/
 
 ### Research Phase
 
-- **Read files FULLY** before analysis
+- **Read relied-on files in full** before analysis
 - **Document objectively** - what IS, not opinions
 - **Include all references** - file:line format
 - **Find patterns** - conventions in use
@@ -770,7 +749,7 @@ skills/
 - **Maintain barriers** - checkpoints matter
 - **Track blockers** - with actions/owners
 - **Archive weekly** - keep focus
-- **Update frontmatter** - overall metrics
+- **Reconcile status** - run `/wb:update_status` (sole writer of progress fields)
 
 ### Verification Strategy
 
@@ -820,7 +799,7 @@ skills/
 
 ### Issue: Tasks missing from plan
 
-**Solution**: Re-read plan.md FULLY, extract every mentioned task
+**Solution**: Re-read tasks.md in full, extract every mentioned task
 
 ### Issue: Phases too large
 
@@ -882,7 +861,7 @@ Commands leverage Claude Code's powerful agent system while maintaining strict b
 
 ## Version
 
-Current Version: 2.0.0
+Current version: see `plugin/.claude-plugin/plugin.json`
 
 - Added comprehensive barriers and checkpoints
 - Enhanced metadata tracking

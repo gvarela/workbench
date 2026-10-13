@@ -1,8 +1,8 @@
 #!/bin/bash
 # SessionStart/PreCompact hook: session-start orientation and compaction recovery,
 # modeled on the beads plugin's `bd prime`.
-# Contract: <100ms, no bd invocations, plain-text stdout (SessionStart is the one
-# event whose plain-text stdout is model-visible; PreCompact's stdout is not, but
+# Contract: <100ms, no bd invocations, plain-text stdout (SessionStart is one of the
+# few events whose plain-text stdout is model-visible; PreCompact's stdout is not, but
 # the hook must still exit 0 and print the recovery text harmlessly), silent on
 # an empty payload, exit 0 always.
 # Override: a `.claude/wb/PRIME.md` file in the cwd replaces the static

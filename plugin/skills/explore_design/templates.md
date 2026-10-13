@@ -105,7 +105,7 @@ bd update [issue-id] --notes="[existing notes carried forward verbatim]
 AMENDMENT [YYYY-MM-DD]: [what changed and why]"
 ```
 
-**⚠️ `--notes` replaces wholesale — it does NOT append.** Writing notes without carrying the existing text forward silently destroys prior amendments (this happened in production). If `bd comments` is available, prefer `bd comments add [issue-id] "[amendment]"` — comments append by nature and preserve history.
+**⚠️ `--notes` replaces wholesale — it does NOT append.** Writing notes without carrying the existing text forward silently destroys prior amendments. If `bd comments` is available, prefer `bd comments add [issue-id] "[amendment]"` — comments append by nature and preserve history.
 
 ### Verify
 

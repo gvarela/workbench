@@ -14,15 +14,9 @@ Supporting files in this directory (read each when its step directs you to — n
 - [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim prompts for the three Step 2 verification agents
 - [templates.md](templates.md) — design.md output template
 
-## CRITICAL: This Document is About WHAT and WHY - NEVER HOW
+## Scope: WHAT and WHY, not HOW
 
-- **DO NOT** include implementation sequences or step-by-step procedures
-- **DO NOT** specify HOW to code solutions
-- **DO NOT** create task lists or phase breakdowns
-- **DO NOT** detail file modifications or code changes
-- **ONLY** document WHAT needs to be built and WHY those choices were made
-- **ONLY** architectural decisions and technical approach
-- The HOW comes later in the execution plan - NOT HERE
+design.md records architectural decisions and the reasoning behind them: what to build, why, what is in and out of scope, success criteria, risks. Implementation sequences, code changes, file-modification lists, and task or phase breakdowns belong in tasks.md, which is written later from this document. Keeping them out means the design stays changeable: if the approach turns out wrong, it can be replaced without redoing execution planning.
 
 ## Initial Response
 
@@ -66,7 +60,7 @@ If critical questions block design decisions, resolve them first or document as 
 
 ### Step 1: Read and Analyze Research
 
-**⛔⛔⛔ BARRIER 1: STOP! Read research.md and existing design.md FULLY - NO SKIMMING ⛔⛔⛔**
+⛔ BARRIER 1: research.md, design.md, and README.md are read in full — design decisions made on a partial read contradict facts research already established
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -107,10 +101,7 @@ const designFile = `${projectDir}/design.md`;
    - What constraints limit our options
    - What gaps might affect our design
 
-**Decide WHAT to build, not HOW to build it**
-
 Synthesize the research into design constraints and opportunities.
-Remember: You are deciding WHAT and WHY, not HOW.
 
 ### Step 2: Spawn Verification Agents
 
@@ -118,11 +109,11 @@ Remember: You are deciding WHAT and WHY, not HOW.
 
 After reading research, spawn specialized agents in parallel to gather additional context:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write design.md after synthesizing their findings.**
+Sub-agents are read-only: they gather information and return findings, and you write design.md after synthesizing them.
 
 Spawn the three agents concurrently using the prompts in [sub-agent-prompts.md](sub-agent-prompts.md) → **Step 2 Agent Prompts**.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL agents to complete - NO EXCEPTIONS ⛔⛔⛔**
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — a design synthesized on a partial set misses what the missing report would have changed
 
 ### Step 3: Problem Definition
 
@@ -170,7 +161,7 @@ should be revisited.
 - **On confirmation**: treat the recorded direction as the approved approach and proceed to Step 5. The thoughts doc(s) supply the rejected alternatives and rationale for the design document.
 - **If the user wants to revisit**: suggest re-running `/wb:explore_design [project-dir]` — do not re-litigate the decision here with freshly generated options.
 
-**If no decision record exists**, proceed below — unchanged:
+**If no decision record exists**, generate options as follows:
 
 **Interactive Design Discussion**
 
@@ -305,8 +296,6 @@ The template includes `bd create` command snippets for tracking assumptions and 
 - ❌ File modification lists (HOW to change code)
 - ❌ Command sequences (HOW to execute changes)
 
-**REMEMBER: If it describes HOW to do something, it DOES NOT belong in design**
-
 ### Handling Knowledge Gaps
 
 When research has knowledge gaps:
@@ -338,7 +327,7 @@ Use agent findings to strengthen design:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: After reading research - ensure full understanding
-2. **⛔ BARRIER 2**: After agent spawning - wait for ALL agents
+2. **⛔ BARRIER 2**: After agent spawning - wait for every agent's completion notification
 3. **⛔ DECISION POINT**: After presenting options - get approach approval (with a closed `Decide:` record: confirmation of the recorded decision instead)
 4. **⛔ BARRIER 3**: Before writing - verify no placeholders
 5. **⛔ APPROVAL GATE**: After writing design - get explicit approval

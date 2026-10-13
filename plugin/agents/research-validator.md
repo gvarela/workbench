@@ -2,7 +2,7 @@
 name: research-validator
 description: Validates research documents by checking file paths exist, code snippets match actual files, and behavioral claims are accurate against the codebase. Returns structured PASS/FAIL report.
 tools: Read, Grep, Glob, Bash(ls:*, test:*)
-model: sonnet
+model: opus
 effort: high
 ---
 

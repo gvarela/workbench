@@ -42,7 +42,7 @@ Hook script used by Claude Code to automatically lint markdown files after they 
 
 ```bash
 # This script is automatically triggered by Claude Code hooks
-# It's configured in .claude/settings.local.json
+# It's registered as a PostToolUse hook in plugin/.claude-plugin/plugin.json
 ```
 
 **Features:**
@@ -56,15 +56,15 @@ Hook script used by Claude Code to automatically lint markdown files after they 
 The project uses `.markdownlintrc` for markdownlint configuration. Current settings:
 - Line length checking disabled (for long code blocks)
 - Inline HTML allowed
-- Emphasis as heading allowed (for "think deeply" directives)
+- Emphasis as heading allowed (bold lines used as labels in skills)
 - Fenced code blocks without language specification allowed
 
 ## Claude Code Hooks
 
-The project has automatic markdown linting configured via Claude Code hooks in `.claude/settings.local.json`:
+The plugin registers automatic markdown linting as hooks in `plugin/.claude-plugin/plugin.json`:
 - **PostToolUse hooks** for Write and Edit tools
-- Automatically runs `./plugin/scripts/lint-hook` after any markdown file is created or modified
+- Automatically runs `${CLAUDE_PLUGIN_ROOT}/scripts/lint-hook` after any markdown file is created or modified
 - Attempts to auto-fix common markdown issues
 - Shows brief status messages in the Claude Code interface
 
-To disable automatic linting, remove or comment out the `hooks` section in `.claude/settings.local.json`.
+Plugin hooks can't be switched off one at a time. To stop automatic linting, disable the plugin (`claude plugin disable wb@gvarela-workbench`), set `disableAllHooks` in your settings (which stops every hook), or remove the PostToolUse entries from `plugin.json`.

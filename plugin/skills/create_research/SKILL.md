@@ -52,19 +52,16 @@ When invoked, check for arguments:
 
 ## Steps to Execute After Receiving the Research Query
 
-### Step 1: Read Any Directly Mentioned Files First (CRITICAL)
+### Step 1: Read Directly Mentioned Files First
 
-- If the user mentions specific files (docs, JSON, configs), read them FULLY first
-- **IMPORTANT**: Use the Read tool WITHOUT limit/offset parameters to read entire files
-- **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
-- This ensures you have full context before decomposing the research
+- Read any files the user mentions (docs, JSON, configs) in full in the main context before spawning sub-tasks (if Read returns a partial view of a large file, page through the rest with offset/limit), so the decomposition rests on full context.
 
-**⛔⛔⛔ BARRIER 1: STOP! Do NOT proceed to Step 2 until ALL mentioned files are FULLY read ⛔⛔⛔**
+⛔ BARRIER 1: every mentioned file is fully read — decomposing the question on partial context sends the agents after the wrong areas
 
 ### Step 2: Validate Project Structure
 
 - Check that the specified directory exists
-- Verify research.md file exists (created by `/create_project`)
+- Verify research.md file exists (created by `/wb:create_project`)
 - Read the current research.md FULLY to see what's already documented
 - Check frontmatter status field
 - Read `README.md` in the project directory FULLY. If it has an `## Intent` section, record its Goal and its "Success looks like" statements; they shape decomposition (Step 3) and the coverage report (Step 8)
@@ -75,20 +72,19 @@ When invoked, check for arguments:
 **Document what EXISTS in the codebase**
 
 1. **Break down the user's query into composable research areas**, one area per Intent success statement it bears on when an Intent section exists, plus any area the question needs that no statement names
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Work out:**
+2. **Work out:**
    - Underlying patterns and connections that EXIST
    - Architectural implementations CURRENTLY IN PLACE
    - Which directories, files, or patterns are ACTUALLY PRESENT
 
-4. **Identify research areas** to investigate:
+3. **Identify research areas** to investigate:
    - Authentication flow (if relevant)
    - User validation points (if relevant)
    - API endpoints (if relevant)
    - Database schema (if relevant)
    - [Other areas specific to the research question]
 
-5. **Consider which specific components** to investigate
+4. **Consider which specific components** to investigate
 
 Keep the mapping from research areas to success statements; Step 8 reports it.
 
@@ -96,7 +92,7 @@ Keep the mapping from research areas to success statements; Step 8 reports it.
 
 Create multiple Task agents to research different aspects concurrently using our specialized agents:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write research.md after synthesizing their findings.**
+Sub-agents are read-only: they return findings and do not write files. You write research.md after synthesizing their findings.
 
 ```
 ## Parallel Research Strategy
@@ -126,45 +122,33 @@ const agents = [
 // All agents work in parallel for efficiency
 ```
 
-**CRITICAL Agent Instructions (MUST follow exactly):**
+**Agent instructions**: each agent is a documentarian, not a critic; it describes what exists without judgment, because unrequested critique is the failure this stage exists to prevent. Typed wb agents carry that constraint in their own prompts; put it explicitly in every ad-hoc general-purpose agent prompt. Use the specialized agent types for their strengths and run agents in parallel.
 
-- **Each agent is a documentarian, NOT a critic or consultant**
-- **Agents MUST describe what exists without ANY judgment**
-- **Document what IS, not what SHOULD BE - NO EXCEPTIONS**
-- **Use specific agent types for their strengths**
-- **Run multiple agents in parallel for speed**
-- **ALWAYS wait for ALL agents before synthesizing**
-- **Remind EVERY agent: You are documenting the codebase AS IT EXISTS**
-
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL sub-agents to complete - DO NOT proceed until EVERY agent returns ⛔⛔⛔**
+⛔ BARRIER 2: every spawned agent has returned (subagents run in the background, so wait for a completion notification from each one) — synthesis on a partial set misses what the missing report would have changed
 
 ### Step 5: Synthesize Findings
 
 **Document ONLY what EXISTS**
 
-**IMPORTANT**: Wait for ALL sub-agent tasks to complete before proceeding
-
 1. **Compile all sub-agent results**
-2. **REMEMBER: Document what IS, not what SHOULD BE**
-3. **Prioritize live codebase findings** as primary source of truth
-4. **Connect findings across different components**
-5. **Include specific file paths and line numbers** for reference
-6. **Highlight patterns, connections, and architectural decisions THAT EXIST**
-7. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
-8. **DO NOT add recommendations or improvements unless explicitly requested**
+2. **Prioritize live codebase findings** as primary source of truth
+3. **Connect findings across different components**
+4. **Include specific file paths and line numbers** for reference
+5. **Highlight patterns, connections, and architectural decisions THAT EXIST**
+6. **Answer the user's specific questions** with concrete evidence FROM THE CURRENT CODE
+7. **DO NOT add recommendations or improvements unless explicitly requested**
 
 ### Step 6: Document Findings
 
 Update the research.md file using the **"research.md Template"** in [templates.md](templates.md) — read it in full before writing.
 
-**⛔⛔⛔ BARRIER 3: STOP! Verify NO placeholder values - ALL data MUST be from ACTUAL codebase ⛔⛔⛔**
+⛔ BARRIER 3: no placeholder values — a placeholder that ships reads as a finding nobody verified
 
 Before writing:
 
 - **NO** "[To be added]" or similar placeholders
 - **NO** generic examples - use REAL code from THIS codebase
 - **NO** assumptions - only documented FACTS
-- **Remember one final time: Document what IS, not what SHOULD BE**
 
 ### Step 7: Handle Follow-Up Questions
 
@@ -211,7 +195,7 @@ Intent Coverage (from README Intent):
 
 Next: [choose ONE line based on the findings]
 [Multiple viable approaches documented:] Findings show multiple viable approaches — consider `/wb:explore_design` to explore directions before `/wb:create_design`.
-[Single clear approach:] Review the research and run `/create_design` when ready to create design decisions.
+[Single clear approach:] Review the research and run `/wb:create_design` when ready to create design decisions.
 
 ```
 
@@ -221,30 +205,10 @@ Next: [choose ONE line based on the findings]
 
 ## Important Notes
 
-### Critical Ordering
-
-- **ALWAYS** read mentioned files first before spawning sub-tasks (Step 1)
-- **ALWAYS** wait for all sub-agents to complete before synthesizing (Step 4)
-- **NEVER** write the research document with placeholder values
-
-### Documentation Philosophy
-
-- **CRITICAL**: You and all sub-agents are documentarians, not evaluators
-- **REMEMBER**: Document what IS, not what SHOULD BE
-- **NO RECOMMENDATIONS**: Only describe the current state of the codebase
-- Focus on finding concrete file paths and line numbers for developer reference
-- Research documents should be self-contained with all necessary context
-- Each sub-agent prompt should be specific and focused on read-only documentation operations
-- Document cross-component connections and how systems interact
+Research documents are self-contained, cite file paths and line numbers, and describe how components connect.
 
 ### File Reading
 
-- **File reading**: Always read mentioned files FULLY (no limit/offset) before spawning sub-tasks
+- **File reading**: read mentioned files in full before spawning sub-tasks
 - Have sub-agents document examples and usage patterns as they exist
 - Keep the main agent focused on synthesis, not deep file reading
-
-### Synchronization Points
-
-1. ⛔ **BARRIER 1**: After reading mentioned files - Do not proceed until ALL files are read
-2. ⛔ **BARRIER 2**: After spawning agents - Wait for ALL agents to complete
-3. ⛔ **BARRIER 3**: Before writing output - Verify no placeholder values

@@ -3,7 +3,7 @@ name: validate_execution
 description: Validate that an implemented plan matches design.md and tasks.md: run the automated checks, compare the implementation to the requirements, and produce a pass/fail report with gaps. Use after a phase or project is implemented when the user asks to validate, verify, or review whether the plan was done correctly. Takes the project directory.
 argument-hint: [project-directory]
 allowed-tools: Read
-model: sonnet
+model: opus
 effort: high
 ---
 
@@ -52,7 +52,7 @@ When invoked, check for arguments:
 
 ### Step 1: Context Discovery
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation FULLY - research.md, design.md, tasks.md ⛔⛔⛔**
+**⛔ BARRIER 1**: full context read of research.md, design.md, and tasks.md — validation against partial context reports gaps that are really unread text
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -97,11 +97,11 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 **Use parallel agents to verify implementation comprehensively:**
 
-**CRITICAL: Sub-agents gather information and return findings. They do NOT write files. YOU (the main agent) will write the validation report after synthesizing their findings.**
+Sub-agents gather information and return findings without writing files; the main agent writes the validation report after synthesizing them, so the report has one author and one voice.
 
 Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Verify test coverage, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL validation agents to complete ⛔⛔⛔**
+**⛔ BARRIER 2**: every validation agent has returned (subagents run in the background, so wait for a completion notification from each one) — the report synthesizes all four sets of findings, and a missing one hides a deviation
 
 ### Step 3: Run Automated Verification
 
@@ -162,7 +162,7 @@ Read [templates.md](templates.md) NOW and create the validation report using its
 
 If validation passes with minor issues:
 
-1. Update tasks.md to reflect actual completion status
+1. Run `/wb:update_status` to reconcile tasks.md with beads (it is the sole writer of progress fields)
 2. Document any approved deviations
 3. Note lessons learned for future projects
 
@@ -176,11 +176,7 @@ If validation fails:
 
 ### Validation Philosophy
 
-1. **Be Objective**: Assess what IS, not what SHOULD BE
-2. **Be Thorough**: Check everything, assume nothing
-3. **Be Constructive**: Identify issues with solutions
-4. **Be Precise**: Use file:line references for all claims
-5. **Be Practical**: Focus on what matters for deployment
+Assess what IS, not what SHOULD BE. Cite file:line for every claim, pair each issue with a proposed fix, and weigh findings by what matters for deployment.
 
 ### What Makes a PASS vs FAIL
 
@@ -232,5 +228,5 @@ Recommended workflow:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: Read all documentation first
-2. **⛔ BARRIER 2**: Wait for all validation agents
+2. **⛔ BARRIER 2**: Wait for every validation agent's completion notification
 3. **⛔ BARRIER 3**: Complete all automated checks before writing the report

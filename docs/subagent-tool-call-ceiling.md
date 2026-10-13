@@ -1,6 +1,6 @@
 # Subagent tool-call ceiling — finding and recommended skill changes
 
-**Status**: finding documented, changes NOT yet made. Ready to pick up.
+**Status**: changes made in 504129c (v2.2.1, 2026-08-21): `create_tasks` sizes tasks by tool-call budget and `implement` carries the truncation playbook. Kept as the finding's evidence. Open question: `task-worker` sets `maxTurns: 60` (since 2026-07-31), and before Claude Code 2.1.246 an agent that hit `maxTurns` stopped without its output marked partial; this document does not rule that out as the cause of the ~70-call truncations.
 **Found**: 2026-08-19, during a long `/wb:implement_coordinated` run on an unrelated project
 (`~/Development/Personal/fitness-agent`, 1A-ii increment).
 **Affects**: `plugin/skills/implement` primarily; `plugin/skills/create_tasks`
@@ -123,7 +123,7 @@ using the rough arithmetic above, plus a rule that a task projecting past ~50 ca
 at its natural seam — usually **source change** then **test conversion**, which are separately
 verifiable anyway.
 
-Also worth deciding: whether `create_execution`, which produces the task list a coordinator later
+Also worth deciding (since resolved: `create_execution` was the deprecated alias of `create_tasks`, renamed in 1908c26): whether `create_execution`, which produces the task list a coordinator later
 delegates from, should carry the same guidance. It is the skill that actually determines delegation
 size, but `create_tasks` is where the granularity rule currently lives, so the two should agree
 rather than duplicate (the repo's own NF1 instinct applies).
