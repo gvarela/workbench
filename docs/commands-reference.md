@@ -378,7 +378,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 
 #### `/wb:implement_inline`
 
-The same plan, coded inline by this session with TDD. Use when the work should run on the session model. `/wb:implement_coordinated` and `/wb:implement_tasks` remain as deprecated aliases through 3.x (removed at 4.0.0).
+The same plan, coded inline by this session with TDD. Use when the work should run on the session model.
 
 **TDD Process**:
 

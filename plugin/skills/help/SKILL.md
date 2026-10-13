@@ -236,11 +236,11 @@ Transforms design into phased plan. Creates beads issues for tracking.
 
 ### `/wb:implement [directory] [phase|continue]`
 
-The default execution path: coordinates fresh-context workers, one per task, each verified by a task-verifier; verified failures escalate once. Claims and closes beads issues per task; one commit per verified task. `/wb:implement_coordinated` is a deprecated alias through 3.x (removed at 4.0.0).
+The default execution path: coordinates fresh-context workers, one per task, each verified by a task-verifier; verified failures escalate once. Claims and closes beads issues per task; one commit per verified task.
 
 ### `/wb:implement_inline [directory] [phase|continue]`
 
-The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model. `/wb:implement_tasks` is a deprecated alias through 3.x (removed at 4.0.0).
+The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model.
 
 ### `/wb:validate_execution [directory]`
 
