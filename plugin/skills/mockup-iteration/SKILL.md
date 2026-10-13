@@ -111,7 +111,7 @@ When user confirms or says "next version":
 3. **Read mockups/v00[N]/mockup.html** fully as base
 4. **Read mockup-log.md** Running Requirements AND UI Research Reference (for icon system, styling)
 5. **Create new version directory**: `mockups/v00[N+1]/` (zero-padded: v001, v002, ..., v010)
-6. **Create new mockup.md** incorporating ALL feedback
+6. **Create new mockup.md** incorporating ALL feedback. Every version directory gets its own `mockup.md`, `mockup.html`, and `decisions.md`, even when only the HTML changed: the next iteration reads this version's `mockup.md` as its base (step 2).
 7. **Create new mockup.html** incorporating ALL feedback
    - Update HTML structure to match new mockup.md
    - Maintain app's styling approach from research
@@ -124,7 +124,8 @@ When user confirms or says "next version":
    - Show screenshot to user
 10. **Update mockup-log.md**:
     - Frontmatter: `current_version: [N+1]`, `last_updated: [date]`
-    - Add version entry to Version History
+    - Add the new version's entry to Version History, and set the previous entry's **Status** to `Superseded by v00[N+1]`
+    - Keep Version History as the only list of versions; don't add a separate versions table that duplicates it
     - Update Running Requirements sections
 
 ### Version Naming
