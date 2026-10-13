@@ -4,10 +4,14 @@ All notable changes to the wb plugin. Versions are release cuts — installers r
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-10-13
+
 Prompt audit against current Claude Code and Claude model guidance, with an adversarial review of the findings. The report and evidence are in `docs/audits/2026-09-29-prompt-audit/`.
 
 ### ⚠️ Breaking
 
+- **`/wb:implement_coordinated` and `/wb:implement_tasks` removed** (deprecated since 3.0.0). Use `/wb:implement` and `/wb:implement_inline`.
+- **Agents now pin their models and effort**: `task-verifier` and `research-validator` run on Opus, `pattern-finder` on Sonnet at `low`, `task-worker` at `medium`, `codebase-locator` at `low`; `validate_execution` and `research-validation` pin `model: opus`. On providers where the aliases resolve to older models (Bedrock, Google Cloud), the pins follow the alias.
 - **`wb:product-behavior-analyzer` removed.** It was folded into `wb:codebase-analyzer`, which now takes an Audience input (engineering by default, product on request). `/wb:create_product_research` spawns the analyzer with a product audience.
 
 ### Changed
@@ -28,6 +32,13 @@ Prompt audit against current Claude Code and Claude model guidance, with an adve
 
 - `/wb:help` checks design status `ready`, not the nonexistent `approved`; `bd init --stealth` is the default init fix; `resume_handoff` reads the `beads_active_phase` field the handoff writes; leftover checkbox-status wording replaced with beads.
 - Maintainer docs: PreCompact described accurately (its output never reaches the model), `commands-reference.md` and the Claude Desktop product-research prompt re-synced, install steps, hook locations, and agent lists corrected; `docs/claude-code-skills-guide.md` retired in favour of the live Claude Code docs; branch flow documented (PRs target `dev`, `main` moves only at release cuts).
+
+### Migration
+
+1. `claude plugin update wb@gvarela-workbench` from your shell, then restart Claude (or `/reload-plugins`).
+2. Replace any use of `/wb:implement_coordinated` with `/wb:implement` and `/wb:implement_tasks` with `/wb:implement_inline`.
+3. Replace any direct use of `wb:product-behavior-analyzer` with `wb:codebase-analyzer` and say the audience is product in the prompt.
+4. Verification now runs on Opus and costs about twice as much per check; if your verifier pass rate or spend looks off, see the effort and model notes in CLAUDE.md.
 
 ## [3.0.0] — 2026-09-06
 
