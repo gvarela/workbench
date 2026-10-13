@@ -19,6 +19,9 @@ Prompt audit against current Claude Code and Claude model guidance, with an adve
 - "Read files fully (no limit/offset)" becomes "read fully, paging through a partial view with offset/limit".
 - `implement` makes one automatic fix attempt after a verified failure (the skill previously said both one and two).
 - `review-prep` no longer triggers on the bare word "review".
+- `implement` spawns `wb:task-verifier` without a `model` parameter, so the verifier's own Opus pin applies (a coordinator had passed the worker's Sonnet).
+- `codebase-locator` pins `effort: low`; the `haiku` alias now resolves to Haiku 5.5, which supports effort.
+- `mockup-iteration` requires `mockup.md`, `mockup.html`, and `decisions.md` in every version directory, marks the previous version superseded, and keeps Version History as the only version list.
 - Model tiers for the 5.5 generation: `task-verifier` and `research-validator` run on Opus (the quality gates; Opus 5.5 is the stronger reviewer at about twice Sonnet 5.5's price); `pattern-finder` moves from Haiku to Sonnet at `effort: low`; `validate_execution` and `research-validation` pin `model: opus` instead of `sonnet`, so review work runs on Opus from any session, including a Fable one. Spawn blocks pass the same models as the agent files, since a per-spawn model overrides frontmatter.
 
 ### Fixed
