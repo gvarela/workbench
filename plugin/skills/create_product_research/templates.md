@@ -129,8 +129,8 @@ bd create "Q: [your question]" --type=task --priority=2 \
 
 Based on the research findings:
 
-1. [Suggested next action based on findings]
-2. [Another logical next step]
+1. [Area the findings did not cover that design will need answered, stated as a question about what exists]
+2. [Another uncovered area, or omit]
 3. Review with engineering team for accuracy
 4. [Only when findings show multiple viable approaches: Consider `/wb:explore_design` to explore directions before design]
 5. Run `/wb:create_design` when ready to make design decisions

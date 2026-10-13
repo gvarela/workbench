@@ -12,7 +12,7 @@ Three tiers, not modes:
 
 1. **Local** — the embedded Dolt database under `.beads/`, always. This is the source of truth; every mutation is auto-committed to it.
 2. **Cross-machine continuity** — either a Dolt remote (`bd dolt push` / `bd dolt pull` against `sync.remote`) or `bd backup` (`bd backup init <url>`, `bd backup sync`, `bd backup restore`). A backup is Dolt-native: it preserves tables, branches, commit history, and working-set data; DoltHub is the recommended target. `bd config set dolt.local-only true` skips wiring a remote at init.
-3. **JSONL export** — for viewers and interchange only. `.beads/issues.jsonl` is written only when `export.auto` is on (`bd config set export.auto true`, default off; throttled by `export.interval`, 60s) or when `bd export` is run directly. It is not a backup and not cross-machine sync — `import.auto` defaults to true, but a stale export just sits there (observed 2026-09-05 on bd 1.0.2: five weeks stale, 92 of 156 issues).
+3. **JSONL export** — for viewers and interchange only. `.beads/issues.jsonl` is written only when `export.auto` is on (`bd config set export.auto true`, default off; throttled by `export.interval`, 60s) or when `bd export` is run directly. It is not a backup and not cross-machine sync — `import.auto` defaults to true, but a stale export just sits there.
 
 `.beads/` is never committed to git.
 

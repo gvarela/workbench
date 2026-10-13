@@ -56,7 +56,7 @@ const contextPackage = {
 
 ## Worker Model Selection (Step 5)
 
-The `determineModel()` keyword-regex spec was retired in favor of coordinator judgment (2026-06, prompts-0my). The tier rule lives in one place, SKILL.md Step 5 item 4 ("Determine model"), and is not restated here; the choice is passed as a per-spawn model override on the `task-worker` agent.
+Model choice is coordinator judgment. The tier rule lives in one place, SKILL.md Step 5 item 4 ("Determine model"), and is passed as a per-spawn model override on the `task-worker` agent.
 
 ## Worker Failure Playbook (Step 6)
 

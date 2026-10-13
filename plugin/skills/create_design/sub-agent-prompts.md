@@ -23,8 +23,8 @@ Task({
 
   Document what exists, do not evaluate quality.
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
-  model: "haiku"
+  subagent_type: "wb:pattern-finder",
+  model: "sonnet"
 })
 ```
 
@@ -46,7 +46,7 @@ Task({
   - Potential conflicts
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 ```
@@ -65,7 +65,7 @@ Task({
   - Patterns that failed
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
-  model: "haiku"
+  subagent_type: "wb:pattern-finder",
+  model: "sonnet"
 })
 ```

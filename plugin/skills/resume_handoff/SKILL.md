@@ -47,7 +47,7 @@ When invoked, check for arguments:
 
 ### Step 1: Read and Validate Handoff
 
-**⛔⛔⛔ BARRIER 1: STOP! Read handoff document COMPLETELY - every section matters ⛔⛔⛔**
+**⛔ BARRIER 1**: handoff read completely — a skipped section is a learning or blocker the resumed session will repeat
 
 ```javascript
 const handoffPath = $1 || /* prompt for it */;
@@ -104,7 +104,7 @@ const handoffPath = $1 || /* prompt for it */;
    bd ready                        # See what's available
    ```
 
-   Compare with handoff's `beads_in_progress`:
+   Compare with the handoff's `beads_active_phase` and its "Beads Tracking State" section:
    - Counts should match if no work was done since the handoff; a large mismatch or zero issues means the session-start sanity check in beads-mode.md applies (`bd context`, `bd show <beads_epic>`, `bd stats`)
 
 **Absorb the context and discoveries documented**
@@ -251,7 +251,7 @@ As you work:
 
 1. **Stay consistent** with patterns discovered in handoff
 2. **Reference solutions** to problems already solved
-3. **Update tasks.md** checkboxes as you complete work
+3. **Close beads tasks** as you complete them; `/wb:update_status` reconciles tasks.md
 4. **Document new discoveries** for potential future handoff
 5. **Run verification** commands from handoff
 
@@ -295,7 +295,7 @@ If the handoff seems outdated:
    ```
 
 2. **Compare with tasks.md**:
-   - More tasks checked than handoff indicates?
+   - More task issues closed in beads than the handoff indicates?
    - Different phase than handoff shows?
 
 3. **If stale, analyze the delta**:

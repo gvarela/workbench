@@ -49,7 +49,7 @@ Current state:
 
 This is inconsistent. Suggesting correction:
 - Set design.md back to 'ready' OR
-- Start checking off tasks in tasks.md
+- Claim a task in beads (`bd update [task-id] --claim`) and begin work
 
 Which would you prefer?
 ```

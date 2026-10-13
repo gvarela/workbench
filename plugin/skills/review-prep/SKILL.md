@@ -1,6 +1,6 @@
 ---
 name: review-prep
-description: Interactive code review walkthrough using tmux and nvim for pair programming style review. Use when user says "review", "walk through changes", "explain this diff", "prep for PR", or wants to understand what changed.
+description: Interactive pair-programming walkthrough of a diff using tmux and nvim: opens each changed file in an nvim pane and takes questions as you go. Use when the user wants to be walked through what changed, to understand a diff by reading it together, or to prep a PR that way; not for an automated review that reports bugs or security findings.
 allowed-tools:
   - Read
   - Grep

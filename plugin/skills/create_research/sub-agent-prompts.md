@@ -17,7 +17,7 @@ Task({
 
   Focus on [specific directories if known].
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-locator",
+  subagent_type: "wb:codebase-locator",
   model: "haiku"
 })
 ```
@@ -37,14 +37,10 @@ Task({
 
   Start with [specific files if known].
 
-  CRITICAL INSTRUCTIONS:
-  - Document what EXISTS with file:line references
-  - You are documenting the codebase as it exists
-  - DO NOT suggest improvements or identify issues
-  - Document what IS, not what SHOULD BE
-  - Just describe HOW IT CURRENTLY WORKS
+  Constraints:
+  - Document what exists, with file:line references; no suggestions or issues.
   - DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet"
 })
 ```
@@ -63,8 +59,8 @@ Task({
   - Testing approaches for [feature type]
 
   DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "pattern-finder",
-  model: "haiku"
+  subagent_type: "wb:pattern-finder",
+  model: "sonnet"
 })
 ```
 

@@ -49,15 +49,9 @@ When invoked, check for arguments:
 5. **Verification Gates**: Respect ⛔ CHECKPOINT markers between phases
 6. **Documentation First**: Read research.md and design.md for context before starting
 
-### CRITICAL: NO SCOPE ADDITIONS - NONE
+### Scope
 
-- **NEVER** add features not in tasks.md
-- **NEVER** refactor code beyond what's specified
-- **NEVER** make "improvements" or "optimizations" not explicitly asked for
-- **NEVER** add extra error handling, validation, or edge cases not in the plan
-- **NEVER** create abstractions or utilities not specifically tasked
-- **ONLY** implement what is EXPLICITLY written in tasks.md
-- If you think something is missing, STOP and ask - DO NOT add it yourself
+Implement exactly what tasks.md specifies: extras widen what the next phase must trust. Do not add features, refactors, optimizations, error handling, or abstractions the task does not name. If you think something is missing, stop and ask rather than adding it.
 
 ### Extras and edits
 
@@ -91,7 +85,7 @@ For each implementation task:
 
 ### Step 1: Read and Understand Context
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documentation files FULLY - NO SHORTCUTS ⛔⛔⛔**
+**⛔ BARRIER 1: research.md, design.md, and tasks.md read in full — implementing from partial reads produces work that misses the plan**
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -120,7 +114,7 @@ const tasksFile = `${projectDir}/tasks.md`;
 4. **Read tasks.md FULLY**:
    - Identify current phase from frontmatter
    - Count completed vs remaining tasks
-   - Locate the next unchecked task
+   - Note which tasks beads reports as ready (`bd ready`)
 
 **Implement ONLY what's specified**
 
@@ -133,7 +127,7 @@ After reading all documentation, synthesize:
 
 ### Step 2: Set Up Task Tracking with Beads
 
-**CRITICAL**: Use beads for ALL task tracking (phases AND granular tasks). Never use TaskCreate/TaskUpdate or markdown checkboxes.
+Use beads for all task tracking (phases and granular tasks), not TaskCreate/TaskUpdate or markdown checkboxes.
 
 #### Verify Beads is Initialized
 
@@ -263,7 +257,7 @@ bd ready
 1. Improve code quality while keeping tests green
 2. Consider patterns from research.md
 3. Run tests after each change
-4. One commit per task, after its verification below; the message names the task and its beads id. Structural and behavioral changes are separated at the task level (create_tasks' Tidy First edge rule), so one commit per task keeps them apart.
+4. One commit per task once its tests pass, before closing the bead; the message names the task and its beads id. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
 
 **D. Update Progress**
 
@@ -312,7 +306,7 @@ Follow project testing patterns identified in research.md.
 
 ### Step 5: Run Phase Verification
 
-**⛔ BARRIER 2**: Complete ALL tasks in the phase before verification
+**⛔ BARRIER 2: every phase task closed — verification on a partial phase reports work that has not landed**
 
 #### Automated Verification
 
@@ -334,7 +328,7 @@ After implementation, update the "Modified Files" section in tasks.md. Read the 
 
 ### Step 6: Phase Checkpoint
 
-**⛔ CHECKPOINT: Phase [N] Complete**
+**⛔ CHECKPOINT: Phase [N] Complete — the next phase builds on what a human has accepted**
 
 Complete these steps IN ORDER before proceeding to next phase:
 
@@ -494,7 +488,7 @@ When resuming work (phase = "continue"):
 
 ### When to Skip TDD
 
-Some tasks may not need test-first approach:
+These task types are the named exceptions to tdd-discipline's Iron Law, because they add no new production behavior:
 
 - Configuration changes
 - Documentation updates
@@ -578,21 +572,13 @@ If automated verification fails after implementation:
 - ✅ Document any deviations in Implementation Notes
 - ✅ Push to the Dolt remote if one is configured, at session end
 
-### DON'T (ABSOLUTELY FORBIDDEN)
+### Do not
 
-- ❌ **NEVER** skip writing tests first (except for noted exceptions)
-- ❌ **NEVER** add ANY scope beyond what's in tasks.md - NO EXCEPTIONS
-- ❌ **NEVER** move to next phase without verification
-- ❌ **NEVER** close manual verification without user confirmation
-- ❌ **NEVER** implement multiple phases without checkpoints (unless explicitly instructed)
-- ❌ **NEVER** use limit/offset when reading files
-- ❌ **NEVER** add "nice to have" features or improvements
-- ❌ **NEVER** refactor code that works unless tasks.md says to
-- ❌ **NEVER** add error handling not specified in tasks
-- ❌ **NEVER** create helper functions not explicitly required
-- ❌ **NEVER** use TaskCreate/TaskUpdate/TodoWrite for tracking (use beads)
-- ❌ **NEVER** update markdown checkboxes for status (documentation only)
-- ❌ **NEVER** treat markdown as source of truth (beads is source of truth)
+- Skip writing tests first (except for the noted exceptions).
+- Move to the next phase without verification, or implement multiple phases without checkpoints unless explicitly instructed.
+- Close manual verification without user confirmation.
+- Act on a partial read: if Read returns a partial view of a large file, page through the rest with offset/limit.
+- Use TaskCreate/TaskUpdate/TodoWrite or markdown checkboxes for tracking; beads is the source of truth, markdown documents the plan.
 
 ## Synchronization Points
 

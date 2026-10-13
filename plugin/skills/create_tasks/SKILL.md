@@ -3,19 +3,16 @@ name: create_tasks
 description: Turn an approved design.md into docs/plans/<project>/tasks.md: phased, executable tasks with file:line targets and verification, plus the beads epic, milestones, task issues, and dependencies. Use when design is approved and the user asks to plan the implementation, break the work down, create tasks, or set up beads for a project. Recommended on Fable. Takes the project directory.
 argument-hint: [project-directory]
 allowed-tools: Read
+effort: high
 ---
 
 # Create Execution Plan
 
 Transforms design decisions into a detailed, phased execution plan with embedded tasks. Focuses on HOW to implement what was designed.
 
-## CRITICAL: This Document is About HOW - It Must NOT Contain
+## Scope: HOW only
 
-- **NO new scope** — every task derives from design.md; if something seems missing, STOP and surface it, do not add it
-- **NO re-deciding WHAT or WHY** — design decisions are settled input; if one looks wrong, halt and send it back to `/wb:create_design`, don't quietly plan around it
-- **NO invented requirements** — no extra hardening, edge cases, or "improvements" the design doesn't call for
-- **NO research content** — reference research.md by file:line; don't restate or extend its findings
-- **NO placeholders** — every task specific and executable (enforced at BARRIER 3)
+Every task derives from design.md. If something seems missing, surface it to the user rather than adding it; if a design decision looks wrong, halt and send it back to /wb:create_design rather than planning around it. Extra hardening, edge cases, or improvements the design does not call for are new scope. Reference research.md by file:line instead of restating it. Every task is specific and executable (checked at BARRIER 3).
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
@@ -70,7 +67,7 @@ When invoked, check for arguments:
 
 ### Step 1: Read Foundation Documents
 
-**⛔⛔⛔ BARRIER 1: STOP! Read ALL documents FULLY - research.md, design.md, tasks.md ⛔⛔⛔**
+⛔ BARRIER 1: research.md, design.md, and tasks.md are read in full — task specs written on partial context become placeholders nobody can execute
 
 ```javascript
 const projectDir = $1 || /* prompt for it */;
@@ -100,7 +97,6 @@ const tasksFile = `${projectDir}/tasks.md`;
 **Decide HOW to bridge from current state to target state**
 
 Synthesize research (current state) and design (target state) to determine the implementation path.
-Remember: Now you're planning HOW to build what was designed.
 
 ### Step 2: Spawn Analysis Agents
 
@@ -108,11 +104,11 @@ Remember: Now you're planning HOW to build what was designed.
 
 After reading all documents, spawn specialized agents in parallel:
 
-**CRITICAL: Sub-agents are READ-ONLY. They gather information and return findings. They do NOT write files. YOU (the main agent) will write tasks.md after synthesizing their findings.**
+Sub-agents are read-only: they gather information and return findings, and you write tasks.md after synthesizing them.
 
 Read the "Analysis Agent Prompts (Step 2)" section of [sub-agent-prompts.md](sub-agent-prompts.md) NOW and follow it exactly.
 
-**⛔⛔⛔ BARRIER 2: STOP! Wait for ALL agents - dependency, test, pattern agents ⛔⛔⛔**
+⛔ BARRIER 2: the dependency, test, and pattern agents have all returned (subagents run in the background, so wait for a completion notification from each one) — a plan built on a partial set misses what the missing report would have changed
 
 ### Step 3: Determine Implementation Strategy
 
@@ -141,13 +137,13 @@ Update or create tasks.md with the following structure:
 
 Read the "tasks.md Document Template" section of [templates.md](templates.md) NOW and follow it exactly.
 
-**⛔⛔⛔ BARRIER 3: STOP! Verify NO placeholder values - ALL tasks MUST be specific and executable ⛔⛔⛔**
+⛔ BARRIER 3: no placeholder values remain — a placeholder that ships becomes a task nobody can execute
 
 ### Step 5: Create Beads Issues
 
 Create beads issues to track ALL work (phases AND granular tasks) across sessions.
 
-**Critical**: Beads is the source of truth for status. Every task checkbox in tasks.md gets a corresponding beads issue.
+Beads is the source of truth for status. Every task in tasks.md gets a corresponding beads issue.
 
 #### 5a. Verify Beads is Initialized
 
@@ -195,7 +191,7 @@ Read the "Phase Milestone Creation Examples (Step 5c)" section of [examples.md](
 
 #### 5d. Create Task Issues for Each Task
 
-**CRITICAL**: Create a beads issue for EVERY task checkbox in the execution plan.
+Create a beads issue for every task in the execution plan; a task without an issue is invisible to `bd ready` and to workers.
 
 For each task in each phase:
 
@@ -300,7 +296,7 @@ Beads tracking:
 - Epic: [epic-id]
 - Phase milestone issues created with dependencies
 - ALL granular tasks created as beads issues
-- Task dependencies set up (setup → impl → test → integration)
+- Task dependencies set from consumed outputs (branching where tasks are independent)
 - Use `bd ready` to find available work
 - Total beads issues: [count] ([X] phase milestones + [Y] granular tasks)
 
@@ -420,7 +416,7 @@ Project each task's cost with rough arithmetic:
 ## Synchronization Points
 
 1. **⛔ BARRIER 1**: After reading documents - ensure full context
-2. **⛔ BARRIER 2**: After spawning agents - wait for ALL agents
+2. **⛔ BARRIER 2**: After spawning agents - wait for every agent's completion notification
 3. **⛔ BARRIER 3**: Before writing tasks.md - verify no placeholders
 4. **Step 5**: Create beads issues for phase tracking
 5. **⛔ CHECKPOINT**: Between phases - require human verification

@@ -16,7 +16,7 @@ Find and document:
 - Responsive breakpoints
 
 Return with file:line references. DO NOT suggest improvements.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet",
   effort: "low"
 })
@@ -36,7 +36,7 @@ Find and document:
 - Where components are defined
 
 Return with file:line references. DO NOT suggest improvements.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet",
   effort: "low"
 })
@@ -57,7 +57,7 @@ Find and document:
 - Theme configuration
 
 Return with file:line references. DO NOT suggest improvements.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet",
   effort: "low"
 })
@@ -76,7 +76,7 @@ Find examples of:
 - Patterns for [feature type] in this codebase
 
 Return with file:line references. DO NOT suggest improvements.`,
-  subagent_type: "pattern-finder",
+  subagent_type: "wb:pattern-finder",
   model: "sonnet",
   effort: "low"
 })
@@ -99,7 +99,7 @@ Find and document:
 
 Return exact patterns found. If NO icon system exists, state that clearly.
 DO NOT suggest adding an icon library if none exists.`,
-  subagent_type: "codebase-analyzer",
+  subagent_type: "wb:codebase-analyzer",
   model: "sonnet",
   effort: "low"
 })

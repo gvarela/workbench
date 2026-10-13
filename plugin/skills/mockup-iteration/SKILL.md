@@ -111,7 +111,7 @@ When user confirms or says "next version":
 3. **Read mockups/v00[N]/mockup.html** fully as base
 4. **Read mockup-log.md** Running Requirements AND UI Research Reference (for icon system, styling)
 5. **Create new version directory**: `mockups/v00[N+1]/` (zero-padded: v001, v002, ..., v010)
-6. **Create new mockup.md** incorporating ALL feedback
+6. **Create new mockup.md** incorporating ALL feedback. Every version directory gets its own `mockup.md`, `mockup.html`, and `decisions.md`, even when only the HTML changed: the next iteration reads this version's `mockup.md` as its base (step 2).
 7. **Create new mockup.html** incorporating ALL feedback
    - Update HTML structure to match new mockup.md
    - Maintain app's styling approach from research
@@ -124,7 +124,8 @@ When user confirms or says "next version":
    - Show screenshot to user
 10. **Update mockup-log.md**:
     - Frontmatter: `current_version: [N+1]`, `last_updated: [date]`
-    - Add version entry to Version History
+    - Add the new version's entry to Version History, and set the previous entry's **Status** to `Superseded by v00[N+1]`
+    - Keep Version History as the only list of versions; don't add a separate versions table that duplicates it
     - Update Running Requirements sections
 
 ### Version Naming
@@ -151,7 +152,7 @@ Read [templates.md](templates.md) for the "New Version Entry (mockup-log.md)" an
 
 ## Fidelity Preservation
 
-**CRITICAL**: Never lose design decisions. Every piece of feedback must be:
+Design decisions are the product of this skill and later feed design.md, so every piece of feedback is:
 
 1. **Captured verbatim** - Quote user's exact words
 2. **Classified** - KEEP/REMOVE/CHANGE/QUESTION
@@ -170,16 +171,14 @@ When updating mockup versions:
 3. **If icon system unclear**:
    - Create beads issue: `bd create "UI Q: Icon for [element]?" --type=task`
    - Ask user before adding icons
-4. **Never default to emojis** in mockup.html
 
-### Anti-patterns to Avoid
+### Boundaries
 
-- Do not assume feedback without recording
-- Do not overwrite previous version
-- Do not lose "REMOVE" decisions (they inform design)
-- Do not use vague summaries instead of specific quotes
-- Do not create version without updating log
-- Do not use emojis in HTML mockups (use app's icon system or text-only)
+- Each iteration is a new version directory; earlier versions stay untouched so any version can be reverted to.
+- REMOVE decisions are kept in the log, because they become the design's Out of Scope.
+- Record feedback as the user's own words, not a paraphrase, and update mockup-log.md before creating the version.
+- Ask when feedback is ambiguous, including whether it is about the mockup at all.
+- Use the app's icon system or text only in mockup.html; emojis and placeholder CSS classes make the preview mislead about the real UI.
 
 ## Finalizing to Design
 
@@ -247,7 +246,7 @@ _Explicitly excluded during mockup iteration_
 During iteration, user can say:
 
 | Command | Action |
-|---------|--------|
+| ------- | ------ |
 | "keep [X]" | Add to Confirmed, preserve in next version |
 | "remove [X]" | Add to Rejected, cut from next version |
 | "change [X] to [Y]" | Note modification for next version |
@@ -367,14 +366,3 @@ If session ends mid-iteration or user requests handoff:
    - Pending feedback: [count] items
 
 On resume, read mockup-log.md's "Pending Feedback" section first.
-
-## DO NOT
-
-- Do not create mockup versions without reading current mockup.md AND mockup.html first
-- Do not skip updating mockup-log.md
-- Do not skip visual validation (screenshot after creating new version)
-- Do not proceed with ambiguous feedback - ask for clarification
-- Do not lose track of cumulative requirements across versions
-- Do not assume feedback context - confirm if ambiguous whether it's about the mockup
-- Do not use emojis in mockup.html (use app's icon system from research or text-only)
-- Do not create HTML with placeholder CSS classes (use actual classes from research)

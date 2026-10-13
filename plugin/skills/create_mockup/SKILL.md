@@ -48,7 +48,7 @@ When invoked, check for arguments:
 
 ### Step 1: Research Existing UI
 
-**⛔⛔⛔ BARRIER 1: STOP! Research current UI patterns before proposing anything ⛔⛔⛔**
+⛔ BARRIER 1: current UI patterns are researched before anything is proposed — a mockup drafted without them invents components the app does not have
 
 Spawn parallel agents to document what EXISTS:
 
@@ -60,7 +60,7 @@ Spawn parallel agents to document what EXISTS:
 
 Read the five agent prompts in [sub-agent-prompts.md](sub-agent-prompts.md) NOW before spawning — use each verbatim.
 
-**⛔ BARRIER 2**: Wait for ALL agents to complete before proceeding.
+**⛔ BARRIER 2**: every agent has returned (subagents run in the background, so wait for a completion notification from each one) — the mockup draws on all of their findings.
 
 ### Step 2: Synthesize Research
 
@@ -132,7 +132,7 @@ Create `mockups/v001/decisions.md` using the "decisions.md Template" in [templat
 
 Create `mockups/v001/mockup.html` using the "HTML Mockup Template" in [templates.md](templates.md).
 
-**Critical requirements:**
+**Requirements for the HTML mockup:**
 
 1. **Import app's actual stylesheets** based on research
 2. **Use discovered component HTML patterns** (copy structure from file:line references)
@@ -251,7 +251,7 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 
 ### Research First
 
-- ALWAYS research existing UI before proposing
+- Research existing UI before proposing (BARRIER 1)
 - Reference specific file:line locations
 - Follow established patterns unless explicitly breaking them
 
@@ -263,7 +263,7 @@ Ready to iterate? Just tell me what to keep, change, or remove.
 
 ### Versioning
 
-- Never overwrite - always create new version
+- Each iteration is a new version; earlier versions stay intact
 - Document what changed and why
 - Keep decision trail for design.md
 
