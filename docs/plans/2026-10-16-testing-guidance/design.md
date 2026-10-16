@@ -73,7 +73,7 @@ The external research ([external-research/LLM test writing practices.md](externa
    - Implementers call it, as a fresh foreground spawn per request, for inner tests and test changes.
    - Implementers never edit test files.
 3. **The verifier checks integrity.** It diffs test files against the task's starting commit. Any change not covered by a test-writer report, or any weakened test, is a FAIL. For each criterion the task touches, it also asks whether a test would catch the smallest realistic regression.
-4. **One test-quality rubric** is preloaded into the test-writer, the verifier, and a new test-auditor. The test-auditor does the deeper review at phase and validation level. Mutation testing comes in stages.
+4. **One test-quality rubric** is preloaded into the test-writer, the verifier, and a new test-auditor. The test-auditor does the deeper review automatically at every phase checkpoint in both implement modes, and in `validate_execution`. Mutation testing comes in stages.
 5. **Research records each repository's testing conventions.** An optional testing profile per repository becomes the baseline when present.
 
 ### Why This Approach
@@ -231,22 +231,25 @@ The external research ([external-research/LLM test writing practices.md](externa
     - A gate is out of scope.
   - **Write safety**: planted defects and mutations run only in a disposable git worktree of the current commit, never in the user's working tree. The worktree is removed afterwards.
   - Used by:
+    - **the phase checkpoint of both `/wb:implement` and `/wb:implement_inline`**, spawned automatically with the phase's starting commit before the human go-ahead;
     - `validate_execution`, replacing its general-purpose "Verify test coverage" agent, so the agent count stays at four;
     - `/wb:test-audit`;
-    - the `implement_inline` phase checkpoint;
     - and referenced from `review-prep`.
+  - At a phase checkpoint, the auditor's findings join the checkpoint summary the user reviews before the milestone closes. Findings inform the go-ahead; they do not block it automatically.
 - **Rationale**:
   - Deep review belongs at phase level, which keeps the per-task verifier manageable.
+  - `validate_execution` is never triggered automatically: neither implement skill references it. Placing the auditor only there would make deep review depend on remembering a manual step. The audit's lesson is that checks ran only when someone asked for them.
+  - Running the auditor at every phase checkpoint gives coordinated and inline modes the same phase-level review.
   - Mutation score has the strongest evidence, but tool availability varies by stack.
-- **Trade-off**: a new agent to maintain. Mutation stays advisory, so it informs rather than blocks.
+- **Trade-offs**: a new agent to maintain; one Opus auditor run per phase. Mutation stays advisory, so it informs rather than blocks.
 
 #### D9. `implement_inline`
 
 - **What**:
   - The inline session follows the same rules: it calls `wb:test-writer` for outer and inner tests and never edits test files.
-  - It has no per-task verifier, so integrity is checked at the **phase checkpoint**. The session spawns `wb:test-auditor` with the phase's starting commit, and the auditor runs D6's integrity checks across the phase plus the rubric review.
-- **Rationale**: inline is the user-chosen hands-on mode.
-- **Trade-off**: inline enforcement is weaker than coordinated mode's per-task gate; it catches problems at phase end rather than per task.
+  - It has no per-task verifier, so integrity is checked at the **phase checkpoint**. The phase-checkpoint auditor run (D8), which both implement modes share, also runs D6's integrity checks across the whole phase diff for inline runs.
+- **Rationale**: inline is the user-chosen hands-on mode, and it gets the same phase-level auditor as coordinated mode.
+- **Trade-off**: inline has no per-task gate, so integrity problems are caught at phase end rather than per task.
 
 #### D10. Stack conventions
 
@@ -311,6 +314,7 @@ AC-3 A question naming a store is answered from that store's orders only
   4. Spawns the verifier with the starting commit, red commits, criteria, and test-writer reports.
 
   The fix worker gets the same context and the same starting commit. Workers stay sequential.
+- **Phase checkpoint, both implement modes**: after the automated commands and before the human go-ahead, spawn `wb:test-auditor` with the phase's starting commit. Its findings and integrity-flag counts join the checkpoint summary.
 - **The truncation playbook** (`implement/reference.md:61-101`) treats a committed red outer test as expected state, not a sign of truncation.
 - **validate_execution**: the test-auditor replaces the coverage agent. Its findings feed the per-Intent verdicts.
 - **New commands** (outside the stage chain):
@@ -418,6 +422,15 @@ This design uses its own format. The plugin's observable boundaries are its arti
   - Observed at: stage output in a headless run
   - Refines: M1
 
+- **AC-9 Every phase checkpoint includes a test audit**
+  - Given a phase completed under `/wb:implement` or `/wb:implement_inline`
+  - When the phase checkpoint is reached
+  - Then `wb:test-auditor` has run against the phase's starting commit before the go-ahead prompt
+  - And the checkpoint summary lists its findings and the phase's integrity-flag counts
+  - Example: a fixture phase containing a vacuous `not in body` assertion with no presence anchor produces a checkpoint summary naming that test with file:line
+  - Observed at: coordinator or inline session output in a headless run
+  - Refines: M1, M2
+
 ### Harness Decisions
 
 | Boundary | Harness present? | Decision |
@@ -428,7 +441,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
 
 ### Non-Functional Requirements
 
-- **Cost**: per plan, the added spawns are one per criterion plus test-writer calls per task. Report the measured tool calls per worker and per task against the 4.0.0 baseline in the release notes (`prompts-pqlw`).
+- **Cost**: per plan, the added spawns are one per criterion, plus test-writer calls per task, plus one Opus test-auditor run per phase. Report the measured tool calls per worker and per task against the 4.0.0 baseline in the release notes (`prompts-pqlw`).
 - **Reliability**: workers stay within the tool-call ceiling. Truncation detection keeps working, because closing the beads issue stays the worker's last act.
 - **Safety**: no agent mutates the user's working tree for planted defects or mutation runs; only disposable worktrees.
 - **Maintainability**: the test-quality rules exist in exactly one file. SKILL.md files touched by this work do not grow past their current length; detail moves to supporting files.
@@ -445,6 +458,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
 | D6 verifier integrity | ImpossibleBench, METR, EvilGenie; audit: weak tests graded "minor" let through | Strong |
 | D7 shared rubric | superpowers writing-good-tests; GitLab mocking guidance; Hora & Robbes (agents over-mock); prompt-audit drift finding | Moderate |
 | D8 auditor and staged mutation | ACH, MutGen (mutation as the quality signal); audit: manual planted defects found vacuity | Strong as signal, weak as agent gate |
+| D8 auditor at every phase checkpoint | research.md: validate_execution is never triggered automatically; audit: verifier quality checks ran mainly when the coordinator asked | Moderate (audit) |
 | D9 inline at the phase checkpoint | Consequence of D3 and D6 with no inline verifier | Design inference |
 | D10 conventions and profile | Research: Rails convention drift; one-line AGENTS.md conventions; audit: choices buried in tasks.md | Moderate |
 
