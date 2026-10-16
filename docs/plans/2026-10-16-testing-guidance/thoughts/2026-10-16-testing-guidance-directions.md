@@ -616,6 +616,26 @@ Decision 3's 3A already adds diff review to the verifier, which bears on how muc
   - `/wb:implement_inline` uses the same agent, which resolves the earlier deferred inline question.
   - **Conditional on a spike** confirming that a plugin task-worker with `Agent` in `tools:` can spawn `wb:test-writer`, and that SendMessage can resume it within the task. If it fails, the 2B hybrid as originally approved stands.
   - Measure test-writer calls per task and 3A bypass flags.
+- 2026-10-16: **Spike run** (headless `claude -p --plugin-dir` with a throwaway two-agent plugin in the job temp directory; two runs).
+  - **Nesting: CONFIRMED.**
+    - A plugin agent (`spike:spike-worker`, with `Agent` and `SendMessage` in `tools:`) spawned a second plugin agent by its namespaced type `spike:spike-writer`, accepted on the first try.
+    - The foreground spawn returned the writer's result synchronously ("done", plus an agentId), and the writer's file write landed.
+    - Both agents were registered under namespaced names in the session's agent list.
+  - **Resume: WORKS, but ASYNCHRONOUSLY.**
+    - SendMessage to the writer's agentId returned `{"success":true,"message":"Resuming agent …"}` immediately.
+    - The resumed writer kept its context: it recalled the first request's secret and its constraint.
+    - Its reply arrived as a task-notification on the worker's *next turn*, after a 90-second Bash poll had finished, not inside the SendMessage result.
+    - In run 1 the worker finished its turn before any notification, and the reply was never seen.
+  - **Incidental finding**: writes under `~/.claude` are treated as sensitive and need permission, so run 1's write was denied. This is unrelated to nesting.
+  - **Implication**:
+    - Guardrail 2 (one test-writer per task, resumed via SendMessage) depends on the implementer waiting for an asynchronous reply before it proceeds or finishes.
+    - That is the same wait-for-reply gate the barrier-trial memory found unreliable in Sonnet: wording did not hold it.
+    - A synchronous alternative exists: a fresh *foreground* test-writer spawn per request, passing the prior test-writer reports forward as context. It is deterministic, at the cost of re-reading context on each call.
+- 2026-10-16: **Guardrail 2 AMENDED, approved by the user.**
+  - "One test-writer per task, resumed via SendMessage" is replaced by **a fresh foreground test-writer spawn per request**. Each brief carries the task's prior test-writer reports forward, the same reports that serve as the declaration channel.
+  - Resuming via SendMessage is deferred as a possible later cost optimization.
+  - **Spike verdict**: the condition on the decision 2 amendment is met. The combined 2B plus 2D direction stands; the 2B-hybrid fallback is not needed.
+  - The task-worker needs `Agent` in its `tools:`. It does not need `SendMessage`.
 
 ## Synthesis
 
