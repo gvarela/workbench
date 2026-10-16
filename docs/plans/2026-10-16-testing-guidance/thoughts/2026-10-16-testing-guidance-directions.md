@@ -594,6 +594,29 @@ Decision 3's 3A already adds diff review to the verifier, which bears on how muc
 - 2026-10-16: The user on the drift rule: "not a con per se, just something that we have in place to make sure we keep everything up to date." It is recorded as a sequencing and bundling constraint, not a cost against the direction.
 - 2026-10-16: **Decision 5 and the combined direction APPROVED by the user ("approve").**
 
+- 2026-10-16 (after the Decide record closed): **The user reopened decision 2** with a new variant, 2D: a defined **test-writer agent that the implementer calls** whenever it wants to write or update tests, carrying the test-quality guidance. The aim is a hybrid that avoids coordinator-level coordination.
+  - **Feasibility checked against the docs** (code.claude.com/docs/en/sub-agents.md, via the claude-code-guide agent):
+    - Nested subagents are supported up to three layers below the main conversation, when `Agent` is listed in the agent's `tools:`.
+    - The depth limit is set by `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`; a value of 1 disables nesting.
+    - The coordinator is the main session, task-worker is layer 1, and a test-writer would be layer 2.
+    - That plugin agents honor `Agent` in `tools:` is inferred, not stated (only `hooks`, `mcpServers`, `permissionMode`, and `initialPrompt` are documented as ignored).
+  - Pros and cons are presented below. Decision 2 stays as recorded unless the user approves an amendment.
+  - The user leaned to the combined option and asked for a recommendation. Recommended: combined, with four guardrails:
+    1. Implementers never edit test files.
+    2. One test-writer per task, resumed by SendMessage.
+    3. Briefs cite criteria, not code, and outer-test changes route through the coordinator.
+    4. A feasibility spike first, with the 2B hybrid as the fallback.
+- 2026-10-16: **AMENDMENT to decision 2, APPROVED by the user: 2B plus 2D combined.**
+  - A single `wb:test-writer` agent, carrying the test-quality rubric, replaces the separate test-author.
+  - **Outer tests**: the coordinator calls it per criterion. It proves an assertion red, and the red state is preserved.
+  - **Inner tests**: each implementer calls it, one instance per task, resumed via SendMessage across red, adjust, and refactor.
+  - Implementers never edit test files. They cannot request outer-test changes, which route through the coordinator.
+  - Briefs cite the criterion id and example, not the implementation. The test-writer derives expected values from the criterion and pushes back on briefs framed in terms of the code.
+  - The test-writer's reports are the declaration channel. 3A FAILs any test change in the diff that no test-writer report covers.
+  - `/wb:implement_inline` uses the same agent, which resolves the earlier deferred inline question.
+  - **Conditional on a spike** confirming that a plugin task-worker with `Agent` in `tools:` can spawn `wb:test-writer`, and that SendMessage can resume it within the task. If it fails, the 2B hybrid as originally approved stands.
+  - Measure test-writer calls per task and 3A bypass flags.
+
 ## Synthesis
 
 - **Converged direction** (approved 2026-10-16, one decision at a time): **criteria-first, separated outer tests, verifier-reviewed integrity, one shared quality rubric, plan-carried stack conventions.**
