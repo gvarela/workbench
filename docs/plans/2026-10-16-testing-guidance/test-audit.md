@@ -102,7 +102,7 @@ In both repositories, the defects that mattered were found with the suite green:
   - `eval_case_spec.rb` makes the constants their own oracle.
   - `runner_spec.rb:535,638` computes the git sha and the cost the same way the code does.
 - **fitness-agent**:
-  - `tests/test_activity_store.py:219-221` asserts `_CHUNK_SIZE == 60_000 // len(columns)`. A Codex review flagged it; the real property (staying under the 65,535 bind limit) is never asserted.
+  - `tests/test_activity_store.py:217-220` (cited as 219-221 at audit time; line numbers corrected 2026-10-16) asserts `_CHUNK_SIZE == 60_000 // len(columns)`. A Codex review flagged it; the real property (staying under the 65,535 bind limit) is never asserted.
   - `tests/test_streams_ingest.py:124` uses the production hash function as its oracle.
   - `tests/test_capture.py:668-671` uses the production serializers as oracles.
   - Migration tests are "derived from the empiric.app.db Tables" (`tests/test_migration_captures.py:15-18`), as the plan prescribed.
@@ -140,10 +140,10 @@ In both repositories, the defects that mattered were found with the suite green:
 ### W5. Weak or vacuous assertions passed as "minor"
 
 - **fitness-agent**:
-  - `tests/test_macros.py:499-501` is true by construction. Verifier 7.5 said "always passes" and PASSed it.
+  - `tests/test_macros.py:499-501` was true by construction at audit time. Verifier 7.5 said "always passes" and PASSed it. (A 2026-10-16 recheck found those lines no longer show the always-true comparison; the code has since changed.)
   - `tests/test_headline.py:34-55` uses loose `>= 1` inequalities on hand-worked data.
   - `tests/test_headline.py` is missing the specified case "unavailable channel not counted as quiet" (`web-ui-ux/tasks.md:271`). The verifier "reasoned this out rather than running a mutation".
-  - The code has 36 uses of `assert all(...)` and 84 of `not in body`, which pass silently if the content disappears. When evidence gating went in (3.4), several Today tests became vacuous this way. Verifier ae3759a caught it, and fix aabdd66 added presence anchors.
+  - The code has 36 uses of `assert all(...)` and 42 of `not in body` (first reported as 84; corrected by a 2026-10-16 recount), which pass silently if the content disappears. When evidence gating went in (3.4), several Today tests became vacuous this way. Verifier ae3759a caught it, and fix aabdd66 added presence anchors.
   - `tests/test_no_duplicate_cycling_types.py:17` greps a single literal (flagged by Codex, unchanged).
 - **sg-wholesale**:
   - `agent_base_spec.rb:36-40` is titled "does not send a temperature" but asserts something else.
@@ -173,6 +173,17 @@ In both repositories, the defects that mattered were found with the suite green:
   - `task-worker.md:19` ("exactly as the task specifies — no extra cases") discourages edge cases the plan did not list.
 - **Verifiers were the effective gate when asked.** About 14 of 64 sg verifier prompts and about 5 fitness verifier runs included revert-to-red, planted-defect, or weak-assertion checks. Those runs produced the quality FAILs.
 - **The edit channel matters for any integrity check.** Most test edits went through Bash (fitness fb2626db: about 276 Bash edits against 15 Write/Edit calls; sg: about 75%). A hook or scan keyed on Write/Edit tool calls would miss them. A diff of test files against the task's base commit would not.
+
+## Visibility check: what a cold audit can see (2026-10-16)
+
+A read-only follow-up checked which findings a later audit could recover from the code and git history alone, without session transcripts.
+
+- **W1 (hollow reds): invisible.** Both repositories commit one commit per task, with tests and code together. This held for 40 fitness-agent task commits and all 14 sampled sg-wholesale commits. Commit history cannot distinguish test-first from test-after.
+- **W2 (expectations changed after a failing run): invisible.** None of the 12 named instances appears as a diff between two commits. The first committed version already holds the final expectation (for example `tests/test_load_series.py:199-200` first appears with `== 3` in `dbcfcf4`; the sg-wholesale glossary allow-list first appears with all 5 terms in `48c9ae8b`). sg-wholesale also squash-merges PRs to `main`, so its per-task commits survive only on unmerged branches.
+  - The exception is a construct still present in the code: sg-wholesale's j1tt `pending` test (`spec/lib/glossary_definitions_spec.rb:111-118` in the glossary worktree) can be found by a static scan.
+- **W3–W5: visible.** Of the named instances, 11 of 12 in fitness-agent and 16 of 16 in sg-wholesale still exist in the current tree.
+
+**Consequence:** W1 and W2 can only be caught while the work is happening, from test-writer reports, red commits, and a diff against each task's starting commit. A cold audit can be held to W3–W6 only.
 
 ## What the audit adds to the research options
 

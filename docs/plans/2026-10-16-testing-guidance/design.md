@@ -44,7 +44,9 @@ The external research ([external-research/LLM test writing practices.md](externa
 - **M3.** `/wb:test-audit`, run with no plan and no profile on sg-wholesale (Rails/RSpec) and fitness-agent (Python/pytest):
   - states each repository's framework and conventions correctly;
   - uses that stack's idioms in its findings;
-  - reproduces at least 4 of the 5 weakness categories (W1–W5) that test-audit.md found for that repository.
+  - finds at least 60% of the W3–W5 instances that test-audit.md names and that still exist: at least 7 of 11 in fitness-agent and at least 10 of 16 in sg-wholesale;
+  - reaches at least 8 of 10 real problems in a human spot-check of its findings;
+  - states that W1 and W2 cannot be checked cold. Per test-audit.md's visibility check, they leave no trace in code or git history.
 
   (refines: "Test-quality and test-level guidance adapts to the target repository's stack")
 - **M4.** Every technical decision in this design cites the research finding or audit observation it rests on, with evidence strength (the Traceability table below). (refines: "Every guidance change traces to a finding in the external research, with its evidence strength recorded")
@@ -73,7 +75,13 @@ The external research ([external-research/LLM test writing practices.md](externa
    - Implementers call it, as a fresh foreground spawn per request, for inner tests and test changes.
    - Implementers never edit test files.
 3. **The verifier checks integrity.** It diffs test files against the task's starting commit. Any change not covered by a test-writer report, or any weakened test, is a FAIL. For each criterion the task touches, it also asks whether a test would catch the smallest realistic regression.
-4. **One test-quality rubric** is preloaded into the test-writer, the verifier, and a new test-auditor. The test-auditor does the deeper review automatically at every phase checkpoint in both implement modes, and in `validate_execution`. Mutation testing comes in stages.
+4. **One test-quality rubric, applied by two kinds of review.**
+   - The rubric opens with "can this test fail?" and is organized around Kent Beck's Test Desiderata.
+   - It is preloaded into the test-writer, the verifier, and two new review roles:
+     - **`wb:test-reviewer`**: a plan-aware review of a phase's diff. It runs automatically at every phase checkpoint in both implement modes, and in `validate_execution`.
+     - **`/wb:test-audit`**: a coordinating skill that audits a whole repository cold. It runs the project's own detectors and suite-level checks, and spreads rubric review across parallel `wb:test-auditor` agents.
+   - The LLM proposes; objective checks decide. Nothing is deleted automatically.
+   - Mutation testing comes in stages.
 5. **Research records each repository's testing conventions.** An optional testing profile per repository becomes the baseline when present.
 
 ### Why This Approach
@@ -206,49 +214,133 @@ The external research ([external-research/LLM test writing practices.md](externa
 
 #### D7. `test-quality` shared rubric
 
-- **What**: a new background skill `test-quality` (`user-invocable: false`), preloaded via `skills:` into `wb:test-writer`, `wb:task-verifier`, and `wb:test-auditor`. It holds:
-  - mock only at declared seams; never the subject or what the project owns;
-  - take expected values from the criterion's example, never by calling the code under test;
-  - pair every negative or `all()`-style assertion with a positive anchor;
-  - each test names the break it catches;
-  - test at the level the criterion's observed-at gives;
-  - follow the repository's conventions (from research or the profile) for fixtures vs factories and test style;
-  - the planted-defect check, a mental mutation pass.
-- **Rationale**:
-  - Writers and checkers use one text, so they cannot drift apart (decision 4).
-  - Preloading is the proven delivery mechanism.
-  - Copies across files drifted before (C-F16).
-- **Trade-off**: preload context cost on each spawn of three agents.
+- **What**: a new background skill `test-quality` (`user-invocable: false`), preloaded via `skills:` into `wb:test-writer`, `wb:task-verifier`, `wb:test-reviewer`, and `wb:test-auditor`. Writers read it as rules; reviewers apply it as checks. It has four parts.
+- **Part 1: "Can this test fail?"**, applied first and mostly mechanically, with file:line evidence:
+  - The test has an assertion, and the assertion targets the behavior rather than a mock or the test's own setup.
+  - No tautology or always-true comparison.
+  - The test is not skipped, pending, or focused without a stated reason.
+  - Every negative or `all()`-style assertion has a positive presence anchor.
+  - For criterion-guarding tests, a planted defect (a brief break of the code under test) makes the test fail.
+- **Part 2: checkable items, grouped under four Test Desiderata properties.**
 
-#### D8. `wb:test-auditor` agent
+  | Property | Items |
+  | --- | --- |
+  | **Behavioral** (the test fails when behavior breaks) | Expected values come from the criterion's example or an independent source, never from calling the code under test, a production formula, hash, or serializer. Each test names the break it catches. |
+  | **Structure-insensitive** (the test survives a refactor that keeps behavior) | Assertions are on observable state, not on which calls were made, except for state-changing calls at a declared seam. No assertions on source text, CSS class strings, or private names. Test doubles are only at the criterion's declared `Seam:`; never the subject, an owned or domain class, or `any_instance`; prefer a real object or fake when a cheap one exists. Setup is not copied across files. |
+  | **Specific** (a failure points at the cause) | One behavior per test. Assertions are not bundled so that the first failure hides the rest, unless the project's convention says otherwise (for example RSpec `aggregate_failures`). |
+  | **Predictive** (a pass means the product works) | The test is at the level the criterion's "observed at" gives. Real-data shapes the plan names are covered, not only factory defaults. Nothing depends on the wall clock, sleeps, or test order. |
+
+  The other eight properties are acknowledged but not scored. Their trade-offs (fast vs predictive, for example) are flagged only when they buy nothing.
+- **Part 3: verdicts.** Every review finding carries one verdict:
+  - **Remove**: only when the test cannot fail.
+  - **Rewrite**: the test can fail, but fails a Part 2 item.
+  - **Consolidate**: only with mechanical evidence of overlap (D8b).
+  - **Keep**: reported only when asked.
+- **Part 4: how reviewers judge.**
+  - Each item is a yes/no question answered with file:line evidence, after reasoning.
+  - Each finding says whether its evidence is **deterministic** (a detector, a planted defect, a diff) or **judgment-only**.
+  - Judgment-only Remove or Rewrite verdicts are confirmed by a majority of three independent judgments before they are reported as findings. Others are reported as "review these".
+  - The repository's conventions (research or profile) override generic style items.
+- **Rationale**:
+  - Writers and checkers use one text, so they cannot drift apart (decision 4; prompt audit C-F16).
+  - "Can it fail?" first is the strongest-evidence check: 80.2% of agent test patches have weak or no oracle (arXiv 2606.18168), and audit W5 is this failure.
+  - The Desiderata give findings a shared vocabulary. Broken into yes/no items, they avoid the noise of holistic LLM scoring (RuVerBench; rubric-bias studies).
+  - Checking doubles against the declared seam turns the hardest judgment, over-mocking, into a near-mechanical comparison. No linter in any ecosystem detects mocking volume.
+  - Majority voting and line evidence are the available mitigations, because no study validates an LLM judge of test value.
+- **Trade-offs**:
+  - Preload context on four agents.
+  - Majority-of-three costs more, so it is limited to judgment-only Remove or Rewrite findings.
+  - The Desiderata have no reliability study. Calibration is tracked as `prompts-ul2x`.
+
+#### D8. Two kinds of test review
+
+Reviewing a phase's tests during a plan and auditing a whole repository cold are different jobs:
+
+| | Phase review | Cold audit |
+| --- | --- | --- |
+| Scope | The phase's diff | A repository or directory |
+| Context | Criteria, test-writer reports, red commits, integrity flags | Code and git history only |
+| Visible weaknesses | W1–W6 | W3–W6 only (test-audit.md, visibility check) |
+| Size | Bounded: one agent | Unbounded: exceeds one agent's ~70-tool-call budget on a real repository |
+| Output | Checkpoint findings | A verdict report |
+
+They share only the rubric, so wb gives them separate shapes.
+
+##### D8a. `wb:test-reviewer` agent (plan-aware phase review)
 
 - **What**:
   - A new agent with frontmatter `model: opus`, `effort: high`, preloading `test-quality`.
-  - It applies the full rubric to a scope (a phase diff, a plan, or a path), checks that every criterion has an outer test that ran, and produces a findings report in the shape of [test-audit.md](test-audit.md).
+  - It receives the phase's starting commit, the phase's criteria with their seams, the red commits, the task verifiers' integrity flags, and the conventions.
+  - On the phase diff it:
+    1. Applies rubric Part 1 ("can it fail?"), with a planted defect on every criterion-guarding test.
+    2. Checks that every criterion has an outer test at its observed-at level that ran and is now green.
+    3. Applies the Part 2 items to new or changed tests, comparing each double with the declared seam.
+    4. Runs the project's detectors on changed test files (the selections from D8b, scoped to the diff).
+    5. For `/wb:implement_inline` phases, runs D6's integrity checks across the whole phase.
+  - Its findings carry Part 3 verdicts and Part 4 evidence labels.
   - **Mutation testing in stages**:
-    - **Level 0, default**: planted defects on criterion-guarding tests.
-    - **Level 1, opt-in**: the repository declares a mutation command (in research conventions or the profile). The auditor runs it on the changed code, and results are advisory.
+    - **Level 0, default**: the planted defects above.
+    - **Level 1, opt-in**: the repository declares a mutation command (in research conventions or the profile). The reviewer runs it on changed code only, and results are advisory.
     - A gate is out of scope.
   - **Write safety**: planted defects and mutations run only in a disposable git worktree of the current commit, never in the user's working tree. The worktree is removed afterwards.
-  - Used by:
-    - **the phase checkpoint of both `/wb:implement` and `/wb:implement_inline`**, spawned automatically with the phase's starting commit before the human go-ahead;
-    - `validate_execution`, replacing its general-purpose "Verify test coverage" agent, so the agent count stays at four;
-    - `/wb:test-audit`;
-    - and referenced from `review-prep`.
-  - At a phase checkpoint, the auditor's findings join the checkpoint summary the user reviews before the milestone closes. Findings inform the go-ahead; they do not block it automatically.
+  - **Used by**:
+    - the phase checkpoint of both `/wb:implement` and `/wb:implement_inline`, spawned automatically before the human go-ahead;
+    - `validate_execution`, replacing its general-purpose "Verify test coverage" agent, so the agent count stays at four.
+  - Findings join the checkpoint summary. They inform the go-ahead; they do not block it automatically.
 - **Rationale**:
-  - Deep review belongs at phase level, which keeps the per-task verifier manageable.
-  - `validate_execution` is never triggered automatically: neither implement skill references it. Placing the auditor only there would make deep review depend on remembering a manual step. The audit's lesson is that checks ran only when someone asked for them.
-  - Running the auditor at every phase checkpoint gives coordinated and inline modes the same phase-level review.
+  - W1 and W2 are only visible with in-plan evidence, so the plan-aware review is where they are caught after the task verifiers.
+  - Running at every checkpoint, rather than only in `validate_execution` (never triggered automatically), means deep review does not depend on a manual step.
+  - Both implement modes get the same phase review.
   - Mutation score has the strongest evidence, but tool availability varies by stack.
-- **Trade-offs**: a new agent to maintain; one Opus auditor run per phase. Mutation stays advisory, so it informs rather than blocks.
+- **Trade-offs**: a new agent; one Opus review per phase. Mutation stays advisory.
+
+##### D8b. `/wb:test-audit` coordinating skill with `wb:test-auditor` agents (cold audit)
+
+- **What**: a user-invocable skill that coordinates the audit the way `create_research` coordinates research:
+  1. **Determine the stack.** Plan research, then the profile, then detection. A detected stack is stated in the report.
+  2. **Run the project's own detectors with explicit rule selections**, not the project's configured rule set, and report "available but not enabled" rules separately. Only tools installed in the project are run. Selections per stack come from [Test quality verification](external-research/Test%20quality%20verification.md):
+     - **RSpec**: rubocop-rspec `SubjectStub`, `AnyInstance`, `MessageChain`, `StubbedMock`, `NoExpectationExample`, `VoidExpect`, `IdenticalEqualityAssertion`, `UnspecifiedException`, `RepeatedExample`, `RepeatedExampleGroupBody`, `LetSetup`, `LeakyConstantDeclaration`, plus `FactoryBot/ExcessiveCreateList`.
+     - **Minitest**: the rubocop-minitest weak-assertion cops, most of them opt-in.
+     - **pytest**: `ruff --select PT,B011,B017`, without the style-only rules and S101.
+     - **Jest and Vitest**: the recommended rules plus `no-conditional-in-test`, `no-large-snapshots`, `require-to-throw-message`.
+     - **Playwright and Testing Library**: the recommended rules plus `expect-expect`.
+     - **Go**: testifylint.
+     - Size cops run at the project's thresholds or are excluded.
+  3. **Run custom heuristics where no linter exists**, each presented as "review these" with line evidence:
+     - stubs of the subject or of ActiveRecord outside RSpec;
+     - interaction-only assertions;
+     - assertions on source text or CSS class strings;
+     - `sleep` or wall-clock bounds;
+     - expected values that call production helpers;
+     - assertion-free tests in Python.
+  4. **Spread rubric review** across parallel `wb:test-auditor` agents, one per directory or area. Each stays within the tool-call budget. The skill waits for every agent's completion notification before combining.
+  5. **Suite-level checks**, each only when the conventions give a runnable command and the suite's services are available. Otherwise each is reported as "not run" with the reason.
+     - **Redundancy candidates**: from coverage contexts, or from a full test-by-mutant matrix when the mutation command supports one.
+     - **Factory and setup cost**: from TestProf `FPROF` (total vs top-level factory counts) where present.
+     - **Flakiness**: one seeded random-order run, then repeats on suspects only.
+     - **Brittleness**: commits labelled structural that still edited tests, and setup blocks duplicated across files.
+  6. **Write one report** in test-audit.md's shape, with a Part 3 verdict per finding. The report also states what a cold audit cannot see: hollow reds and expectations edited after red need session transcripts or in-plan evidence.
+- **`wb:test-auditor`**: a new agent (`model: opus`, `effort: high`, preloading `test-quality`, `maxTurns` sized for one area) that applies Parts 1–4 to an assigned area and returns findings.
+- **Pruning policy: the LLM proposes, objective checks decide.**
+  - No agent deletes or edits tests.
+  - A Remove or Consolidate verdict must cite evidence: no unique killed mutants, or no unique coverage, plus a passing run with the test removed in a disposable worktree. Without that evidence it is labelled judgment-only.
+- **Rationale**:
+  - A cold audit exceeds one agent's budget. Our own audit needed an Opus agent plus forked miners per repository.
+  - Many high-signal rules are opt-in, so running only the project's configured lint misses them.
+  - No linter sees mocking volume or mirrored oracles, so heuristics and the rubric cover those.
+  - Meta's TestGen-LLM and Google's review practice both let objective filters, not the model, decide what stays.
+  - Suite minimization loses 0% to 12.5% or more of fault detection, so removal stays a human decision.
+- **Trade-offs**:
+  - A coordinating skill plus an agent instead of one agent.
+  - Runtime suite checks depend on the suite's services (both audited repositories need Postgres, and sg-wholesale also needs Redis) and are skipped with a stated reason when those are unavailable.
+  - mutant is license-gated for commercial use; that is the project's choice, recorded in the profile.
 
 #### D9. `implement_inline`
 
 - **What**:
   - The inline session follows the same rules: it calls `wb:test-writer` for outer and inner tests and never edits test files.
-  - It has no per-task verifier, so integrity is checked at the **phase checkpoint**. The phase-checkpoint auditor run (D8), which both implement modes share, also runs D6's integrity checks across the whole phase diff for inline runs.
-- **Rationale**: inline is the user-chosen hands-on mode, and it gets the same phase-level auditor as coordinated mode.
+  - It has no per-task verifier, so integrity is checked at the **phase checkpoint**: the shared `wb:test-reviewer` run (D8a) also runs D6's integrity checks across the whole phase diff.
+- **Rationale**: inline is the user-chosen hands-on mode, and it gets the same phase review as coordinated mode.
 - **Trade-off**: inline has no per-task gate, so integrity problems are caught at phase end rather than per task.
 
 #### D10. Stack conventions
@@ -261,7 +353,9 @@ The external research ([external-research/LLM test writing practices.md](externa
     - fixtures vs factories;
     - the seam and mocking patterns in use;
     - skip markers;
-    - any installed mutation tool.
+    - installed test-quality linters and profilers (rubocop-rspec, rubocop-minitest, ruff, eslint test plugins, TestProf), and what they currently enable;
+    - any installed mutation tool;
+    - services the suite needs to run (for example Postgres or Redis).
   - The optional profile is `.claude/wb/testing.md` in the target repository. It is markdown read verbatim, like `PRIME.md`, and holds the same headings plus **choices**, such as "no browser tests" or "the LLM is a seam: stub at the model call", and the mutation level.
   - When the profile exists, research cites it as the baseline and records drift from the code.
   - **Precedence for every consumer**: plan research, then profile, then runtime detection. Detection is used only by `/wb:test-audit` with no plan and no profile, and the report states the stack it inferred.
@@ -304,6 +398,16 @@ AC-3 A question naming a store is answered from that store's orders only
 
 **Testing profile** (`.claude/wb/testing.md`): markdown sections mirroring research's Testing conventions, plus Choices and Mutation (`off` or `advisory`, with the command).
 
+**Review finding** (from `wb:test-reviewer` and `wb:test-auditor`):
+
+- verdict: Remove, Rewrite, Consolidate, or Keep
+- rubric item (Part 1, or a Part 2 property and item)
+- file:line and a quoted excerpt
+- evidence type: deterministic (named detector, planted defect, or diff) or judgment-only
+- for judgment-only Remove or Rewrite: the majority result (for example 3 of 3)
+- for Remove or Consolidate: the objective evidence, or "judgment-only, not actionable"
+- criterion id, when in a plan
+
 ### Integration Points
 
 - **design → tasks**: create_tasks reads Acceptance Criteria and Harness Decisions. It emits harness tasks, a test-writer outer-test step per criterion, and implementation tasks that cite criterion ids. The outer test is the artifact implementation tasks depend on (an existing edge rule, `create_tasks/SKILL.md:219-220`). The trailing "Testing Tasks" block is removed. Tool-call sizing counts test-writer spawns.
@@ -314,11 +418,12 @@ AC-3 A question naming a store is answered from that store's orders only
   4. Spawns the verifier with the starting commit, red commits, criteria, and test-writer reports.
 
   The fix worker gets the same context and the same starting commit. Workers stay sequential.
-- **Phase checkpoint, both implement modes**: after the automated commands and before the human go-ahead, spawn `wb:test-auditor` with the phase's starting commit. Its findings and integrity-flag counts join the checkpoint summary.
+- **Phase checkpoint, both implement modes**: after the automated commands and before the human go-ahead, spawn `wb:test-reviewer` with the phase's starting commit. Its findings and the phase's integrity-flag counts join the checkpoint summary.
 - **The truncation playbook** (`implement/reference.md:61-101`) treats a committed red outer test as expected state, not a sign of truncation.
-- **validate_execution**: the test-auditor replaces the coverage agent. Its findings feed the per-Intent verdicts.
+- **validate_execution**: `wb:test-reviewer` replaces the coverage agent. Its findings feed the per-Intent verdicts.
+- **review-prep**: references `/wb:test-audit` for a broader look beyond the diff.
 - **New commands** (outside the stage chain):
-  - `/wb:test-audit [scope]`: a plan directory, a path, or nothing for the whole repository. It writes the report into the plan directory, or to `docs/test-audits/YYYY-MM-DD-<scope>.md` when there is no plan.
+  - `/wb:test-audit [scope]`: a plan directory, a path, or nothing for the whole repository. It coordinates D8b and writes the report into the plan directory, or to `docs/test-audits/YYYY-MM-DD-<scope>.md` when there is no plan.
   - `/wb:testing-profile`: drafts `.claude/wb/testing.md` from detection and asks the user to confirm it.
 - **Backward compatibility**:
   - A plan with no Acceptance Criteria section, or no Testing conventions section, runs as today. Each stage says "no acceptance criteria: plan predates 5.0.0", following the 3.0.0 Intent precedent.
@@ -329,7 +434,7 @@ AC-3 A question naming a store is answered from that store's orders only
 ### In Scope
 
 - D1–D10 above.
-- The two new agents (`wb:test-writer`, `wb:test-auditor`), the new background skill (`test-quality`), and the two new commands (`/wb:test-audit`, `/wb:testing-profile`).
+- Three new agents (`wb:test-writer`, `wb:test-reviewer`, `wb:test-auditor`), the new background skill (`test-quality`), and the two new commands (`/wb:test-audit`, `/wb:testing-profile`).
 - Drift bundles: each stage change ships with its help, wb-prime, and intake-line updates in the same commit. Affected stages:
   - create_design: scope and intake (adds approval of acceptance criteria and harness decisions)
   - create_research: scope
@@ -400,10 +505,14 @@ This design uses its own format. The plugin's observable boundaries are its arti
 - **AC-6 test-audit works cold on a real repository**
   - Given sg-wholesale or fitness-agent with no plan and no `.claude/wb/testing.md`
   - When `/wb:test-audit` runs
-  - Then the report states the inferred stack (RSpec with factory_bot and VCR; pytest with pytest-postgresql) and lists findings in the stack's idiom
-  - And it reproduces at least 4 of test-audit.md's 5 weakness categories for that repository
-  - Example: on fitness-agent it reports JS source-string UI assertions (W4) and hollow reds or mirrored oracles (W1/W3) with file:line
-  - Observed at: the generated report, compared with [test-audit.md](test-audit.md)
+  - Then the report states the inferred stack (RSpec with factory_bot, VCR, and WebMock; pytest with pytest-postgresql) and lists findings in the stack's idiom, each with a verdict and an evidence type
+  - And it finds at least 7 of the 11 still-present W3–W5 instances in fitness-agent, or at least 10 of the 16 in sg-wholesale
+  - And it reports constructs still in the code that hide failures, such as sg-wholesale's `pending` join test (`spec/lib/glossary_definitions_spec.rb:111-118`)
+  - And it states that hollow reds (W1) and expectations edited after red (W2) are not checkable cold
+  - And in a spot-check of 10 of its findings, the user judges at least 8 to be real problems
+  - And no test file is modified, in the repository or its working tree
+  - Example: on fitness-agent it reports `tests/test_activity_store.py:217-220` (a `_CHUNK_SIZE` expected value computed with the production formula, W3, Rewrite) and `tests/test_morning_page.py:394` (a JS source-string UI assertion, W4, Rewrite) with file:line
+  - Observed at: the generated report, compared with [test-audit.md](test-audit.md); calibration tracked as `prompts-ul2x`
   - Refines: M3
 - **AC-7 Research records testing conventions; the profile becomes the baseline**
   - Given a repository with and without `.claude/wb/testing.md`
@@ -422,10 +531,10 @@ This design uses its own format. The plugin's observable boundaries are its arti
   - Observed at: stage output in a headless run
   - Refines: M1
 
-- **AC-9 Every phase checkpoint includes a test audit**
+- **AC-9 Every phase checkpoint includes a test review**
   - Given a phase completed under `/wb:implement` or `/wb:implement_inline`
   - When the phase checkpoint is reached
-  - Then `wb:test-auditor` has run against the phase's starting commit before the go-ahead prompt
+  - Then `wb:test-reviewer` has run against the phase's starting commit before the go-ahead prompt
   - And the checkpoint summary lists its findings and the phase's integrity-flag counts
   - Example: a fixture phase containing a vacuous `not in body` assertion with no presence anchor produces a checkpoint summary naming that test with file:line
   - Observed at: coordinator or inline session output in a headless run
@@ -441,7 +550,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
 
 ### Non-Functional Requirements
 
-- **Cost**: per plan, the added spawns are one per criterion, plus test-writer calls per task, plus one Opus test-auditor run per phase. Report the measured tool calls per worker and per task against the 4.0.0 baseline in the release notes (`prompts-pqlw`).
+- **Cost**: per plan, the added spawns are one per criterion, plus test-writer calls per task, plus one Opus test-reviewer run per phase (more when majority-of-three judgments apply). A cold `/wb:test-audit` runs only on request; its cost scales with repository size. Report the measured tool calls per worker and per task against the 4.0.0 baseline in the release notes (`prompts-pqlw`).
 - **Reliability**: workers stay within the tool-call ceiling. Truncation detection keeps working, because closing the beads issue stays the worker's last act.
 - **Safety**: no agent mutates the user's working tree for planted defects or mutation runs; only disposable worktrees.
 - **Maintainability**: the test-quality rules exist in exactly one file. SKILL.md files touched by this work do not grow past their current length; detail moves to supporting files.
@@ -454,11 +563,19 @@ This design uses its own format. The plugin's observable boundaries are its arti
 | D2 harness decisions and tasks | Audit: fitness-agent "no Playwright" and RR-1 to RR-7; sg-wholesale j1tt parked a failing test; Willison's agentic manual testing | Moderate (audit) |
 | D3 test-writer | Anthropic: separate test and code authors; ImpossibleBench: test edits are the dominant hack; Searls: dual-loop BDD; spike | Weak to moderate (no controlled study) |
 | D4 no test edits by workers | Audit: about 9 post-red edits; about 75% of edits through Bash | Strong (audit) |
+| D4 and D6 catch W1 and W2 during the run | test-audit.md visibility check: hollow reds and post-red edits leave no trace in code or git history (one commit per task; sg-wholesale squashes PRs) | Strong (verified on both repositories) |
 | D5 red means an assertion failure | Audit: 30 of 93 and 13 of 69 hollow reds; Böckeler: "red is proof only if someone checks why" | Strong (audit) |
 | D6 verifier integrity | ImpossibleBench, METR, EvilGenie; audit: weak tests graded "minor" let through | Strong |
 | D7 shared rubric | superpowers writing-good-tests; GitLab mocking guidance; Hora & Robbes (agents over-mock); prompt-audit drift finding | Moderate |
-| D8 auditor and staged mutation | ACH, MutGen (mutation as the quality signal); audit: manual planted defects found vacuity | Strong as signal, weak as agent gate |
-| D8 auditor at every phase checkpoint | research.md: validate_execution is never triggered automatically; audit: verifier quality checks ran mainly when the coordinator asked | Moderate (audit) |
+| D7 Part 1 "can this test fail?" first | 80.2% of agent test patches have weak or no oracle (arXiv 2606.18168); smell-severity ratings; audit W5 | Strong |
+| D7 Part 2 Test Desiderata backbone | Beck's canonical definitions; Google SWE book ch. 12–13 (unchanging tests, state over interactions, real then fake then mock) | Moderate (no reliability study) |
+| D7 Parts 3–4 verdicts and judging | Google and Dodds (synthesized verdicts); RuVerBench and rubric-bias studies (decompose criteria, majority vote; snippet-level) | Moderate |
+| D8a reviewer and staged mutation | ACH, MutGen (mutation as the quality signal); Google surfaces surviving mutants on changed lines in review; audit: manual planted defects found vacuity | Strong as signal, weak as agent gate |
+| D8a reviewer at every phase checkpoint | research.md: validate_execution is never triggered automatically; audit: verifier quality checks ran mainly when the coordinator asked | Moderate (audit) |
+| D8 split into phase review and cold audit | Visibility check (different evidence available); ~70-tool-call worker ceiling; this project's own audit needed an Opus agent plus forked miners per repository | Moderate |
+| D8b explicit detector selections | Primary docs for rubocop-rspec, rubocop-minitest, Ruff, eslint test plugins, testifylint: many high-signal rules are opt-in; no published false-positive rates | Strong (existence and defaults), unmeasured (noise) |
+| D8b suite-level checks | Mutation subsumption and minimization studies (0% to 12.5%+ loss); coverage overlap is noisy; TestProf FPROF; Google flakiness figures; CHOSEN (co-change noise) | Moderate to weak |
+| D8b the LLM proposes, objective checks decide | Meta TestGen-LLM filters (25% survived, 73% accepted); Google review practice; ImpossibleBench | Strong (precedent) |
 | D9 inline at the phase checkpoint | Consequence of D3 and D6 with no inline verifier | Design inference |
 | D10 conventions and profile | Research: Rails convention drift; one-line AGENTS.md conventions; audit: choices buried in tasks.md | Moderate |
 
@@ -469,6 +586,9 @@ This design uses its own format. The plugin's observable boundaries are its arti
 | Risk | Impact | Likelihood | Mitigation |
 | --- | --- | --- | --- |
 | Verifier integrity judgment varies between runs | High | Medium | Integrity flags logged per task; blind trials (`prompts-bzu0`); 3C or 3B ready as fallbacks |
+| Review and audit findings are noisy, and users learn to ignore them | High | Medium | Part 1 and detectors first; evidence type on every finding; majority of three on judgment-only Remove or Rewrite; calibration (`prompts-ul2x`) |
+| Suite-level checks cannot run in a disposable worktree because services are missing | Medium | High | Each check reports "not run" with the reason; conventions record required services |
+| An opt-in detector rule is noisy on a given codebase | Low | Medium | Violations reported per rule, so a noisy rule is visible and can be excluded in the profile |
 | More spawns push workers past the tool-call ceiling | High | Medium | create_tasks sizing counts test-writer calls; measured in `prompts-pqlw`; tasks split earlier |
 | Nested spawn fails in marketplace installs | High | Low | `prompts-sm6l`; fallback is the original 2B hybrid |
 | Briefs carry the implementer's framing into inner tests | Medium | Medium | Rubric rule on expected values; test-writer pushes back; verifier criterion check |
@@ -485,6 +605,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
 | A plugin-installed task-worker can spawn `wb:test-writer` outside `--plugin-dir` | `prompts-sm6l` | Pending |
 | Test-writer spawns fit the worker's tool-call budget | `prompts-pqlw` | Pending |
 | Verifier test-diff review detects planted defects consistently | `prompts-bzu0` | Pending |
+| Reviewer and auditor judgments agree with a human on a labeled calibration set | `prompts-ul2x` | Pending |
 
 ## Rejected Alternatives
 
@@ -530,5 +651,5 @@ None block execution. All five exploration decisions and their amendments are re
 - Audit: [test-audit.md](test-audit.md)
 - Exploration: [thoughts/2026-10-16-testing-guidance-directions.md](thoughts/2026-10-16-testing-guidance-directions.md)
 - Decision record: `prompts-cbc3` (closed, two amendments)
-- External research: [external-research/LLM test writing practices.md](external-research/LLM%20test%20writing%20practices.md)
+- External research: [external-research/LLM test writing practices.md](external-research/LLM%20test%20writing%20practices.md) (writing tests) and [external-research/Test quality verification.md](external-research/Test%20quality%20verification.md) (verifying written tests)
 - Prior art: `docs/subagent-tool-call-ceiling.md`; `docs/audits/2026-09-29-prompt-audit/`; CHANGELOG 2.1.0 (explore_design) and 3.0.0 (Intent)
