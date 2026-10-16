@@ -30,6 +30,7 @@
 - **[research.md](research.md)** - Codebase research and findings
 - **[design.md](design.md)** - Architectural design decisions
 - **[tasks.md](tasks.md)** - Execution plan and task tracking
+- **[test-audit.md](test-audit.md)** - Evaluation of tests wb produced in sg-wholesale (Rails) and fitness-agent (Python) against the external research
 - **[external-research/](external-research/)** - External research on guiding LLM agents to write better tests (2024–2026): the synthesized report and the four source-note files behind it
 
 ## Workflow
