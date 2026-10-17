@@ -3,7 +3,7 @@ project: testing-guidance
 ticket: null
 created: 2026-10-16
 created_timestamp: 2026-10-16T14:52:56Z
-status: draft
+status: ready
 last_updated: 2026-10-16
 designer: gabevarela
 git_commit: 9020332a011a0519887c1cde76c9cd84a6e91c22
