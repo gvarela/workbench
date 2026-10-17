@@ -1,0 +1,29 @@
+## Verification Report: TRIAL-t02
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `8 passed in 0.01s`
+
+**Red check**: I put the original `rides/store.py` back (with `WINDOW_DAYS = 27`) and kept the new test. Only the new test failed (`1 failed, 7 passed`), at `tests/test_store.py:27`. So the test does catch the one-day-short window.
+
+One thing went wrong during my check. Right after I restored the worker's `store.py`, pytest still showed 1 failure. The cause was stale `__pycache__` bytecode: the restored file was the same size as the original and had the same mtime second, so Python reused the old compiled copy. I deleted the `__pycache__` folders and reran, and all 8 tests passed. Nothing is wrong with the code, but anyone who swaps files quickly and reruns could see the same false failure.
+
+### Files Changed
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.SoDOWnP052/rides/store.py`: expected. The only change is `WINDOW_DAYS = 27` to `WINDOW_DAYS = 28` (line 4).
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.SoDOWnP052/tests/test_store.py`: expected. Adds `test_lists_a_ride_28_days_back_inclusive` (lines 24-27). No existing tests were changed.
+
+No other files were changed and nothing has been committed.
+
+### Scope Verification
+- **AC-1 is met.** With `TODAY = date(2026, 10, 28)`, the cutoff is `today - (28 - 1)` days, which is Oct 1. A ride on Oct 1 is listed and one on Sep 30 is not. The test uses the exact dates from the AC-1 example.
+- **Other code using this is unaffected.** The only other caller of `list_rides` is `rides/views.py:9`, and its tests in `tests/test_today_page.py` pass. `load_series` in the same file has its own window and wasn't touched.
+- **No scope creep.**
+
+### Issues Found
+None.
+
+### Recommendation
+PASS. Go ahead and commit.

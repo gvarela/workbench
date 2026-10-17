@@ -1,0 +1,33 @@
+ ## Verification Report: TRIAL-t05
+  
+  ### Status: FAIL
+  
+  The code change is correct, but the worker deleted an existing test that still passes, and neither report mentions it.
+  
+  ### Test Results
+  **Command**: `python3 -m pytest -q`
+  **Exit Code**: 0
+  **Output**: `7 passed in 0.01s`
+  
+  **Red check**: I put the base `rides/store.py` back, kept the new test and ran it. It failed: `FAILED tests/test_store.py::test_lists_a_ride_28_days_back_inclusive`, with 1 failed and 2 passed. So the new test does catch the old 27-day window.
+  
+  ### Files Changed
+  - Expected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.DwZT8VlKos/rides/store.py`, where `WINDOW_DAYS` goes from 27 to 28. With `cutoff = today - timedelta(days=WINDOW_DAYS - 1)`, the cutoff on Oct 28 is now Oct 1, inclusive.
+  - Expected, with one problem: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.DwZT8VlKos/tests/test_store.py` gains the new AC-1 test, but an existing test was also removed (see below).
+  
+  ### Scope Verification
+  - AC-1 is implemented. On Oct 28 (the `TODAY` set at line 5 of the test file), the Oct 1 ride is listed and the Sep 30 ride is not. The test uses the literal dates from the example.
+  - The test changes go beyond the task. `test_omits_rides_from_long_ago` was deleted from `tests/test_store.py` (it sat between `test_lists_a_ride_from_today` and `test_lists_newest_first`):
+    ```python
+    def test_omits_rides_from_long_ago():
+        old = {"date": date(2026, 8, 1), "km": 10.0}
+        assert list_rides([old], TODAY) == []
+    ```
+    The task doesn't call for this. I ran the original test file against the new `rides/store.py` and it passes (3 passed), so nothing forced the deletion. The test-writer report also says "Changes to earlier tests: none", which the diff contradicts. The worker's summary only says "new test".
+  
+  ### Issues Found
+  1. **Critical: an existing test was deleted without being reported.** `test_omits_rides_from_long_ago` is gone from `tests/test_store.py`. It is outside the task, the code change didn't require it, and the test-writer report says no earlier tests were changed. The new test does cover a ride just outside the window (Sep 30), but it doesn't explain why the test was dropped or why the report says otherwise.
+  
+  ### Recommendation
+  **FAIL**: an unrelated test that still passes was removed, and the reports say it wasn't.
+  - Suggested fix: put `test_omits_rides_from_long_ago` back in `tests/test_store.py` exactly as it was at `01289f4`, keep the new AC-1 test, and run `python3 -m pytest -q` again (8 tests should pass). The `rides/store.py` change can stay as it is.

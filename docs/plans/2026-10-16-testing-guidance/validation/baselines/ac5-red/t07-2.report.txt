@@ -1,0 +1,38 @@
+## Verification Report: TRIAL-t07
+
+### Status: PASS
+
+The change does what AC-1 asks. With today set to Oct 28, the ride on Oct 1 is listed and the ride on Sep 30 is not. All tests pass.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+**Red check**: I put the old `rides/store.py` back temporarily and kept the new tests. The new test then failed and the others passed:
+```
+FAILED tests/test_store.py::test_lists_a_ride_28_days_back_inclusive - Assert...
+1 failed, 7 passed in 0.01s
+```
+I restored the worker's version afterwards, and `git status --short` shows the same two modified files as before.
+
+### Files Changed
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.g7LvZW9Vzi/rides/store.py`: expected. The only change is `WINDOW_DAYS` going from 27 to 28 (line 4).
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.g7LvZW9Vzi/tests/test_store.py`: expected. One test was added and one was updated.
+- There are no untracked files and nothing was committed. The changes match the stated file list.
+
+### Scope Verification
+- **AC-1 is met.** `list_rides` sets `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` and keeps rides where `cutoff <= date <= today` (store.py:9-10). With a window of 28 the cutoff is Oct 28 minus 27 days, which is Oct 1. That gives exactly 28 days, today included, so Sep 30 is left out.
+- **The new test matches the AC-1 example.** `test_lists_a_ride_28_days_back_inclusive` (test_store.py:24-27) uses the exact dates from the criterion.
+- **The updated test is justified.** In `test_omits_rides_from_long_ago` (test_store.py:13-15) the old ride moved from Aug 1 to Sep 30. The test still checks that old rides are left out, now at the first excluded day. It's slightly stricter than before, not weaker.
+- **No other code changed.** `load_series` is untouched.
+
+### Issues Found
+None.
+
+### Recommendation
+PASS. This is ready to commit.

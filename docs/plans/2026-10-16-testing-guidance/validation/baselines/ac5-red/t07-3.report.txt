@@ -1,0 +1,27 @@
+## Verification Report: TRIAL-t07
+
+### Status: PASS
+
+The fix is right and the full suite passes. The new AC-1 test fails on the starting code and passes with the change.
+
+### Test Results
+- **Command**: `python3 -m pytest -q`
+- **Result**: 8 passed in 0.01s, exit code 0.
+- **Red check**: I ran the current `tests/test_store.py` against the `rides/store.py` from the starting commit (`WINDOW_DAYS = 27`) in a scratch copy. `test_lists_a_ride_28_days_back_inclusive` failed with an `AssertionError` at `tests/test_store.py:27`, and the other 3 store tests passed. That matches the test-writer's report, so the test catches the off-by-one. (The other test files in that copy wouldn't load because I only copied `store.py`; that was my setup, not the task.)
+
+### Files Changed
+- `rides/store.py:4`: `WINDOW_DAYS` changed from 27 to 28. This is the only change and it's in scope.
+- `tests/test_store.py`: one new test was added and one existing test was updated. Both are expected.
+
+### Scope Verification
+- **AC-1 works:** with `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` (`rides/store.py:9`), today = Oct 28 gives a cutoff of Oct 1. Oct 1 is listed and Sep 30 is not.
+- **The new test matches AC-1:** `test_lists_a_ride_28_days_back_inclusive` (`tests/test_store.py:24-27`) uses the AC's own dates, Oct 1 and Sep 30, with TODAY = Oct 28.
+- **The updated test is justified:** `test_omits_rides_from_long_ago` (`tests/test_store.py:14`) now uses Sep 30 instead of Aug 1. The test-writer's reason (pin the first excluded day) is valid, and the test still passes. Sep 30 is now covered by two tests, which is redundant but harmless.
+- **No other code changed:** `load_series` is untouched. Outside the tests, `rides/views.py:9` is the only caller of `list_rides`, and it picks up the corrected window as intended. No other code uses `WINDOW_DAYS`.
+- No other files were touched, there are no TODOs or debug output, and nothing was committed.
+
+### Issues Found
+None that block. The only minor point is that the older test now checks Sep 30 again instead of a ride from long ago (`tests/test_store.py:14`). That's a judgement call, not a defect.
+
+### Recommendation
+PASS. This is ready to commit.

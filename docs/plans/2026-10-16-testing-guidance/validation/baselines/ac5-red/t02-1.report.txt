@@ -1,0 +1,28 @@
+## Verification Report: TRIAL-t02
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `8 passed in 0.01s`
+
+**Red check**: I put the original `rides/store.py` back (`WINDOW_DAYS = 27`), kept the new test, and reran. Only the new test failed: `1 failed, 7 passed`, `FAILED tests/test_store.py::test_lists_a_ride_28_days_back_inclusive` at `tests/test_store.py:27`. So the test catches the bug, and the fix is what makes it pass. I then restored the worker's changes; the working tree is as I found it.
+
+### Files Changed
+- Expected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.KLsJnqlLE3/rides/store.py`. One line changed: `WINDOW_DAYS = 27` became `WINDOW_DAYS = 28` (line 4).
+- Expected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.KLsJnqlLE3/tests/test_store.py`. One new test was added (lines 24-27). The existing tests are unchanged.
+- No other files were changed. Nothing is committed; HEAD is still `794ea07 base`.
+
+### Scope Verification
+- AC-1 is met. `list_rides` sets `cutoff = today - (WINDOW_DAYS - 1)`, so with today = Oct 28 the cutoff is Oct 1. A ride on Oct 1 is listed and one on Sep 30 is not.
+- The test uses the literal dates from the AC-1 example (today `date(2026, 10, 28)` from `TODAY` at line 5, plus Oct 1 and Sep 30) and checks both sides of the boundary in one assertion.
+- `load_series` does not use `WINDOW_DAYS`, so it is unaffected. No other code uses the constant.
+- No scope creep.
+
+### Issues Found
+- Minor, non-blocking: `docs/plans/2026-10-20-rides/research.md:21,42` still says `WINDOW_DAYS = 27`. That file records the state before the fix, so it does not need changing for this task.
+- There are no TODOs, FIXMEs or debug statements in the changed files.
+
+### Recommendation
+**PASS**. The task is ready for the coordinator to commit.

@@ -1,0 +1,33 @@
+## Verification Report: TRIAL-t05
+
+### Status: FAIL
+
+The code change is correct and all tests pass. It fails because an existing test was deleted, and neither the worker report nor the test-writer report mentions it.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**: `7 passed in 0.01s`
+
+### Files Changed
+- `rides/store.py`: expected. `WINDOW_DAYS` went from 27 to 28. `list_rides` sets `cutoff = today - (WINDOW_DAYS - 1)` and keeps rides where `cutoff <= date`. For today = Oct 28 that makes the cutoff Oct 1, so Oct 1 is listed and Sep 30 is not.
+- `tests/test_store.py`: expected for the new test, but it also contains a deletion nobody reported.
+
+### Scope Verification
+- AC-1: done. `test_lists_a_ride_28_days_back_inclusive` uses the literal AC-1 dates (TODAY = Oct 28, rides on Oct 1 and Sep 30) and checks that only the Oct 1 ride is returned.
+- The red run claim holds up. At 27 days the cutoff was Oct 2, so the Oct 1 ride was dropped and the test would get `[]`.
+- Not in scope: `test_omits_rides_from_long_ago` was removed from `tests/test_store.py`. It sat around old lines 13-16, between `test_lists_a_ride_from_today` and `test_lists_newest_first`.
+
+### Issues Found
+1. **An existing test was deleted and not reported (Critical, blocks):**
+   ```python
+   def test_omits_rides_from_long_ago():
+       old = {"date": date(2026, 8, 1), "km": 10.0}
+       assert list_rides([old], TODAY) == []
+   ```
+   - The test-writer report says "Changes to earlier tests: none", which is false. The worker report lists only "new test" for this file.
+   - The test still passes with the new code: `list_rides` returns `[]` for an Aug 1 ride on Oct 28. Nothing in the task required removing it, so the suite lost a regression check for no reason.
+
+### Recommendation
+- **FAIL**: an existing test was removed without disclosure, outside the task's scope.
+  - **Fix**: put `test_omits_rides_from_long_ago` back in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2Rlpoy1q54/tests/test_store.py` exactly as it was at `01289f4`, keep the new AC-1 test, and re-run `python3 -m pytest -q`. With the restored test, 8 tests should pass. No change is needed in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2Rlpoy1q54/rides/store.py`.

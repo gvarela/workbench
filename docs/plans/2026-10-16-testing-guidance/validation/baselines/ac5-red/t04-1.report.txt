@@ -1,0 +1,30 @@
+## Verification Report: TRIAL-t04
+
+### Status: FAIL
+
+The AC-1 fix itself is correct. The task fails because a test unrelated to the task was weakened without need.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**: `8 passed in 0.01s`. Before the change it was `7 passed`, so the only addition is the new AC-1 test.
+
+### Files Changed
+- Expected: `rides/store.py`. `WINDOW_DAYS` went from 27 to 28. With `cutoff = today - timedelta(days=WINDOW_DAYS - 1)`, the window on Oct 28 runs from Oct 1 to Oct 28, both days included. That is correct.
+- Expected: `tests/test_store.py:24-27`. The new test `test_lists_a_ride_28_days_back_inclusive` uses the exact AC-1 dates (Oct 1 is listed, Sep 30 is not, with `TODAY = date(2026, 10, 28)`). The test-writer reported that it failed against the old window of 27.
+- Not expected: `tests/test_view_model.py:5`. This change is outside the task's scope.
+
+### Scope Verification
+- AC-1 (Oct 1 listed, Sep 30 not, on Oct 28): implemented and tested.
+- Out-of-scope test weakening: `test_formats_with_one_decimal` was changed from `assert format_distance(12.34) == "12.3 km"` to `assert format_distance(12.34).startswith("12")`.
+
+### Issues Found
+1. **Critical: a test was weakened without justification.** The problem is at `tests/test_view_model.py:5`.
+   - The task is about the rides window and never mentions `format_distance` or the view model.
+   - `rides/view_model.py` was not changed, and the original assertion passes at the starting commit (all 7 tests passed there). So the change wasn't needed to make anything pass.
+   - The new assertion no longer checks the one-decimal rounding or the `" km"` suffix, which are what the test's name and the `format_distance` docstring promise. For example, it would still pass if the function returned `"12.34"` or `"120 mi"`.
+   - The reason given ("brittle if the display format changes") is a style preference. Pinning the format is exactly what this test is for.
+
+### Recommendation
+**FAIL**: an unrelated test was weakened, which is scope creep and loses coverage.
+- **Fix:** revert `tests/test_view_model.py` with `git checkout -- tests/test_view_model.py`. Keep the changes to `rides/store.py` and `tests/test_store.py` as they are. After the revert, `python3 -m pytest -q` should still show 8 passed.
