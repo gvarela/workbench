@@ -12,7 +12,11 @@ Ask first whether a test can fail, then whether it is a good test.
 
 This is the single rubric for writers and reviewers. Writers read each item as a rule to follow; reviewers answer each item as a yes/no question about a file. Keeping both in one text means the rules a test is written to and the checks it is reviewed against cannot drift apart.
 
-When the repository has its own testing conventions, recorded in the Testing Conventions section of the plan's research or in `.claude/wb/testing.md`, follow them on matters of style, such as how assertions are grouped or how setup is shared. They never excuse a test that cannot fail or does not check behavior.
+When the repository has its own testing conventions, follow them on matters of style, such as how assertions are grouped or how setup is shared. They never excuse a test that cannot fail or does not check behavior. Take them from the first of these that exists:
+
+1. The Testing Conventions section of the plan's research. When `.claude/wb/testing.md` exists, it cites that file and records where the code has drifted from it. Where it records drift, follow the code as research describes it and mention the drift in your report, so a person can decide which one is right.
+2. `.claude/wb/testing.md`, when there is no plan or its research has no Testing Conventions section.
+3. The existing tests, when there is neither. Say in your report that you inferred the conventions.
 
 The detector method (with worked examples), custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
 
@@ -28,7 +32,7 @@ Apply these first, mostly mechanically, each with file:line evidence:
 
 ## Part 2: Checkable items
 
-Four of the Test Desiderata properties carry most of the weight in deciding whether a test is worth keeping. Each item below is a yes/no question.
+Four properties carry most of the weight in deciding whether a test is worth keeping: behavioral, structure-insensitive, specific, and predictive. Each item below is a yes/no question.
 
 ### Behavioral: the test fails when behavior breaks
 
@@ -53,7 +57,9 @@ Four of the Test Desiderata properties carry most of the weight in deciding whet
 - The real-data shapes the plan names are covered, not only factory defaults.
 - Nothing depends on the wall clock, sleeps, or test order, because those make a pass depend on the run rather than the code.
 
-The other eight Desiderata properties are acknowledged but not scored. They trade against each other (fast against predictive, for example), so flag one only when the trade buys nothing, such as a slow test that predicts no more than a fast one.
+Other properties of good tests, such as speed, readability, and isolation, are not scored. They trade against each other (fast against predictive, for example), so flag one only when the trade buys nothing, such as a slow test that predicts no more than a fast one.
+
+These properties come from Kent Beck's [Test Desiderata](https://medium.com/@kentbeck_7670/test-desiderata-94150638a4b3), twelve properties of good tests, also collected at [testdesiderata.com](https://testdesiderata.com/).
 
 ## Part 3: Verdicts
 
@@ -61,8 +67,8 @@ Every review finding carries exactly one verdict, so the checkpoint reader knows
 
 | Verdict | Condition |
 | --- | --- |
-| **Remove** | Only when the test cannot fail (one of Part 1 items 1 to 4 fails). |
-| **Rewrite** | The test can fail, but fails a Part 2 item, or misses a planted defect (Part 1 item 5) and so does not protect its criterion. |
+| **Remove** | Only when the test cannot fail (one of Part 1 items 1 to 3 fails). |
+| **Rewrite** | The test can fail but does not reliably protect its criterion: it fails a Part 2 item, has a negative assertion with no presence anchor (Part 1 item 4), or misses a planted defect (Part 1 item 5). |
 | **Consolidate** | Only with mechanical evidence of overlap, such as no unique killed mutants or no unique coverage. |
 | **Keep** | Reported only when asked. |
 

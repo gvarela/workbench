@@ -33,7 +33,7 @@ Write one minimal test showing what should happen. Run it. Watch it fail.
 **Red is an assertion failure on the intended behavior:**
 
 - The test reached its assertion and failed with the message you expected
-- A load, import, or missing-constant error is not red yet: make the code importable, then re-run. A test that never reached its assertion says nothing about the behavior.
+- A load, import, or missing-constant error is not red yet: make the code importable by adding only the stub needed to load it (an empty class or method), then re-run. A test that never reached its assertion says nothing about the behavior.
 
 Under /wb:implement and /wb:implement_inline, have wb:test-writer write the test; see the test-quality skill.
 
