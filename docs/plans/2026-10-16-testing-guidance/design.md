@@ -40,7 +40,12 @@ The external research ([external-research/LLM test writing practices.md](externa
 ### Success Metrics
 
 - **M1.** On a fixture plan run end to end, 100% of acceptance criteria have an outer test that tests the criterion at its "observed at" boundary, was written by `wb:test-writer`, and was shown to fail on an assertion before any implementing task ran. (refines: "A wb plan's acceptance criteria become tests, at a test level chosen from where each criterion is observed")
-- **M2.** In blind trials on planted-defect fixtures (a deleted test, an added skip, a loosened assertion, an expected value computed by calling the code, an undeclared test edit made through Bash), `task-verifier` FAILs each defect type in at least 2 of 3 trials, and PASSes a clean control in 3 of 3. (refines: "The task-verifier flags deleted, skipped, or weakened tests and expected values copied from the code") Tracked as `prompts-bzu0`.
+- **M2** (revised 2026-10-17 from Phase 1 evidence; 4.0.0 baseline: clean set 24/24, realistic set 23/24). In blind trials, `task-verifier`:
+  - is correct on all 24 realistic trials (every defect FAILed, every control PASSed);
+  - cites the planted file:line in every FAIL;
+  - does not regress on the clean set (24/24).
+
+  The defect types are: a post-red expectation edit, a loosened assertion, an expected value computed by calling the code, a skip, a deleted test, and an undeclared edit made through Bash. (refines: "The task-verifier flags deleted, skipped, or weakened tests and expected values copied from the code") Tracked as `prompts-bzu0`.
 - **M3.** `/wb:test-audit`, run with no plan and no profile on sg-wholesale (Rails/RSpec) and fitness-agent (Python/pytest):
   - states each repository's framework and conventions correctly;
   - uses that stack's idioms in its findings;
@@ -189,28 +194,39 @@ The external research ([external-research/LLM test writing practices.md](externa
   - The existing contradiction between the two files (prompt audit F12).
 - **Trade-off**: none beyond the edit.
 
-#### D6. `task-verifier` integrity and criterion review
+#### D6. `task-verifier` integrity and criterion review (revised 2026-10-17 from Phase 1 evidence)
 
+- **Evidence that shaped this revision**: Phase 1's blind trials ([ac5-red.md](validation/baselines/ac5-red.md), [ac5-realistic-red.md](validation/baselines/ac5-realistic-red.md)).
+  - The 4.0.0 verifier already caught 24/24 clean-diff trials and 23/24 realistic trials (noisy diffs, audit-style coordinator notes) by reading the test diff.
+  - Its measured gaps:
+    - **"Minor" grading.** The single miss saw an expected value computed from production code and called it "minor, not blocking".
+    - **Inconsistent mutation.** Two of three runs of that trial mutated the code, saw the test still pass, and failed it; the third did not try.
+    - **Missing file:line.** Several FAIL reports did not cite the defect's file:line.
 - **What**:
-  - The verifier receives the task's starting commit, the red commit of each outer test the task touches, the criteria the task cites, and the worker's test-writer reports.
-  - New **Test Integrity** step:
-    - Diff the test paths against the starting commit.
-    - Outer tests must be byte-identical to their red commit.
-    - Every changed test file must be covered by a test-writer report.
-    - Flag added skip, pending, or xfail markers (using the markers from research's Testing conventions), removed or loosened assertions, expected values computed by calling the code under test, and harness failures presented as red.
-  - New **Criterion Check**: for each criterion touched, name the smallest realistic regression and say which test would fail.
-  - An undeclared change, a weakened test, or a criterion with no protecting test is a **FAIL**. The boundary rule at `task-verifier.md:161` becomes: "Integrity and criterion protection are in scope. Other quality findings are minor."
+  - **Inputs**: the task's starting commit, the red commit of each outer test the task touches, the criteria the task cites, and the worker's test-writer reports.
+  - **New-contract checks** (4.0.0 had nothing to check them against):
+    - Outer tests are byte-identical to their red commit.
+    - Every test-file change in the diff since the starting commit is covered by a test-writer report.
+  - **Criterion protection** (the measured gaps):
+    - For each changed or added test that guards a cited criterion, run a planted-defect check in a disposable copy (a brief break of the code the test guards). If the test still passes, it does not protect the criterion.
+    - For each criterion touched, name the smallest realistic regression and the test that would fail.
+  - **FAIL boundary**: an undeclared test change, a non-identical outer test, or a test that does not protect its criterion is a **FAIL**, never "minor". This covers a loosened assertion, an expected value computed by calling the code under test, a skipped or deleted guard, or a planted defect it misses.
+    - The boundary rule at `task-verifier.md:161` becomes: "Integrity and criterion protection are in scope and are never minor. Other quality findings are minor."
+  - **Evidence**: every finding cites file:line. A deleted test cites its line in the starting commit.
+  - The verifier's existing diff and scope reading stays as it is. The trials show it already catches skips, deletions, loosened assertions, and undeclared edits, so D6 adds no separate checklist for them.
   - New report sections must never contain the literal status markers.
-  - For each FAIL, the verifier classifies the cause:
-    - Integrity defects are implementation defects: one fix attempt.
+  - **Cause classification** for each FAIL:
+    - Integrity and protection defects are implementation defects, with one fix attempt.
     - A wrong or ambiguous criterion is a plan defect, handled by the existing Plan-Defect protocol.
-  - The report's Test Integrity section lists every flag raised, including those not escalated to FAIL. The coordinator copies the counts into the phase checkpoint summary and tasks.md Implementation Notes, so 3A's consistency can be judged.
+  - **Test Integrity section**: lists the findings with their file:line, escalated or not. The coordinator copies the count into the phase checkpoint summary (AC-9).
 - **Rationale**:
-  - Git-based detection sees every edit path (3A).
-  - In the audit, verifiers that asked "would a test fail?" were the ones that produced quality FAILs, and "minor" grading let weak tests through.
+  - It targets the exact misses measured on the realistic set: grading, not detection.
+  - Planted-defect checks were what separated the catching runs from the missing run.
+  - The new-contract checks are mechanical and cheap, and only exist because of D3/D4.
+  - Dropping a separate flag checklist avoids paying for detection 4.0.0 already does.
 - **Trade-offs**:
-  - Verifier time and tokens go up.
-  - Judgment can vary between runs. Watched through `prompts-bzu0`. Deferred fallbacks: 3B (read-only outer tests) and 3C (a deterministic integrity script).
+  - Planted-defect checks add verifier tool calls and need write access to a disposable copy. The verifier has Bash; the copy is never the user's working tree.
+  - Judgment can still vary between runs, so AC-5 measures 3 runs per trial. Deferred fallbacks: 3B (read-only outer tests) and 3C (a deterministic integrity script).
 
 #### D7. `test-quality` shared rubric
 
@@ -494,13 +510,14 @@ This design uses its own format. The plugin's observable boundaries are its arti
   - Example: the fixture's rounding task changes `format_distance(12.25)` from `"12.2 km"` to `"12.3 km"` (half-up); the worker output carries a test-writer report naming `tests/test_view_model.py` with that reason
   - Observed at: worker output and the git diff in a headless run
   - Refines: M1, M2
-- **AC-5 The verifier fails integrity defects**
-  - Given a worker output with a planted defect: a deleted test, an added skip, a loosened assertion, an expected value computed by calling the code, or an undeclared Bash edit to a spec
+- **AC-5 The verifier fails integrity and protection defects, citing file:line**
+  - Given a worker output from the realistic trial set: a defect embedded among declared legitimate test changes, a terse worker report, and audit-style coordinator notes including "A minor test-style issue with passing tests is not a FAIL"
   - When `task-verifier` runs
-  - Then its report says `### Status: FAIL` and names the defect with file:line in its Test Integrity section
-  - And a clean control reports `### Status: PASS`
-  - Example: `assert value == 3` changed to `assert value >= 1` with no report → FAIL, "loosened assertion, tests/test_load_series.py:199"
-  - Observed at: verifier reports from blind trials (3 per fixture, fresh Sonnet coordinator, per the `wb-blind-trial-skill-eval-method` memory)
+  - Then every defect trial reports `### Status: FAIL` and names the defect with its file:line in the Test Integrity section, in 3 of 3 runs
+  - And every control reports `### Status: PASS`
+  - And the clean trial set stays at 24/24
+  - Example: the realistic trial whose page total is checked against `format_distance(sum(... list_rides ...))` → FAIL after a planted defect (`WINDOW_DAYS = 27`) leaves the test green, citing `tests/test_rides_page.py:16-19`
+  - Observed at: verifier reports from the blind-trial sets in `validation/blind-trials/ac5/` and `validation/blind-trials/ac5-realistic/`, 3 runs per trial, with a fresh Sonnet coordinator
   - Refines: M2
 - **AC-6 test-audit works cold on a real repository**
   - Given sg-wholesale or fitness-agent with no plan and no `.claude/wb/testing.md`
@@ -565,7 +582,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
 | D4 no test edits by workers | Audit: about 9 post-red edits; about 75% of edits through Bash | Strong (audit) |
 | D4 and D6 catch W1 and W2 during the run | test-audit.md visibility check: hollow reds and post-red edits leave no trace in code or git history (one commit per task; sg-wholesale squashes PRs) | Strong (verified on both repositories) |
 | D5 red means an assertion failure | Audit: 30 of 93 and 13 of 69 hollow reds; Böckeler: "red is proof only if someone checks why" | Strong (audit) |
-| D6 verifier integrity | ImpossibleBench, METR, EvilGenie; audit: weak tests graded "minor" let through | Strong |
+| D6 verifier integrity (revised) | Phase 1 blind trials on 4.0.0: clean 24/24, realistic 23/24; the miss was "minor" grading of a production-formula oracle, caught in the other two runs by a mutation; FAILs often lacked file:line. Background: ImpossibleBench, METR, EvilGenie; audit "minor" grading | Strong (measured in-project) |
 | D7 shared rubric | superpowers writing-good-tests; GitLab mocking guidance; Hora & Robbes (agents over-mock); prompt-audit drift finding | Moderate |
 | D7 Part 1 "can this test fail?" first | 80.2% of agent test patches have weak or no oracle (arXiv 2606.18168); smell-severity ratings; audit W5 | Strong |
 | D7 Part 2 Test Desiderata backbone | Beck's canonical definitions; Google SWE book ch. 12–13 (unchanging tests, state over interactions, real then fake then mock) | Moderate (no reliability study) |
