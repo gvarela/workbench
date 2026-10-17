@@ -243,7 +243,7 @@ The external research ([external-research/LLM test writing practices.md](externa
   | --- | --- |
   | **Behavioral** (the test fails when behavior breaks) | Expected values come from the criterion's example or an independent source, never from calling the code under test, a production formula, hash, or serializer. Each test names the break it catches. |
   | **Structure-insensitive** (the test survives a refactor that keeps behavior) | Assertions are on observable state, not on which calls were made, except for state-changing calls at a declared seam. No assertions on source text, CSS class strings, or private names. Test doubles are only at the criterion's declared `Seam:`; never the subject, an owned or domain class, or `any_instance`; prefer a real object or fake when a cheap one exists. Setup is not copied across files. |
-  | **Specific** (a failure points at the cause) | One behavior per test. Assertions are not bundled so that the first failure hides the rest, unless the project's convention says otherwise (for example RSpec `aggregate_failures`). |
+  | **Specific** (a failure points at the cause) | One behavior per test. Assertions are not bundled so that the first failure hides the rest. A mechanism that reports every failure, such as RSpec `aggregate_failures`, satisfies this. |
   | **Predictive** (a pass means the product works) | The test is at the level the criterion's "observed at" gives. Real-data shapes the plan names are covered, not only factory defaults. Nothing depends on the wall clock, sleeps, or test order. |
 
   The other eight properties are acknowledged but not scored. Their trade-offs (fast vs predictive, for example) are flagged only when they buy nothing.
