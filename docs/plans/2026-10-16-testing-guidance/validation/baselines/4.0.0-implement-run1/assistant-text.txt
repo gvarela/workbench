@@ -1,0 +1,43 @@
+Task i91.2 (window) is done by its worker; now verifying it before committing.
+
+Verifier failed task i91.3: the planned `normalize()` call also turns "10.0 km" into "10 km". I'm treating this as a plan defect. Filing a design-revision issue and halting the phase.
+
+Now I'll add the deviation to tasks.md's Implementation Discoveries and commit only that file.
+
+Phase 1 stopped partway. The window task passed and is committed, but the rounding task failed verification because of a defect in the plan. I halted the phase as instructed, without retrying.
+
+## ⛔ Phase 1 halted: plan defect
+
+**Done:**
+- ✅ `tmp_gAV7qfJm3e-i91.2`: the rides window is now 28 days (`WINDOW_DAYS = 28`), with a test that 2026-10-01 is listed and 2026-09-30 is not. It passed verification and is committed as `dd665a9`.
+
+**Failed:**
+- ❌ `tmp_gAV7qfJm3e-i91.3`, rounding half up in `rides/view_model.py`. The worker used the code from tasks.md exactly. `2.25` now shows as `"2.3 km"` and all 9 tests pass.
+  - **Problem:** that code's `normalize()` call also drops the `.0` from whole-number float distances:
+
+| input | before | after |
+|---|---|---|
+| 10.0 | 10.0 km | 10 km |
+| 12.04 | 12.0 km | 12 km |
+| 9.96 | 10.0 km | 10 km |
+
+  - **Effect:** the rides page and the today page both show the new format. It also contradicts the docstring "rounded to one decimal", and no test covers it.
+  - **Why it's a plan defect:** the worker followed the spec exactly, and fixing it means deciding how these distances should display, which belongs in the design. So I didn't spawn a fix worker.
+
+**What I did:**
+- Filed `tmp_gAV7qfJm3e-i91.5` (P1, design revision) with the evidence.
+- Reopened `i91.3` and blocked both `i91.3` and `i91.4` (the test task) on `i91.5`.
+- Left the `i91.3` changes uncommitted in the working tree (`rides/view_model.py`, `tests/test_view_model.py`).
+- Recorded the defect in tasks.md under Implementation Discoveries, committed as `ea48639`.
+
+**Not done:**
+- `i91.4` (the test task) never ran.
+- The phase milestone `i91.1` is still open.
+- I skipped the phase-wide check, manual verification and `/wb:update_status`, since the phase didn't finish.
+
+**Decision needed:** should a 10.0 km ride show as "10.0 km" or "10 km"?
+- **"10.0 km":** drop `normalize()`, round whole-number inputs to 0 decimals and floats to 1 (so `5` still shows "5 km"), and add a test for `10.0`.
+- **"10 km":** keep the current code, and update the docstring and design.md to say so.
+
+Make the decision through `/wb:create_design`. Then close `i91.5` and re-run `/wb:implement docs/plans/2026-10-20-rides continue`.
+

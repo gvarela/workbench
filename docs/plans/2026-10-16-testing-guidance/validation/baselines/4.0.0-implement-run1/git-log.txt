@@ -1,0 +1,47 @@
+commit ea48639e39556495b8ce56d90fd626f9d608c7b7
+Author: headless <headless@example.com>
+Date:   Fri Oct 16 19:47:15 2026 -0600
+
+    Record rounding plan defect in rides tasks.md (tmp_gAV7qfJm3e-i91.5)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ docs/plans/2026-10-20-rides/tasks.md | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+commit dd665a99fff8f09d90d80fa465fb5f77fa2840b4
+Author: headless <headless@example.com>
+Date:   Fri Oct 16 19:45:19 2026 -0600
+
+    Widen rides window to 28 days inclusive (tmp_gAV7qfJm3e-i91.2)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/store.py      | 2 +-
+ tests/test_store.py | 6 ++++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+commit cf7e96caa549fb7b22d028d8a85228f0ad2d134a
+Author: headless <headless@example.com>
+Date:   Fri Oct 16 19:44:03 2026 -0600
+
+    base
+
+ .gitignore                              |   2 +
+ docs/plans/2026-10-20-rides/README.md   |  45 +++++++
+ docs/plans/2026-10-20-rides/design.md   |  87 ++++++++++++
+ docs/plans/2026-10-20-rides/research.md |  88 ++++++++++++
+ docs/plans/2026-10-20-rides/tasks.md    | 228 ++++++++++++++++++++++++++++++++
+ pyproject.toml                          |  12 ++
+ rides/__init__.py                       |   0
+ rides/store.py                          |  21 +++
+ rides/view_model.py                     |   6 +
+ rides/views.py                          |  17 +++
+ seed-beads.sh                           |  53 ++++++++
+ tests/test_load_series.py               |  15 +++
+ tests/test_store.py                     |  21 +++
+ tests/test_today_page.py                |   8 ++
+ tests/test_view_model.py                |   9 ++
+ wizard/wizard.html                      |  23 ++++
+ wizard/wizard.js                        |  16 +++
+ 17 files changed, 651 insertions(+)
