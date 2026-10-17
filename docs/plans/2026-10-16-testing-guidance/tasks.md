@@ -3,14 +3,14 @@ project: testing-guidance
 ticket: null
 created: 2026-10-16
 created_timestamp: 2026-10-16T14:52:56Z
-status: not-started
-last_updated: 2026-10-16
+status: in-progress
+last_updated: 2026-10-17
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 1
-total_tasks: 31
-completed_tasks: 0
-git_commit: 9020332a011a0519887c1cde76c9cd84a6e91c22
+current_phase: 2
+total_tasks: 36
+completed_tasks: 9
+git_commit: 3b0f1b31a56a250261175a1c83ae442ea74062c3
 git_branch: testing-guidance
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
@@ -34,6 +34,8 @@ beads_tasks:
   phase1_test_1a: prompts-kz5p
   phase1_test_1b: prompts-m9rq
   phase1_test_2: prompts-r8bb
+  phase1_test_3: prompts-0a65  # added at the Phase 1 checkpoint: realistic AC-5 set
+  phase1_test_4: prompts-32qp  # added at the Phase 1 checkpoint: realistic AC-5 red arm
   # Phase 2 tasks
   phase2_impl_1: prompts-tgsl
   phase2_impl_2: prompts-tvvu
@@ -54,6 +56,8 @@ beads_tasks:
   phase5_impl_3: prompts-jbqm
   phase5_impl_4: prompts-jztu
   phase5_test_1: prompts-dnb3
+  phase5_followup_1: prompts-vwv8  # Phase 1 follow-up: nested-agent attribution in count-tool-calls.sh
+  phase5_followup_2: prompts-iyqq  # Phase 1 follow-up: legacy fixture rounding plan
   # Phase 6 tasks
   phase6_impl_1: prompts-xplp
   phase6_impl_2: prompts-4fbv
@@ -155,11 +159,11 @@ bd ready                    # See available work
 
 **Phase status** (milestone IDs are in the frontmatter `beads_phases`):
 
-- Phase 1: milestone `prompts-65k9`, depends on 6 tasks
+- Phase 1: milestone `prompts-65k9`, **closed 2026-10-17**; 9 tasks after the split and checkpoint additions
 - Phase 2: milestone `prompts-4h4v`, depends on 3 tasks
 - Phase 3: milestone `prompts-lpqt`, depends on 3 tasks
 - Phase 4: milestone `prompts-m6tv`, depends on 5 tasks
-- Phase 5: milestone `prompts-rgva`, depends on 5 tasks
+- Phase 5: milestone `prompts-rgva`, depends on 5 tasks; its validation task also waits on follow-ups `prompts-vwv8` and `prompts-iyqq`
 - Phase 6: milestone `prompts-9urg`, depends on 5 tasks
 - Phase 7: milestone `prompts-ro7i`, depends on 4 tasks
 
@@ -1205,6 +1209,7 @@ bd blocked
   - One worker ran two unplanned headless trials (about $0.80) while a stub was not executable; its output was kept out of the repo.
   - The realistic set's shared coordinator notes initially carried a line that pointed at one trial's defect. A verifier caught it, and it was neutralized before the red arm.
   - Paid runs in Phase 1 total roughly $35–40.
+- Status updated to in-progress on 2026-10-17: the Phase 1 milestone is closed in beads (9 of 36 tasks closed). Current phase is 2.
 
 ---
 
