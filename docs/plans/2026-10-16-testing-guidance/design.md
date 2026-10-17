@@ -3,10 +3,10 @@ project: testing-guidance
 ticket: null
 created: 2026-10-16
 created_timestamp: 2026-10-16T14:52:56Z
-status: ready
-last_updated: 2026-10-16
+status: implementing
+last_updated: 2026-10-17
 designer: gabevarela
-git_commit: 9020332a011a0519887c1cde76c9cd84a6e91c22
+git_commit: 3b0f1b31a56a250261175a1c83ae442ea74062c3
 git_branch: testing-guidance
 repository: gvarela/workbench
 tags: [design, architecture, testing-guidance]
@@ -661,6 +661,13 @@ This design uses its own format. The plugin's observable boundaries are its arti
 ## Pending Decisions
 
 None block execution. All five exploration decisions and their amendments are recorded in `prompts-cbc3`.
+
+## Implementation Notes
+
+Started: 2026-10-17
+
+- Phase 1 (validation harness and red baselines) completed and approved at its checkpoint.
+- D6, M2, and AC-5 were revised from Phase 1's measured blind-trial evidence on the 4.0.0 verifier (`prompts-cbc3` amendment, 2026-10-17). Implementation continues with Phase 2.
 
 ## References
 
