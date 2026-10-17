@@ -6,8 +6,8 @@ Measures whether `wb:task-verifier` fails planted test-integrity defects (AC-5, 
 
 - `trials/t01` ... `trials/t08`: neutral names, shuffled so a name does not reveal its type. Each holds `task.md`, `change.patch`, and `worker-report.md`.
 - `answers.md`: the answer key (type, expected verdict, planted file:line). It lives outside `trials/` on purpose.
-- `run-trial.sh <trial-dir> <trial-number> <out-dir>`: runs one headless trial.
-- `score.sh <out-dir>`: scores every `<trial>-<n>.report.txt` report in a directory.
+- `run-trial.sh <trial-dir> <trial-number> <out-dir>`: runs one headless trial. If the package holds `coordinator-notes.md` (the [realistic set](../ac5-realistic/README.md) does; this set does not), its text is appended to the coordinator's context.
+- `score.sh <out-dir> [answers.md]`: scores every `<trial>-<n>.report.txt` report in a directory, against this set's `answers.md` unless another key is given.
 
 The base repository is Fixture P (`../../fixtures/python-rides`). Every patch carries the legitimate fix (`WINDOW_DAYS` 27 to 28 plus a passing 28-day test) and leaves the full suite green, so the verifier cannot catch a defect by seeing a red suite.
 

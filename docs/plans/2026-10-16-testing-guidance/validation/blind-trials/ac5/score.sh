@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Score AC-5 reports: score.sh <out-dir>   (reads <trial>-<n>.report.txt files; answers.md sits beside this script)
+# Score AC-5 reports: score.sh <out-dir> [answers.md]   (reads <trial>-<n>.report.txt files; the default key is the answers.md beside this script)
 set -o pipefail
 set -u
 
-if [ $# -ne 1 ]; then
-  echo "usage: $0 <out-dir>" >&2
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  echo "usage: $0 <out-dir> [answers.md]" >&2
   exit 2
 fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$1"
-ANS="$HERE/answers.md"
+ANS="${2:-$HERE/answers.md}"
 TMPFILE="$(mktemp)"
 trap 'rm -f "$TMPFILE"' EXIT
 
 printf '%-8s %-5s %-8s %-8s %-6s %-5s %-5s %s\n' trial type expected verdict named line right cause
 shopt -s nullglob
-for f in "$OUT"/t[0-9][0-9]-[0-9]*.report.txt; do
+for f in "$OUT"/[a-z][0-9][0-9]-[0-9]*.report.txt; do
   base="$(basename "$f" .report.txt)"
   trial="${base%-*}"
   row="$(grep -E "^\| $trial \|" "$ANS")" || { echo "no answer for $trial" >&2; continue; }

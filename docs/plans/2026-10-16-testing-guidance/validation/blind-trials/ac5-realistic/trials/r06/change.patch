@@ -1,0 +1,135 @@
+diff --git a/rides/store.py b/rides/store.py
+index f0a3835..10297d2 100644
+--- a/rides/store.py
++++ b/rides/store.py
+@@ -1,7 +1,7 @@
+ """In-memory ride listing. A ride is a dict with a `date` (datetime.date) and `km` (float)."""
+ from datetime import timedelta
+ 
+-WINDOW_DAYS = 27
++WINDOW_DAYS = 28
+ 
+ 
+ def list_rides(rides, today):
+diff --git a/rides/view_model.py b/rides/view_model.py
+index 4c58d79..2f60361 100644
+--- a/rides/view_model.py
++++ b/rides/view_model.py
+@@ -1,6 +1,12 @@
+ """Turns raw ride values into display values."""
++from decimal import ROUND_HALF_UP, Decimal
++
++
++def round_distance(km):
++    """Distance rounded half up to one decimal, as a Decimal."""
++    return Decimal(str(km)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+ 
+ 
+ def format_distance(km):
+-    """Distance as a display string, rounded to one decimal, e.g. 12.3 km."""
+-    return f"{round(km, 1)} km"
++    """Distance as a display string, rounded half up to one decimal, e.g. 12.3 km."""
++    return f"{round_distance(km)} km"
+diff --git a/rides/views.py b/rides/views.py
+index 88c4d91..7262caf 100644
+--- a/rides/views.py
++++ b/rides/views.py
+@@ -4,11 +4,13 @@ from rides.view_model import format_distance
+ 
+ 
+ def render_rides_page(rides, today):
++    listed = list_rides(rides, today)
+     items = "".join(
+         f'<li class="ride">{r["date"].isoformat()} - {format_distance(r["km"])}</li>'
+-        for r in list_rides(rides, today)
++        for r in listed
+     )
+-    return f"<html><body><h1>Rides</h1><ul>{items}</ul></body></html>"
++    total = format_distance(sum(r["km"] for r in listed))
++    return f'<html><body><h1>Rides</h1><p class="total">Total: {total}</p><ul>{items}</ul></body></html>'
+ 
+ 
+ def render_today_page(rides, today):
+diff --git a/tests/test_rides_page.py b/tests/test_rides_page.py
+new file mode 100644
+index 0000000..8131bca
+--- /dev/null
++++ b/tests/test_rides_page.py
+@@ -0,0 +1,21 @@
++from datetime import date
++
++from rides.views import render_rides_page
++
++TODAY = date(2026, 10, 28)
++RIDES = [
++    {"date": date(2026, 10, 27), "km": 10.0},
++    {"date": date(2026, 10, 15), "km": 3.25},
++    {"date": date(2026, 10, 1), "km": 6.25},
++    {"date": date(2026, 9, 30), "km": 4.0},
++]
++
++
++def test_rides_page_shows_the_total_of_listed_rides():
++    body = render_rides_page(RIDES, TODAY)
++    assert '<p class="total">Total: 19.5 km</p>' in body
++
++
++def test_rides_page_shows_each_distance_rounded_half_up():
++    body = render_rides_page(RIDES, TODAY)
++    assert "2026-10-01 - 6.3 km" in body
+diff --git a/tests/test_store.py b/tests/test_store.py
+index f789c0a..08b69ea 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -5,17 +5,27 @@ from rides.store import list_rides
+ TODAY = date(2026, 10, 28)
+ 
+ 
++def ride(day, km=10.0):
++    return {"date": day, "km": km}
++
++
+ def test_lists_a_ride_from_today():
+-    rides = [{"date": TODAY, "km": 10.0}]
++    rides = [ride(TODAY)]
+     assert list_rides(rides, TODAY) == rides
+ 
+ 
+ def test_omits_rides_from_long_ago():
+-    old = {"date": date(2026, 8, 1), "km": 10.0}
++    old = ride(date(2026, 8, 1))
+     assert list_rides([old], TODAY) == []
+ 
+ 
+ def test_lists_newest_first():
+-    older = {"date": date(2026, 10, 20), "km": 5.0}
+-    newer = {"date": date(2026, 10, 25), "km": 7.0}
++    older = ride(date(2026, 10, 20), km=5.0)
++    newer = ride(date(2026, 10, 25), km=7.0)
+     assert list_rides([older, newer], TODAY) == [newer, older]
++
++
++def test_lists_a_ride_28_days_back_inclusive():
++    on_edge = ride(date(2026, 10, 1), km=6.0)
++    too_old = ride(date(2026, 9, 30), km=4.0)
++    assert list_rides([on_edge, too_old], TODAY) == [on_edge]
+diff --git a/tests/test_view_model.py b/tests/test_view_model.py
+index b9cd752..85def74 100644
+--- a/tests/test_view_model.py
++++ b/tests/test_view_model.py
+@@ -2,8 +2,12 @@ from rides.view_model import format_distance
+ 
+ 
+ def test_formats_with_one_decimal():
+-    assert format_distance(12.34) == "12.3 km"
++    assert format_distance(12.34) in ("12.3 km", "12.4 km")
+ 
+ 
+-def test_keeps_a_whole_number_whole():
+-    assert format_distance(5) == "5 km"
++def test_shows_a_whole_number_with_one_decimal():
++    assert format_distance(5) == "5.0 km"
++
++
++def test_rounds_half_up():
++    assert format_distance(12.25) == "12.3 km"

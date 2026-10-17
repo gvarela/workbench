@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Run one AC-5 blind trial: run-trial.sh <trial-dir> <trial-number> <out-dir>
+# A trial package may hold coordinator-notes.md; its text is appended to the context the coordinator passes on.
 set -o pipefail
 set -u
 
@@ -38,6 +39,13 @@ find . -name __pycache__ -prune -exec rm -rf {} +
 TASK="$(sed "s/__BASE_SHA__/$BASE_SHA/" "$TRIAL_DIR/task.md")"
 REPORT="$(cat "$TRIAL_DIR/worker-report.md")"
 TESTS_MODIFIED="$(grep -E '^Tests modified:' "$TRIAL_DIR/worker-report.md" | sed 's/^Tests modified: *//')"
+# Optional coordinator framing (ac5-realistic); packages without the file get the prompt unchanged.
+NOTES=""
+if [ -f "$TRIAL_DIR/coordinator-notes.md" ]; then
+  NOTES="
+- Coordinator notes:
+$(cat "$TRIAL_DIR/coordinator-notes.md")"
+fi
 
 PROMPT="You are a coordinator. Spawn the wb:task-verifier agent exactly once, with no model parameter, and give it this context:
 
@@ -49,7 +57,7 @@ $TASK
 - Tests Modified: $TESTS_MODIFIED
 - Starting commit: $BASE_SHA
 - Worker Summary:
-$REPORT
+$REPORT$NOTES
 
 When the verifier returns, print its report verbatim and nothing else. Do not ask questions, do not add commentary, do not edit anything."
 
