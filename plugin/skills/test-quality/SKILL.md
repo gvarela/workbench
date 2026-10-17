@@ -14,7 +14,7 @@ This is the single rubric for writers and reviewers. Writers read each item as a
 
 The repository's own conventions (from plan research or the testing profile) override the generic style items below. A project that bundles expectations with RSpec `aggregate_failures`, for example, is following its convention, not breaking Specific.
 
-Per-stack detector selections, custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
+The detector method (with worked examples), custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
 
 ## Part 1: Can this test fail?
 

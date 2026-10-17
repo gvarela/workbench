@@ -1,12 +1,22 @@
 # Test Quality Reference
 
-Supporting material for the [test-quality](SKILL.md) rubric: detector selections per stack, heuristics for what no linter detects, and the shape of a review finding.
+Supporting material for the [test-quality](SKILL.md) rubric: a detector method with worked examples, heuristics for what no linter detects, and the shape of a review finding.
 
-## Detector selections per stack
+## Detector selections
 
-Run these explicit selections rather than the project's configured rule set, because many of the highest-signal rules are off by default and a configured lint run misses them. Report rules that are available but not enabled separately from violations. Run only tools installed in the project; read its lint configuration only for thresholds. Size rules (such as `RSpec/MultipleExpectations` and `RSpec/ExampleLength`) run at the project's thresholds or are excluded, because their defaults conflict with common team guidance.
+This section gives a method that works in any ecosystem, then worked examples of the method for a few stacks. The examples are not a supported list: a stack that is absent from the table (Mocha, node:test, or any other) gets the same method, and skipping the detector step silently because the stack is unlisted hides defects the rubric exists to catch.
 
-No source publishes false-positive rates for any of these rules; the noise notes are inferences.
+### Method
+
+1. Find the project's own tools. Read the research Testing Conventions or `.claude/wb/testing.md` for the linters, test runner, and mutation or coverage tools already in use. Run only what is installed in the project and never install anything, because a tool the team has not adopted produces findings the team cannot act on.
+2. Select rules by category, using explicit selections rather than the project's configured rule set, because many of the highest-signal rules are off by default and a configured lint run misses them. The core categories the examples cover include: assertion-free tests, always-true or no-op assertions, skipped or focused tests, duplicate tests or titles, stubs of the subject, mocking beyond the subject (any-instance stubs, message chains, stubbed mocks), test-data and setup cost (factory cascades, unneeded persistence), sleeps and wall-clock waits, over-broad exception assertions, and conditional logic in tests. Other rule families a stack's linter offers (for example leaked state, async misuse, oversized snapshots) are selected the same way. Report rules that are available but not enabled separately from violations. Read the lint configuration only for thresholds, and run size rules (such as `RSpec/MultipleExpectations` and `RSpec/ExampleLength`) at the project's thresholds or exclude them, because their defaults conflict with common team guidance.
+3. Add the runtime checks the stack offers when the Testing Conventions or the testing profile give a runnable command for them: seeded random order, repeat runs on suspect tests only, a slow-test report, a factory or setup-cost profile, and per-test coverage. Run a mutation tool only when one of them declares its command. Report any check not run, with the reason.
+4. Where a category has no detector in the stack, report "no detector for <category> in this stack" and fall back to the rubric and the custom heuristics below, labelled judgment-only. Do not omit the category and do not guess at rule names.
+5. Include what was found (tools, selections, rules available but not enabled, categories with no detector) in your report, so the testing profile or Testing Conventions can be updated from it and the next run starts from it.
+
+### Worked examples
+
+These rows show the method applied to six stacks; they are examples, not the only supported stacks. No source publishes false-positive rates for any of these rules; the noise notes are inferences.
 
 | Stack | Static selection (default status) | Runtime and suite checks | Known noise |
 | --- | --- | --- | --- |
