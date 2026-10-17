@@ -249,7 +249,7 @@ The external research ([external-research/LLM test writing practices.md](externa
   The other eight properties are acknowledged but not scored. Their trade-offs (fast vs predictive, for example) are flagged only when they buy nothing.
 - **Part 3: verdicts.** Every review finding carries one verdict:
   - **Remove**: only when the test cannot fail.
-  - **Rewrite**: the test can fail, but fails a Part 2 item.
+  - **Rewrite**: the test can fail but does not reliably protect its criterion: it fails a Part 2 item, has a negative assertion with no presence anchor, or misses a planted defect.
   - **Consolidate**: only with mechanical evidence of overlap (D8b).
   - **Keep**: reported only when asked.
 - **Part 4: how reviewers judge.**
