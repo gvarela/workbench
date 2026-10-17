@@ -101,7 +101,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `create_project` | the goal, what success looks like, non-goals (or prose that carries them); name, base directory, ticket | — | the intent as read back to you | README has an Intent section: a Goal, two to four success statements, non-goals; nothing was written before you confirmed |
 | `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references; a Testing Conventions section records frameworks, commands, and harness |
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
-| `create_design` | the approach, when no decision record exists | the approach; the refined metrics | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
+| `create_design` | the approach, when no decision record exists | the approach; the refined metrics; the acceptance criteria with their harness decisions | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; every acceptance criterion names the metric it refines; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
 | `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; Target State names the Intent-refining metrics |
 | `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; the milestone closes only on your go-ahead |
 | `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
@@ -228,7 +228,7 @@ Researches the codebase from the product perspective: features, user flows, user
 
 ### `/wb:create_design [directory]`
 
-Interactive design session. Captures WHAT and WHY, not HOW. Formalizes a recorded decision when explore_design ran; generates options itself when not.
+Interactive design session. Captures WHAT and WHY, not HOW, including acceptance criteria (Given/When/Then with examples and where each is observed) and a harness decision per boundary. Formalizes a recorded decision when explore_design ran; generates options itself when not.
 
 ### `/wb:create_tasks [directory]`
 

@@ -16,7 +16,7 @@ Stages, in order. Each stage reads the previous stage's document and stops if it
   /wb:create_project  -> docs/plans/<date>-<name>/ with README, research.md, design.md, tasks.md skeletons
   /wb:create_research -> research.md: facts only (including testing conventions), file:line references, no recommendations
   /wb:explore_design  -> optional: think through trade-offs; records a decision in thoughts/ and a closed Decide: issue
-  /wb:create_design   -> design.md: what to build and why; needs research.md complete
+  /wb:create_design   -> design.md: what to build and why, with acceptance criteria; needs research.md complete
   /wb:create_tasks    -> tasks.md: phased plan plus the beads epic, milestones, and task issues; needs design.md approved
   /wb:implement -> the default execution path: one worker per task, verified, one phase at a time
   /wb:implement_inline -> the same plan, coded inline by this session
@@ -31,7 +31,7 @@ ORIENTATION
   cat <<'ORIENTATION'
 What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
-  create_design: approve the approach and the refined metrics
+  create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions
   create_tasks: confirm the phases and checkpoints
   implementation: a go-ahead at each phase checkpoint
   validate_execution: the manual checks only you can run
