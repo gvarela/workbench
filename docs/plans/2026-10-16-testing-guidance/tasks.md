@@ -692,16 +692,18 @@ Add `wb:test-writer` and `wb:test-reviewer`, change `task-worker` to never edit 
 
 **Target state**:
 
+Revised 2026-10-17 per design.md D6 (revised from Phase 1 evidence).
+
 - **Inputs** (lines 34-40) gain: the task's starting commit, the red commit for each outer test touched, the cited criteria, and the worker's Test-writer reports.
-- **New Step: Test Integrity**:
-  - `git diff <start> -- <test paths>`;
-  - outer tests byte-identical to their red commit;
-  - every changed test file covered by a report;
-  - flag added skip, pending, or xfail markers (using the research Testing Conventions markers), removed or loosened assertions, expected values computed by calling the code under test, and harness failures presented as red.
-- **New Step: Criterion Check**: for each criterion touched, name the smallest realistic regression and the test that would fail.
-- **Report format** (lines 95-127) gains `### Test Integrity` (every flag, escalated or not) and `### Criterion Check` sections. They must contain no literal status markers.
-- **Boundaries** (line 161): "Integrity and criterion protection are in scope; other quality findings are minor."
-- **FAIL classification**: integrity defects are implementation defects (one fix attempt); a wrong or ambiguous criterion is a plan defect.
+- **New-contract checks**: outer tests are byte-identical to their red commit, and every test-file change in `git diff <start>` is covered by a test-writer report.
+- **New step: Criterion protection**:
+  - For each changed or added test that guards a cited criterion, run a planted-defect check in a disposable copy (`git worktree add` or a temp copy, removed afterwards; never the working tree). Break the guarded code briefly and confirm the test fails.
+  - Name the smallest realistic regression per criterion and the test that would catch it.
+- **Report format** (lines 95-127) gains `### Test Integrity` (findings with file:line, escalated or not; a deleted test cites its line in the starting commit) and `### Criterion Check` sections. Neither may contain literal status markers.
+- **Boundaries** (line 161): "Integrity and criterion protection are in scope and are never minor. Other quality findings are minor."
+  - A test that does not protect its criterion is a FAIL: a loosened assertion, an expected value computed by calling the code, a skipped or deleted guard, or a planted defect it misses.
+- **Keep** the existing diff and scope reading unchanged. Phase 1 shows it already catches skips, deletions, loosened assertions, and undeclared edits; do not add a separate flag checklist.
+- **FAIL classification**: integrity and protection defects are implementation defects (one fix attempt); a wrong or ambiguous criterion is a plan defect.
 - Remove the npm-only examples (lines 48, 51, 83) in favor of "the test command from research Testing Conventions".
 
 #### 4. `wb:test-reviewer` agent (D8a)
@@ -723,7 +725,21 @@ Add `wb:test-writer` and `wb:test-reviewer`, change `task-worker` to never edit 
 
 #### 5. AC-5 green arm
 
-Re-run the Phase 1 blind-trial set against the new `task-verifier.md`: 8 fixtures × 3 trials, with the same scorer. Record results in `validation/results/phase4-ac5.md` and on `prompts-bzu0`. Pass: each of F1–F5 at least 2 of 3 FAIL naming the planted file:line; C and T1 3 of 3 PASS; T2 at least 2 of 3 FAIL.
+Revised 2026-10-17 per design.md M2 and AC-5.
+
+Re-run both Phase 1 blind-trial sets against the new `task-verifier.md`, 3 runs per trial, with the same runner, scorer, answer keys, and coordinator notes:
+
+- the realistic set, `validation/blind-trials/ac5-realistic/`;
+- the clean set, `validation/blind-trials/ac5/`.
+
+Record results in `validation/results/phase4-ac5.md` and on `prompts-bzu0`. Hand-check every FAIL row, as Phase 1 did.
+
+**Pass**:
+
+- The realistic set is 24/24 correct, and every FAIL cites the planted file:line (`line = yes`).
+- The clean set stays 24/24.
+
+Baseline from 4.0.0: realistic 23/24, with `line = no` on R5 and on 2 of 3 R2 runs; clean 24/24, with `line = no` on F1 and F4.
 
 ### Tasks
 
@@ -735,7 +751,7 @@ Re-run the Phase 1 blind-trial set against the new `task-verifier.md`: 8 fixture
 - **Update `plugin/agents/task-worker.md`** per Changes Required 2. → `[beads:phase4_impl_2]`
   - It consumes the test-writer report format from phase4_impl_1.
   - Projected about 15 calls.
-- **Update `plugin/agents/task-verifier.md`** per Changes Required 3. → `[beads:phase4_impl_3]`
+- **Update `plugin/agents/task-verifier.md`** per Changes Required 3 (revised D6). → `[beads:phase4_impl_3]`
   - It consumes the test-writer report format from phase4_impl_1.
   - Projected about 30 calls.
 - **Create `plugin/agents/test-reviewer.md`** per Changes Required 4. → `[beads:phase4_impl_4]`
