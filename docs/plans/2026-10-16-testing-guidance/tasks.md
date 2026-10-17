@@ -1173,6 +1173,22 @@ bd blocked
   - Check 11 locates the validate_execution coverage agent by its literal `description: "Verify test coverage"`. Phase 5 must keep that description or update the check.
   - Check 3 fails any spawn line that names a test agent without the `wb:` prefix, including prose such as "spawn the test-reviewer".
 - **Fixtures**: Fixture R's answer key lives in `validation/fixtures/ruby-stores.answers.md`, outside the fixture, so audits cannot read it. pytest 9.1.1 was installed with `pip --user` for Fixture P.
+- **2026-10-17, Phase 1 checkpoint decisions** (user): build a realistic AC-5 set and re-run the red arm (option a); apply the AC-1 placeholder fix (a second fix round on `prompts-jcit`); run the tool-call baseline. Added tasks `prompts-0a65` (build) and `prompts-32qp` (run). AC-4's example in design.md was made concrete after ac1.sh flagged it.
+- **Phase 1 results**:
+  - AC-5 red arms against 4.0.0:
+    - clean set: 24/24 correct;
+    - realistic set: 23/24 correct (defect trials 17/18, controls 6/6).
+  - The single miss (r05-1): the verifier saw an expected value computed from production code and graded it "minor, not blocking". The two other reps ran a mutation (`WINDOW_DAYS=27`) and FAILed it.
+  - Several FAIL reports lacked an exact file:line.
+  - Conclusion: detection is already strong in 4.0.0. The gaps are the "minor" grading and running a mutation inconsistently. This bears on design D6; the user decides at the Phase 1 checkpoint.
+- **Phase 1 worker tool-call baseline on 4.0.0**: workers 6, 9, and 5 calls (max 9), verifiers 2, 3, and 2, coordinator 23, 270 s, $1.29. The fixture's tasks are small, so this is a floor.
+- **Follow-ups filed** (both block `prompts-dnb3`):
+  - `prompts-vwv8`: nested-agent attribution in count-tool-calls.sh.
+  - `prompts-iyqq`: the legacy fixture plan's `normalize()` change drops `.0` untested; the 4.0.0 coordinator halted on it as a plan defect in baseline run 1.
+- **Phase 1 process notes**:
+  - One worker ran two unplanned headless trials (about $0.80) while a stub was not executable; its output was kept out of the repo.
+  - The realistic set's shared coordinator notes initially carried a line that pointed at one trial's defect. A verifier caught it, and it was neutralized before the red arm.
+  - Paid runs in Phase 1 total roughly $35–40.
 
 ---
 
