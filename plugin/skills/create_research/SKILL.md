@@ -7,7 +7,7 @@ allowed-tools: Read
 
 # Generate Research Document
 
-Conducts comprehensive codebase research and documents findings by spawning specialized agents to work in parallel, gathering detailed information about existing implementation.
+Conducts comprehensive codebase research and documents findings by spawning specialized agents to work in parallel, gathering detailed information about existing implementation, including the repository's testing conventions.
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
