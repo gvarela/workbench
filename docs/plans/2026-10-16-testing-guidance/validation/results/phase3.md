@@ -56,6 +56,7 @@ Fix: the clause now requires the `**Profile**` line to state a difference (`drif
 | drift-3 | PASS (4/4 clauses) |
 
 Negative controls on a copy of drift-1:
+
 - a Profile line that says the profile matches the code: FAIL;
 - no Profile line at all: FAIL.
 
