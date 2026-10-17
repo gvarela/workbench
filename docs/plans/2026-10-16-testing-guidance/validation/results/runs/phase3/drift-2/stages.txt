@@ -1,0 +1,4 @@
+stage 1 (research.md) exit 0
+cost 0.9176776600000001 duration_ms 48630 turns 11 is_error False
+cost 0.9176776600000001 duration_ms 2433 turns 1 is_error False
+cost 0.9176776600000001 duration_ms 66185 turns 2 is_error False

@@ -1,0 +1,23 @@
+commit 31314f799d40f0120e49e0cc9402d469f12e098d
+Author: h <h@e.com>
+Date:   Sat Oct 17 13:54:23 2026 -0600
+
+    base
+
+ .claude/wb/testing.md                   | 14 ++++++
+ .gitignore                              |  2 +
+ docs/plans/2026-10-20-rides/README.md   | 45 +++++++++++++++++
+ docs/plans/2026-10-20-rides/research.md | 88 +++++++++++++++++++++++++++++++++
+ playwright.config.ts                    |  6 +++
+ pyproject.toml                          | 12 +++++
+ rides/__init__.py                       |  0
+ rides/store.py                          | 21 ++++++++
+ rides/view_model.py                     |  6 +++
+ rides/views.py                          | 17 +++++++
+ tests/test_load_series.py               | 15 ++++++
+ tests/test_store.py                     | 21 ++++++++
+ tests/test_today_page.py                |  8 +++
+ tests/test_view_model.py                |  9 ++++
+ wizard/wizard.html                      | 23 +++++++++
+ wizard/wizard.js                        | 16 ++++++
+ 16 files changed, 303 insertions(+)
