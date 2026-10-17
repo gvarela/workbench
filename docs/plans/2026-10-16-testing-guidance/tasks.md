@@ -7,10 +7,10 @@ status: in-progress
 last_updated: 2026-10-17
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 2
-total_tasks: 36
-completed_tasks: 9
-git_commit: 3b0f1b31a56a250261175a1c83ae442ea74062c3
+current_phase: 3
+total_tasks: 37
+completed_tasks: 13
+git_commit: 500339dac42883ac2df41b54010dca2796954a37
 git_branch: testing-guidance
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
@@ -40,6 +40,7 @@ beads_tasks:
   phase2_impl_1: prompts-tgsl
   phase2_impl_2: prompts-tvvu
   phase2_impl_3: prompts-bhhr
+  phase2_impl_4: prompts-3kyh  # added during Phase 2 at the user's request: detector method for any ecosystem
   # Phase 3 tasks
   phase3_impl_1: prompts-l6oo
   phase3_impl_2: prompts-54aa
@@ -506,6 +507,10 @@ Create the single test-quality rubric, reframe `tdd-discipline`, and add the res
   - `plugin/skills/create_research/{SKILL,templates,sub-agent-prompts}.md`
   - `plugin/skills/help/SKILL.md`
   - `plugin/hooks/wb-prime.sh`
+- **Plan docs and validation** (as implemented):
+  - `design.md` D7 Specific and Rewrite rows, aligned with the checkpoint revisions
+  - `validation/prompt-audits/phase2_impl_1.md` through `phase2_impl_4.md`, `phase2_checkpoint_1.md`, `phase2_checkpoint_2.md`
+- **Commits**: `fe6efea` (tgsl), `d88daaf` (tvvu), `3f95de9` (3kyh), `8244936` (bhhr); checkpoint revisions `0657c8e`, `83e112e`, `7742d49`; design `b49f9a1`, `500339d`.
 
 **Quick check command for this phase**:
 
@@ -1210,6 +1215,22 @@ bd blocked
   - The realistic set's shared coordinator notes initially carried a line that pointed at one trial's defect. A verifier caught it, and it was neutralized before the red arm.
   - Paid runs in Phase 1 total roughly $35–40.
 - Status updated to in-progress on 2026-10-17: the Phase 1 milestone is closed in beads (9 of 36 tasks closed). Current phase is 2.
+- **2026-10-17, Phase 2**: all four tasks were implemented by Sonnet workers. Each was prompt-audited, verified by the Opus verifier, and committed separately.
+  - Two needed the one Fable fix attempt:
+    - `prompts-tgsl`: the verdict table sent planted-defect misses to Remove.
+    - `prompts-3kyh`: the category list read as closed and missed mocking and setup cost.
+  - The prompt-audit gate ran as a general-purpose agent invoking `claude-api prompt-audit`, because `task-worker` has no Skill tool.
+- **Added task**: `prompts-3kyh` (phase2_impl_4), at the user's request. reference.md now leads with a five-step detector method for any ecosystem, and the six stack rows are worked examples. A Mocha row was omitted because its rule names could not be confirmed.
+- **Phase 2 checkpoint revisions** (user review of the rubric):
+  - conventions come from one ordered source: research's Testing Conventions, then `.claude/wb/testing.md`, then the existing tests; drift is reported, never silently resolved;
+  - a negative assertion without a presence anchor maps to Rewrite, not Remove;
+  - RSpec `aggregate_failures` satisfies Specific rather than being an exception to it;
+  - the Test Desiderata name was replaced with the four property names, plus a source line citing the original article;
+  - tdd-discipline says to add only the stub needed to load.
+- **Rule for every later phase**: shipped files under `plugin/` must not reference this plan, its fixtures, audited repositories, or plan labels (D7, AC-5, Phase N). Recorded as beads memory `wb-skills-project-agnostic`.
+- **Forward references** that are expected until Phase 4: tdd-discipline and the research template name `wb:test-writer` and `wb:test-reviewer`. `.claude/wb/testing.md` is referenced before `/wb:testing-profile` ships in Phase 6.
+- **Static checks at the Phase 2 close**: 1, 3, 5, 7, 8, 9, 10, 14, 16, and 17 pass. 2, 4, 6, 11, 12, 13, and 15 fail; those are owned by Phases 4 to 6.
+- Status updated on 2026-10-17: the Phase 2 milestone is closed in beads (13 of 37 tasks closed). Current phase is 3.
 
 ---
 

@@ -6,7 +6,7 @@ created_timestamp: 2026-10-16T14:52:56Z
 status: implementing
 last_updated: 2026-10-17
 designer: gabevarela
-git_commit: 3b0f1b31a56a250261175a1c83ae442ea74062c3
+git_commit: 500339dac42883ac2df41b54010dca2796954a37
 git_branch: testing-guidance
 repository: gvarela/workbench
 tags: [design, architecture, testing-guidance]
