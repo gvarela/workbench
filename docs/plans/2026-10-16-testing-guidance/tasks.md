@@ -30,7 +30,9 @@ beads_tasks:
   phase1_setup_2: prompts-m1r6
   phase1_setup_3: prompts-vfha
   phase1_setup_4: prompts-jcit
-  phase1_test_1: prompts-ynvp
+  phase1_test_1: prompts-ynvp  # closed: split into phase1_test_1a and phase1_test_1b
+  phase1_test_1a: prompts-kz5p
+  phase1_test_1b: prompts-m9rq
   phase1_test_2: prompts-r8bb
   # Phase 2 tasks
   phase2_impl_1: prompts-tgsl
@@ -1166,6 +1168,11 @@ bd blocked
 - Project initialized 2026-10-16. External research is in `external-research/`; the audit is in [test-audit.md](test-audit.md); the exploration record is in `thoughts/`.
 - The size baseline is the base commit `9020332`, not design.md's figures: implement_inline is 587 lines, not the 601 the design cites.
 - Integrity-flag counts per phase are copied here at each checkpoint from Phase 5 onward (design D6).
+- **2026-10-17, Phase 1**: phase1_test_1 (`prompts-ynvp`) was split at its natural seam before spawning, because the projection exceeded the ~50-call budget: `prompts-kz5p` builds the trial set, runner, and scorer, with one smoke trial; `prompts-m9rq` runs the 24-trial red arm.
+- **Static checks, notes for later phases**:
+  - Check 11 locates the validate_execution coverage agent by its literal `description: "Verify test coverage"`. Phase 5 must keep that description or update the check.
+  - Check 3 fails any spawn line that names a test agent without the `wb:` prefix, including prose such as "spawn the test-reviewer".
+- **Fixtures**: Fixture R's answer key lives in `validation/fixtures/ruby-stores.answers.md`, outside the fixture, so audits cannot read it. pytest 9.1.1 was installed with `pip --user` for Fixture P.
 
 ---
 
