@@ -18,6 +18,17 @@ All included tests pass: `python3 -m pytest -q` in a scratch copy.
 
 Pre-answers for every confirmation the stages ask: [python-rides.answers.md](python-rides.answers.md).
 
+## ruby-stores
+
+A small plain-Ruby store resolver (no Rails app) with RSpec, factory_bot, and rubocop-rspec in the `Gemfile` and default cops in `.rubocop.yml`. It serves AC-7 stack detection and as a cheap smoke target for detector selection; AC-6 itself runs on the real repositories. No `Gemfile.lock` is shipped.
+
+`spec/resolvers/store_resolver_spec.rb` has four planted smells, each in its own example, plus three sound examples that must not be flagged. The spec carries no answer markers; the answer key lives in [ruby-stores.answers.md](ruby-stores.answers.md), which is never copied into scratch runs, so an auditor's recall can be scored without seeing the answers:
+
+- `allow_any_instance_of` (`RSpec/AnyInstance`)
+- a stub of the subject (`RSpec/SubjectStub`)
+- an `xit` without a reason (`RSpec/PendingWithoutReason`)
+- a mirrored oracle: the expected value comes from production code
+
 ## Variants (overlays)
 
 An overlay is a directory of files copied over the base fixture.
