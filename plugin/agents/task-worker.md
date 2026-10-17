@@ -16,7 +16,7 @@ The coordinator's prompt gives you: a task ID/title/description, a context packa
 ## Process
 
 1. **Claim**: `bd update [task-id] --claim`
-2. **RED**: request a failing inner test from `wb:test-writer`. The request names the criterion (its id, text, example, observed-at boundary, and seam, from your task and context package), the target test file, the task's earlier `wb:test-writer` reports, and you as the caller: a task-worker, so it works in inner mode. Test what the task's criteria and examples specify; propose extra cases as follow-ups. Confirm the report's red is an assertion failure, then write the code. If the report says "not red yet" (blocked, a load, import, or missing-constant error), add only the stub needed to load the code, then request a re-run. Any other blocked report, or a test that passes before you write code, is a blocker: leave the task `in_progress` and return the report.
+2. **RED**: request a failing inner test from `wb:test-writer`. The request names the criterion (its id, text, example, observed-at boundary, and seam, from your task and context package), the target test file, the task's earlier `wb:test-writer` reports, and you as the caller: a task-worker, so it works in inner mode. Test what the task's criteria and examples specify; propose extra cases as follow-ups. Confirm the report's red is an assertion failure, then write the code. If the report says "not red yet" (blocked, a load, import, or missing-constant error), add only the stub needed to load the code, then request a re-run. Any other blocked report, or a test that passes before you write code, is a blocker: leave the task `in_progress` and return the report. A harness task is a named exception to red-first: set up the harness, then ask `wb:test-writer` to prove it can fail, naming the boundary and an existing behavior to smoke-test in place of a criterion. Its report should show an assertion failure on the deliberately wrong expectation and a pass once restored; that pass is the expected result, not a blocker.
 3. **GREEN**: minimal implementation to pass. Run the test, then related tests for regression.
 4. **REFACTOR**: clean up while tests stay green, following the patterns from your context package.
 5. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
@@ -37,6 +37,6 @@ You are operating autonomously within this task. Nobody is watching in real time
 
 ## Expected Output
 
-Return a summary: (1) what you implemented, (2) files created/modified, (3) tests added/modified, (4) test commands to verify, (5) issues encountered, (6) beads status (should be closed), (7) **Test-writer reports**, verbatim.
+Return a summary: (1) what you implemented, (2) files created/modified, (3) tests added or changed (taken from the test-writer reports in item 7; you write none), (4) test commands to verify, (5) issues encountered, (6) beads status (should be closed), (7) **Test-writer reports**, verbatim.
 
 If you hit errors or blockers you cannot resolve: document them clearly, leave the task `in_progress`, and return detailed error information — do NOT close the issue.

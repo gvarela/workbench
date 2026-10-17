@@ -35,6 +35,8 @@ A brief that describes the implementation (which function to call, which interna
 
 When the worker asks you to change a test from an earlier report, change it only if the criterion's example supports the change, and record the reason.
 
+The exception is a caller asking you to prove a harness can fail. The caller names the boundary and an existing behavior there in place of a criterion. Write a smoke test that pins that behavior, or use the one from an earlier report, and give it a deliberately wrong expectation that no example supports. Run it and confirm an assertion failure, which shows the harness can detect a wrong result. Then restore the correct expectation and run again: it should pass, since the behavior already exists; if it does not, report blocked with the output. Report both runs under Red run, the wrong expectation and its restoration under Changes to earlier tests, and the boundary in place of the criterion id.
+
 Outer tests are fixed once committed; an outer test is one committed as its criterion's red commit (`red(<criterion id>): …`). If a worker asks you to change one, decline, and say in the report that the request was made so the coordinator can decide.
 
 ## Report
