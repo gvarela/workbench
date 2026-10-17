@@ -45,7 +45,7 @@ Four of the Test Desiderata properties carry most of the weight in deciding whet
 ### Specific: a failure points at the cause
 
 - Each test checks one behavior.
-- Assertions are not bundled so that the first failure hides the rest, unless the project's convention says otherwise (for example RSpec `aggregate_failures`).
+- Assertions are not bundled so that the first failure hides the rest. A mechanism that reports every failure, such as RSpec `aggregate_failures`, satisfies this.
 
 ### Predictive: a pass means the product works
 
