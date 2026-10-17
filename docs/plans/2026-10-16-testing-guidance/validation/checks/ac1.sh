@@ -2,7 +2,7 @@
 # AC-1: design.md has an Acceptance Criteria section whose every AC-n block has
 # Given, When, Then, an Example: with real values (a digit, a quoted literal, or an arrow
 # with text on both sides), Observed at:, Refines:, and a Seam: when Observed at names an
-# external or LLM boundary (MCP, HTTP, API, external, LLM, webhook, third-party).
+# external or LLM boundary (MCP, API, external, LLM, webhook, third-party, or a remote URL; the app's own HTTP response needs no seam).
 # usage: ac1.sh <run-out-dir>
 set -o pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -86,7 +86,10 @@ RESULT="$(printf '%s\n' "$SECTION" | awk '
       o = 1
       # An external or LLM boundary needs a seam (design.md AC-1). api, llm, mcp match as whole words.
       ob = tolower(substr($0, RSTART + RLENGTH))
-      if (ob ~ /(^|[^a-z])(api|llm|mcp)([^a-z]|$)/ || ob ~ /http|external|webhook|third-party/) ext = 1
+      # The app own HTTP response is not external. A bare "api" counts only without an own-app qualifier.
+      own = (ob ~ /(^|[^a-z])(own|our|internal|local|localhost)([^a-z]|$)|this app|app.s/)
+      if (ob ~ /(^|[^a-z])(llm|mcp)([^a-z]|$)/ || ob ~ /external|webhook|third-party|https?:\/\/[a-z0-9]/) ext = 1
+      if (ob ~ /(^|[^a-z])api([^a-z]|$)/ && !own) ext = 1
     }
     # A seam needs real text after stripping placeholders.
     if (match($0, /Seam:/) && strip(substr($0, RSTART + RLENGTH)) ~ /[a-z0-9]/) s = 1
