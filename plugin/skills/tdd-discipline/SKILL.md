@@ -18,7 +18,7 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 
 Write code before the test? Delete it. Start over.
 
-**No exceptions:**
+**Outside the named exceptions below, code written before its test is never kept:**
 
 - Don't keep it as "reference"
 - Don't "adapt" it while writing tests
@@ -30,11 +30,12 @@ Write code before the test? Delete it. Start over.
 
 Write one minimal test showing what should happen. Run it. Watch it fail.
 
-**Verify failure is correct:**
+**Red is an assertion failure on the intended behavior:**
 
-- Test fails (not errors)
-- Fails because feature missing (not typos)
-- Failure message matches expectation
+- The test reached its assertion and failed with the message you expected
+- A load, import, or missing-constant error is not red yet: make the code importable, then re-run. A test that never reached its assertion says nothing about the behavior.
+
+Under /wb:implement and /wb:implement_inline, have wb:test-writer write the test; see the test-quality skill.
 
 ### GREEN - Minimal Code
 
@@ -56,18 +57,24 @@ After green only:
 
 Keep tests green. Don't add behavior.
 
+## Named exceptions
+
+This is the only list of work that skips test-first. Anything not named here needs a failing test.
+
+- Harness tasks: prove the harness by a deliberately wrong expectation failing on an assertion, then restore it
+- Configuration, documentation, and build scripts
+- Refactors already covered by existing tests
+
 ## Common Rationalizations
 
 | Excuse | Reality |
-|--------|---------|
+| -------- | --------- |
 | "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
 | "I'll test after" | Tests passing immediately prove nothing. |
-| "Already manually tested" | Ad-hoc ≠ systematic. No record, can't re-run. |
 | "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is debt. |
 | "Need to explore first" | Fine. Throw away exploration, start with TDD. |
-| "TDD will slow me down" | TDD faster than debugging. |
 
-## Red Flags - STOP and Start Over
+## Red Flags - Start Over
 
 - Code before test
 - Test passes immediately (didn't see it fail)
@@ -75,20 +82,12 @@ Keep tests green. Don't add behavior.
 - "Just this once"
 - "This is different because..."
 
-**All of these mean: Delete code. Start over with TDD.**
-
-## Quick Reference
-
-| Phase | Action | Verify |
-|-------|--------|--------|
-| RED | Write test | Fails for right reason |
-| GREEN | Minimal code | Test passes, others still pass |
-| REFACTOR | Clean up | All tests still green |
+**Outside the named exceptions, each of these means: delete the code and start over with TDD.**
 
 ## When Stuck
 
 | Problem | Solution |
-|---------|----------|
+| --------- | ---------- |
 | Don't know how to test | Write wished-for API first |
 | Test too complicated | Design too complicated. Simplify. |
 | Must mock everything | Code too coupled. Refactor. |
