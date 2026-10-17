@@ -491,7 +491,7 @@ This design uses its own format. The plugin's observable boundaries are its arti
   - Given a worker implementing a task
   - When it needs a new or changed test
   - Then every test-file change in the task's diff is covered by a test-writer report in the worker's output
-  - Example: the fixture's view-model rounding task shows a test-writer report for the changed expectation, with its reason
+  - Example: the fixture's rounding task changes `format_distance(12.25)` from `"12.2 km"` to `"12.3 km"` (half-up); the worker output carries a test-writer report naming `tests/test_view_model.py` with that reason
   - Observed at: worker output and the git diff in a headless run
   - Refines: M1, M2
 - **AC-5 The verifier fails integrity defects**
