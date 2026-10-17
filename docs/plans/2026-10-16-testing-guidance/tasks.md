@@ -676,7 +676,7 @@ Add `wb:test-writer` and `wb:test-reviewer`, change `task-worker` to never edit 
 
 **Target state**:
 
-- **Frontmatter**: `name: test-writer`; a description ending "Spawned by /wb:implement, /wb:implement_inline, and task-worker."; `tools: Read, Write, Edit, Grep, Glob, Bash` with no `Agent` tool, so it cannot nest further; `model: sonnet`; `effort: medium`; `skills: [test-quality, tdd-discipline]`.
+- **Frontmatter**: `name: test-writer`; a description ending "Spawned by /wb:implement, /wb:implement_inline, and task-worker."; `tools: Read, Write, Edit, Grep, Glob, Bash` with no `Agent` tool, so it cannot nest further; `model: sonnet`; `effort: medium`; `skills: [test-quality]` (design D3; the red definition is stated in the body, because preloading tdd-discipline would tell the test-writer to delegate to itself).
 - **Body**:
   - Its inputs: the criterion id and text, example, observed-at, and seam; the target test file; prior test-writer reports; and whether the caller is the coordinator (outer) or a worker (inner).
   - **Outer**: write only from the criterion text and example; run it; the failure must be an assertion failure, otherwise report blocked; never edit an outer test at a worker's request, and say so in the report.
