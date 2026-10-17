@@ -36,7 +36,7 @@ Based on dependency analysis:
 - [Parallel work opportunity from agent]
 
 ### Testing Strategy
-[Overall approach to testing throughout implementation, incorporating test coverage agent findings]
+[How the acceptance criteria become outer tests, which boundaries need a harness task, and the inner cases the criterion examples imply, from the test coverage agent. Omit the criterion-based parts for a plan that predates acceptance criteria.]
 
 ## Progress Overview
 
@@ -108,23 +108,30 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - Install dependencies: `npm install [package]` → `[beads:phase1_setup_2]`
 - Set up configuration in `config/feature.json` → `[beads:phase1_setup_3]`
 
+#### Harness Tasks
+(One for each boundary design marks "add harness"; place it before the first outer test at that boundary. "Manual" and "lower proxy" decisions get no harness task. Omit when no boundary needs one.)
+- Add [the project's harness] for [boundary] → `[beads:phase1_harness_1]`
+  - Proof that the harness can fail: a smoke test on existing behavior, shown failing on a deliberately wrong expectation, then restored
+
+#### Outer Test Steps
+(One per acceptance criterion in this phase, except a criterion under a "manual" decision, which goes under Manual Verification instead. A "lower proxy" criterion is observed at the proxy design names. The coordinator runs each through `wb:test-writer` and commits the failing test as `red(AC-n): [criterion title]`.)
+- AC-[n]: [criterion title], observed at [boundary] → `[beads:phase1_outer_1]`
+  - Examples: [the criterion's Example lines]
+  - Test file: `[path/to/outer/test]`
+  - Done when: the test fails on an assertion about the observable, and the `red(AC-n)` commit exists
+
 #### Implementation Tasks
+(Each cites the criterion ids it serves and depends on their outer-test steps.)
 - Create [Component] class at `src/component.ts` → `[beads:phase1_impl_1]`
+  - Serves: AC-[n]
   - Implement constructor with dependency injection
   - Add [method1] for [purpose]
   - Add [method2] for [purpose]
+  - Inner cases: [cases the criterion's examples imply]
 - Modify [ExistingComponent] at `src/existing.ts:45` → `[beads:phase1_impl_2]`
+  - Serves: AC-[n]
   - Add integration with new component
   - Update error handling
-
-#### Testing Tasks
-(Generated from test coverage agent findings)
-- Write unit tests for [Component] at `tests/component.test.ts` → `[beads:phase1_test_1]`
-  - Test [scenario 1 from agent]
-  - Test [edge case from agent]
-  - Test [error condition from agent]
-- Write integration tests at `tests/integration/feature.test.ts` → `[beads:phase1_test_2]`
-  - Test [integration scenario from agent]
 
 #### Integration Tasks
 - Connect [Component] to [ExistingSystem] → `[beads:phase1_integration_1]`
@@ -134,14 +141,14 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] Unit tests pass: `npm test src/component.test.ts`
-- [ ] Integration tests pass: `npm test:integration`
-- [ ] Linting clean: `npm run lint`
-- [ ] Type checking passes: `npm run typecheck`
-- [ ] Build succeeds: `npm run build`
+(Commands come from research.md's Testing Conventions, not from guesses.)
+- [ ] Phase tests pass: `[fast command from research]`
+- [ ] Full suite passes: `[full command from research]`
+- [ ] Each outer test of this phase passes: `[command for the outer test files]`
+- [ ] Lint, type check, and build commands from research pass
 
 #### Manual Verification
-(From design.md success criteria)
+(From design.md success criteria, plus each acceptance criterion under a "manual" harness decision)
 - [ ] [Specific user action] works correctly
 - [ ] Performance meets target: [metric]
 - [ ] Error messages are clear and helpful
@@ -157,12 +164,12 @@ Track all files changed in this phase:
 - `config/feature.json` - Configuration added
 
 #### Test Files
-- `tests/component.test.ts` - Unit tests for new component
-- `tests/integration/feature.test.ts` - Integration tests
+- `[path/to/outer/test]` - Outer test for AC-[n]
+- `[path/to/inner/test]` - Inner tests for the new component
 
-**Quick test command for this phase**:
+**Quick test command for this phase** (from research.md's Testing Conventions):
 ```bash
-npm test src/component.test.ts tests/integration/feature.test.ts
+[fast command] [phase test files]
 ```
 
 ### ⛔ CHECKPOINT: Phase 1 Complete
@@ -234,17 +241,10 @@ For reference, recently resolved blockers can be noted here:
 
 ### Common Commands
 ```bash
-# Run all tests
-npm test
-
-# Run phase-specific tests
+# Commands from research.md's Testing Conventions
+[full test command]
 [phase test command]
-
-# Build
-npm run build
-
-# Lint
-npm run lint
+[build and lint commands]
 ```
 
 ### Design Decisions Reference
@@ -267,8 +267,8 @@ beads_tasks:
   phase1_setup_2: [task-id]
   phase1_impl_1: [task-id]
   phase1_impl_2: [task-id]
-  phase1_test_1: [task-id]
-  phase1_test_2: [task-id]
+  phase1_harness_1: [task-id]
+  phase1_outer_1: [task-id]
   phase1_integration_1: [task-id]
   # Phase 2 tasks
   phase2_setup_1: [task-id]
