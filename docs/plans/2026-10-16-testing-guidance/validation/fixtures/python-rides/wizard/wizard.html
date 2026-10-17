@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <body>
+    <form id="checkin">
+      <fieldset class="question" data-question="sleep">
+        <legend>Sleep</legend>
+        <button type="button" data-value="good">Good</button>
+        <button type="button" data-value="poor">Poor</button>
+      </fieldset>
+      <fieldset class="question" data-question="soreness" hidden>
+        <legend>Soreness</legend>
+        <button type="button" data-value="none">None</button>
+        <button type="button" data-value="some">Some</button>
+      </fieldset>
+      <fieldset class="question" data-question="mood" hidden>
+        <legend>Mood</legend>
+        <button type="button" data-value="up">Up</button>
+        <button type="button" data-value="flat">Flat</button>
+      </fieldset>
+    </form>
+    <script src="wizard.js"></script>
+  </body>
+</html>
