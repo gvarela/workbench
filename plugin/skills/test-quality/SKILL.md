@@ -12,7 +12,7 @@ Ask first whether a test can fail, then whether it is a good test.
 
 This is the single rubric for writers and reviewers. Writers read each item as a rule to follow; reviewers answer each item as a yes/no question about a file. Keeping both in one text means the rules a test is written to and the checks it is reviewed against cannot drift apart.
 
-The repository's own conventions (from plan research or the testing profile) override the generic style items below. A project that bundles expectations with RSpec `aggregate_failures`, for example, is following its convention, not breaking Specific.
+When the repository has its own testing conventions, recorded in the Testing Conventions section of the plan's research or in `.claude/wb/testing.md`, follow them on matters of style, such as how assertions are grouped or how setup is shared. They never excuse a test that cannot fail or does not check behavior.
 
 The detector method (with worked examples), custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
 
@@ -75,4 +75,4 @@ Reviewers propose; they do not delete or edit tests. A Remove or Consolidate ver
 - Answer each item as a yes/no question, deciding it only after checking the file:line evidence, and give the evidence and a short reason with the answer. Holistic scores of test quality are noisy; decomposed items with line evidence are the available mitigation.
 - Label every finding's evidence as **deterministic** (a named detector, a planted defect, or a diff) or **judgment-only**, so the reader knows how much weight it carries.
 - Report a judgment-only Remove or Rewrite as a finding only when a majority of three independent judgments agrees, and record the result (for example 3 of 3). Report other judgment-only observations as "review these". No study validates an LLM judge of test value, so a single judgment is not enough to propose removing or rewriting a test.
-- Apply the repository's conventions over the generic style items, as stated at the top of this skill.
+- Apply the repository's conventions on matters of style, as stated at the top of this skill.
