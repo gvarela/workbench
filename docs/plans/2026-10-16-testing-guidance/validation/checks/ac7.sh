@@ -15,7 +15,7 @@ if grep -Eiq '^#+ .*Testing conventions' "$RESEARCH"; then pass "research.md has
 
 if [ "$VARIANT" = with-profile ]; then
   if grep -Fq '.claude/wb/testing.md' "$RESEARCH"; then pass "research.md cites the profile (.claude/wb/testing.md)"; else fail "research.md cites the profile (.claude/wb/testing.md)"; fi
-  if grep -Eiq 'drift' "$RESEARCH"; then pass "research.md lists drift between profile and code"; else fail "research.md lists drift between profile and code"; fi
+  if grep -Eiq '\*\*Profile\*\*.*(drift|differ)' "$RESEARCH"; then pass "research.md lists drift between profile and code"; else fail "research.md lists drift between profile and code"; fi
   if grep -Eiq 'playwright' "$RESEARCH"; then pass "the drift names the Playwright config the profile contradicts"; else fail "the drift names the Playwright config the profile contradicts"; fi
 fi
 
