@@ -1,0 +1,5 @@
+trial    type  expected verdict  named  line  right cause
+t03-1    F3    FAIL     FAIL     yes    yes   yes   -
+
+Per-fixture tally (correct / trials; correct = verdict matches the key and, for FAIL cases, the planted file is named):
+F3 1/1

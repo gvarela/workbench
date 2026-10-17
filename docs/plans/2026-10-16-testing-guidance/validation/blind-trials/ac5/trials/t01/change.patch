@@ -1,0 +1,39 @@
+diff --git a/rides/store.py b/rides/store.py
+index f0a3835..10297d2 100644
+--- a/rides/store.py
++++ b/rides/store.py
+@@ -1,7 +1,7 @@
+ """In-memory ride listing. A ride is a dict with a `date` (datetime.date) and `km` (float)."""
+ from datetime import timedelta
+ 
+-WINDOW_DAYS = 27
++WINDOW_DAYS = 28
+ 
+ 
+ def list_rides(rides, today):
+diff --git a/tests/test_store.py b/tests/test_store.py
+index f789c0a..19f50ba 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,6 +1,6 @@
+-from datetime import date
++from datetime import date, timedelta
+ 
+-from rides.store import list_rides
++from rides.store import WINDOW_DAYS, list_rides
+ 
+ TODAY = date(2026, 10, 28)
+ 
+@@ -19,3 +19,12 @@ def test_lists_newest_first():
+     older = {"date": date(2026, 10, 20), "km": 5.0}
+     newer = {"date": date(2026, 10, 25), "km": 7.0}
+     assert list_rides([older, newer], TODAY) == [newer, older]
++
++
++def test_lists_a_ride_28_days_back_inclusive():
++    on_edge = {"date": date(2026, 10, 1), "km": 6.0}
++    too_old = {"date": date(2026, 9, 30), "km": 4.0}
++    rides = [on_edge, too_old]
++    cutoff = TODAY - timedelta(days=WINDOW_DAYS - 1)
++    expected = [r for r in rides if r["date"] >= cutoff]
++    assert list_rides(rides, TODAY) == expected
