@@ -86,9 +86,10 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 2. **Read design.md completely**:
    - Design decisions made
-   - Success criteria defined
-   - Scope boundaries set
-   - Technical specifications
+   - Acceptance Criteria (`AC-n`) and Harness Decisions: they set the outer tests and harness tasks
+   - Success criteria, scope boundaries, technical specifications
+
+   When design.md has no Acceptance Criteria section, say "no acceptance criteria: plan predates 5.0.0" and plan as before, without outer-test or harness tasks.
 
 3. **Read existing tasks.md if present**:
    - Check current status
@@ -121,9 +122,9 @@ Based on the gap between current and target state, and agent findings:
    - What can be done in parallel?
    - What requires prerequisites?
 
-2. **Assess risk** (from test coverage agent):
+2. **Assess risk** (from test coverage agent, which maps each criterion to its boundary, harness, and inner cases):
    - What changes are highest risk?
-   - What needs extra testing?
+   - Which boundaries need a harness task?
 
 3. **Plan phases** (synthesize all findings):
    - Group related changes
@@ -200,7 +201,7 @@ Read the "Task Creation Examples (Step 5d)" section of [examples.md](examples.md
 **Task Creation Guidelines**:
 
 - Title should match the task description from tasks.md
-- Description includes phase, task type (setup/implementation/testing/integration), and key details
+- Description includes phase, task type (setup/harness/outer-test/implementation/integration), the criterion ids it serves, and key details
 - All tasks start with priority 2 (medium)
 - Use --type=task for all granular tasks
 
@@ -217,7 +218,7 @@ bd dep add [PHASE1_MILESTONE_ID] [TASK4_ID]
 
 # Task-to-task edges: only where the earlier task's OUTPUT is consumed
 bd dep add [TASK2_ID] [TASK1_ID]   # TASK2 builds in the directory TASK1 creates
-bd dep add [TASK3_ID] [TASK2_ID]   # TASK3 tests the interface TASK2 defines
+bd dep add [TASK3_ID] [TASK2_ID]   # TASK3 calls the interface TASK2 defines
 bd dep add [TASK4_ID] [TASK1_ID]   # TASK4 also consumes TASK1's output — but is
                                    # independent of TASK2/TASK3, so no edge to them
 ```
@@ -239,10 +240,7 @@ TASK1 ──► TASK2 ──► TASK3
 - Phase milestone depends on ALL phase tasks
 - Next phase milestone depends on previous phase milestone
 
-**Tip**: Use parallel task creation for efficiency:
-
-- Spawn multiple `bd create` commands using parallel agents
-- Capture all IDs, then set up dependencies in a second pass
+**Tip**: Create tasks in parallel, capture all IDs, then set up dependencies in a second pass. An implementation task takes an edge to the outer-test step of each criterion it cites, because the outer test is the artifact it consumes; an outer-test step takes an edge to the harness task at its boundary, when there is one.
 
 **Important**: Capture ALL task IDs. You'll need them for frontmatter tracking.
 
@@ -272,7 +270,7 @@ Verify with agent findings:
 3. **Knowledge gaps** from research.md are handled
 4. **Risk mitigations** from design.md are incorporated
 5. **Every task is specific and executable**
-6. **Test coverage** matches test agent recommendations
+6. **Every acceptance criterion has an outer-test step** (one under a "manual" decision has a Manual Verification line instead), and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task
 7. **Dependencies** follow agent-identified order
 
 ### Step 7: Present the Plan
@@ -289,7 +287,7 @@ Total tasks: [total count]
 
 Agent findings incorporated:
 - Dependency order: [key dependency from agent]
-- Test coverage: [X] unit tests, [Y] integration tests
+- Test coverage: [X] outer-test steps, [Y] harness tasks
 - Similar patterns: [reference to pattern agent findings]
 
 Beads tracking:
@@ -303,7 +301,7 @@ Beads tracking:
 Key features of the plan:
 - Clear implementation sequence based on dependency analysis
 - Specific code changes with before/after context
-- Comprehensive test coverage from agent analysis
+- Every acceptance criterion pinned by an outer test, or by a manual check where design chose manual
 - Automated and manual verification per phase
 - Quick test commands to avoid running full suite
 - Complete beads integration for ALL task tracking (no markdown checkboxes)
@@ -335,7 +333,7 @@ Next steps:
 3. **Make Tasks Executable**:
    - Specific file and line references
    - Exact code to add/change
-   - Clear test scenarios from agent
+   - Criterion examples as the test scenarios
    - Runnable commands
 
 4. **Enable Incremental Progress**:
@@ -349,7 +347,7 @@ Next steps:
 - ✅ Phase sequencing and dependencies
 - ✅ Specific code changes
 - ✅ File modifications with line numbers
-- ✅ Test writing tasks
+- ✅ Outer-test steps and harness tasks
 - ✅ Command sequences
 
 **Design (design.md)**:
@@ -410,6 +408,7 @@ Project each task's cost with rough arithmetic:
 | Convert/update N test files | 1-2 each |
 | Run the suite (RED, GREEN, after refactor, final) | 3-5 |
 | Lint, verification, close the issue | 3-5 |
+| Each expected test-writer request | ~3 |
 
 **A task projecting past ~50 calls should be split at its natural seam** — usually source change, then test conversion, which are separately verifiable anyway. Write the split as separate tasks with a dependency between them.
 

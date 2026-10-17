@@ -37,15 +37,22 @@ bd create "Create new directory structure at path/to/new/" \
 bd create "Create [Component] class at src/component.ts" \
   --type=task \
   --priority=2 \
-  -d "Phase 1 implementation. Create component with constructor, method1 for [purpose], method2 for [purpose]."
+  -d "Phase 1 implementation. Serves AC-1. Create component with constructor, method1 for [purpose], method2 for [purpose]."
 # → Created prompts-ghi (save as TASK2_ID)
 
-# Testing task example
-bd create "Write unit tests for [Component] at tests/component.test.ts" \
+# Harness task example (design marked the HTTP boundary "add harness")
+bd create "Add request-test harness for the HTTP boundary" \
   --type=task \
   --priority=2 \
-  -d "Phase 1 testing. Test scenario 1, edge case X, error condition Y."
-# → Created prompts-jkl (save as TASK3_ID)
+  -d "Phase 1 harness. Add [the project's harness]. Done when a smoke test on an existing endpoint fails with a deliberately wrong expectation and passes once restored."
+# → Created prompts-jkl (save as HARNESS_ID)
+
+# Outer-test step example (one per acceptance criterion)
+bd create "Outer test for AC-1: expired link shows the expired page" \
+  --type=task \
+  --priority=2 \
+  -d "Phase 1 outer-test. Serves AC-1. Run through wb:test-writer; commit as red(AC-1). Observed at: page HTML. Examples: opened before expiry shows the form, opened after shows 'expired'. Done when the test fails on an assertion about the page."
+# → Created prompts-pqr (save as TASK3_ID)
 
 # Integration task example
 bd create "Connect [Component] to [ExistingSystem]" \
@@ -57,37 +64,38 @@ bd create "Connect [Component] to [ExistingSystem]" \
 
 ## Task Dependency Examples (Step 5e)
 
-Edges follow consumed outputs, not listing order. For the four tasks above:
+Edges follow consumed outputs, not listing order. For the tasks above (TASK3 is the outer-test step):
 
 ```bash
+# TASK3 (outer test) runs on the harness HARNESS_ID adds → edge
+bd dep add [TASK3_ID] [HARNESS_ID]
+
 # TASK2 (component class) is created inside the directory TASK1 makes → edge
 bd dep add [TASK2_ID] [TASK1_ID]
 
-# TASK3 (unit tests) exercises the class TASK2 creates → edge
-bd dep add [TASK3_ID] [TASK2_ID]
+# TASK2 serves AC-1 and consumes the failing outer test TASK3 commits → edge
+bd dep add [TASK2_ID] [TASK3_ID]
 
 # TASK4 (API integration) wires up the class TASK2 creates → edge to TASK2 only.
-# It does not consume anything TASK3 produces, so NO edge to TASK3 —
-# tests and integration run in parallel once the component exists.
 bd dep add [TASK4_ID] [TASK2_ID]
 ```
 
 Resulting graph (branching, not a chain):
 
 ```
-TASK1 ──► TASK2 ──► TASK3
-             └────► TASK4     (parallel with TASK3)
+HARNESS ──► TASK3 ──► TASK2 ──► TASK4
+            TASK1 ───────┘
 ```
 
-After TASK2 closes, `bd ready` shows both TASK3 and TASK4 — that width is what coordinated execution draws from.
+HARNESS and TASK1 are ready together, so `bd ready` shows two starting points; the width comes from independent tasks like these.
 
 Two exceptions add edges beyond consumed outputs — label them so they aren't mistaken for data flow:
 
 ```bash
-# File overlap: if TASK3 and TASK4 were data-independent but BOTH modified
+# File overlap: if TASK4 and a data-independent TASK5 BOTH modified
 # api/routes.ts, pick an order and record why the edge exists:
-bd dep add [TASK4_ID] [TASK3_ID]
-bd update [TASK4_ID] --notes="Edge to TASK3 serializes api/routes.ts access — not a data dependency"
+bd dep add [TASK5_ID] [TASK4_ID]
+bd update [TASK5_ID] --notes="Edge to TASK4 serializes api/routes.ts access — not a data dependency"
 
 # Structure before behavior: if the phase had a structural task
 # ("Extract shared helper from api/routes.ts", TASK0), every behavioral
