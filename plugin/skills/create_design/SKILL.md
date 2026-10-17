@@ -20,7 +20,7 @@ design.md records architectural decisions and the reasoning behind them: what to
 
 ## Initial Response
 
-This stage needs from you: approval of the approach, and approval of the refined metrics (each traces to an Intent success statement).
+This stage needs from you: approval of the approach, the refined metrics, and the acceptance criteria with their harness decisions.
 
 When invoked, check for arguments:
 
@@ -204,7 +204,7 @@ The template includes `bd create` command snippets for tracking assumptions and 
 
 **⛔ BARRIER 3**: Verify no placeholder values before writing
 
-**⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; any Goal or Non-goal change has its `Decide:` record and README amendment line already in place.
+**⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; every acceptance criterion names the Success Metric it refines; any Goal or Non-goal change has its `Decide:` record and README amendment line already in place.
 
 ### Step 6: Review and Iterate
 
@@ -283,7 +283,7 @@ The template includes `bd create` command snippets for tracking assumptions and 
 - ✅ Architecture decisions (WHAT architecture to use and WHY)
 - ✅ Data models (WHAT data structures and WHY)
 - ✅ API contracts (WHAT interfaces and WHY)
-- ✅ Success criteria (WHAT defines success and WHY)
+- ✅ Success criteria, acceptance criteria, and harness decisions (WHAT defines success, where it is observed, and with what harness; one criterion per changed behavior, so each can be pinned by one test)
 - ✅ Scope boundaries (WHAT is included/excluded and WHY)
 - ✅ Technical approach (WHAT approach and WHY)
 
@@ -292,7 +292,7 @@ The template includes `bd create` command snippets for tracking assumptions and 
 - ❌ Phase sequencing (HOW to order implementation)
 - ❌ Specific code changes (HOW to modify files)
 - ❌ Step-by-step implementation (HOW to build it)
-- ❌ Test writing tasks (HOW to test it)
+- ❌ Test writing and sequencing (acceptance criteria and their observation boundaries are WHAT; how tests are written and sequenced belongs in tasks.md)
 - ❌ File modification lists (HOW to change code)
 - ❌ Command sequences (HOW to execute changes)
 

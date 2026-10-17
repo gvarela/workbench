@@ -68,10 +68,29 @@ design_approach: [selected option name]
 
 ## Success Criteria
 
-### Functional Requirements
-- [ ] [User-facing capability 1]
-- [ ] [User-facing capability 2]
-- [ ] [System behavior 1]
+### Acceptance Criteria
+
+One criterion per changed behavior, each checkable at a boundary a test can observe and naming the Success Metric it refines (number the Success Metrics M1, M2, ... so criteria can cite them). The Illustration line below shows the shape only; leave it out of design.md.
+
+- **AC-1 [Behavior stated as an outcome]**
+  - Given [starting state, concretely]
+  - When [the action or event]
+  - Then [the observable result]
+  - Example: [real input values → real expected output]
+  - Example (edge): [a boundary case, when one exists]
+  - Observed at: [where the result is visible: HTTP response, rendered page, CLI output, stored record]
+  - Seam: [only when the boundary is external or an LLM: what is stubbed, and what stays real]
+  - Refines: [Success Metric id, for example M1]
+
+Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Refines: M1.
+
+### Harness Decisions
+
+One row per boundary the criteria are observed at. Take "Harness present?" from research's Testing Conventions section.
+
+| Boundary | Harness present? | Decision |
+|----------|------------------|----------|
+| [HTTP, UI, CLI, database, LLM call] | [what exists per research, or "none"] | [Use as is / Add harness / Manual / Lower proxy, with what the proxy cannot check] |
 
 ### Non-Functional Requirements
 - [ ] Performance: [Specific metric]
@@ -112,10 +131,10 @@ bd create "Validate: [assumption]" --type=task --priority=2 \
 
 Design decisions that need stakeholder input - track in beads:
 
-| Decision Needed | Beads ID | Blocks |
-|-----------------|----------|--------|
-| [What needs to be decided] | `[id]` | [phase or "execution start"] |
-| [Options and trade-offs] | `[id]` | [what can't proceed] |
+| Decision Needed            | Beads ID | Blocks                       |
+|----------------------------|----------|------------------------------|
+| [What needs to be decided] | `[id]`   | [phase or "execution start"] |
+| [Options and trade-offs]   | `[id]`   | [what can't proceed]         |
 
 ```bash
 # Create beads issues for pending decisions:
