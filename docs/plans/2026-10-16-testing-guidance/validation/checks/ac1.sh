@@ -87,9 +87,13 @@ RESULT="$(printf '%s\n' "$SECTION" | awk '
       # An external or LLM boundary needs a seam (design.md AC-1). api, llm, mcp match as whole words.
       ob = tolower(substr($0, RSTART + RLENGTH))
       # The app own HTTP response is not external. A bare "api" counts only without an own-app qualifier.
-      own = (ob ~ /(^|[^a-z])(own|our|internal|local|localhost)([^a-z]|$)|this app|app.s/)
+      # The qualifier must sit next to the app, its API, endpoint, server, routes, or response: "our client wrapper" around a vendor API is still external.
+      own = (ob ~ /(^|[^a-z])(own|our|internal|local|localhost)( [a-z\/]+)? (api|app|endpoint|server|routes?|http|json|response)([^a-z]|$)|this app|app.s/)
+      # A localhost or 127.0.0.1 URL is the app itself, not a remote URL.
+      gsub(/https?:\/\/(localhost|127\.0\.0\.1)[^ ]*/, " ", ob)
       if (ob ~ /(^|[^a-z])(llm|mcp)([^a-z]|$)/ || ob ~ /external|webhook|third-party|https?:\/\/[a-z0-9]/) ext = 1
-      if (ob ~ /(^|[^a-z])api([^a-z]|$)/ && !own) ext = 1
+      # An api that is a path segment (preceded by "/") is the app own route.
+      if (ob ~ /(^|[^a-z\/])api([^a-z]|$)/ && !own) ext = 1
     }
     # A seam needs real text after stripping placeholders.
     if (match($0, /Seam:/) && strip(substr($0, RSTART + RLENGTH)) ~ /[a-z0-9]/) s = 1
