@@ -66,3 +66,7 @@ Totals: 0 high, 1 medium, 3 low.
 - **Finding 2 (low)**: declined; the sentence is conditional and the path is the plugin's defined profile location, already used in `reference.md`. Re-check when `/wb:testing-profile` ships.
 - **Finding 3 (low)**: declined here; outside the changed lines and mirrored in `design.md:246`. Raised to the coordinator for a decision at the checkpoint.
 - **Finding 4 (low)**: declined; deliberate recap, consistent with `:15`.
+
+### Update 2026-10-17: Finding 3 applied after user approval
+
+At the checkpoint the user approved Finding 3. `SKILL.md:48` and `design.md:246` now read: "Assertions are not bundled so that the first failure hides the rest. A mechanism that reports every failure, such as RSpec `aggregate_failures`, satisfies this." This is the rewrite this report proposed. It also drops the "the project's" wording that conflicted with "the repository's" at lines 15 and 78. No new audit was run, because the text is this audit's own proposed diff.
