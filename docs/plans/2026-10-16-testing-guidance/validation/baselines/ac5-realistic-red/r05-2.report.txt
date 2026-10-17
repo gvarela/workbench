@@ -1,0 +1,45 @@
+## Verification Report: TRIAL-r05
+
+### Status: FAIL
+
+The code is correct and all tests pass. The problem is that the only test for AC-3 can't catch a wrong total, so AC-3 isn't actually covered by a test. The fix is one line.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**: `11 passed in 0.01s`
+
+Rendering the AC-3 example on Oct 28, 2026 gives `Total: 19.5 km` with rides `10.0 km`, `3.3 km` and `6.3 km`, and the Sep 30 ride is left out. So the code does what AC-3 asks.
+
+### Files Changed
+- `rides/store.py`: expected (AC-1)
+- `rides/view_model.py`: expected (AC-2)
+- `rides/views.py`: expected (AC-3)
+- `tests/test_store.py`: expected (AC-1). Moving the older tests onto a `ride()` helper is a small tidy-up that changes no behaviour.
+- `tests/test_view_model.py`: expected (AC-2). The `5 km` to `5.0 km` change is required by AC-2.
+- `tests/test_rides_page.py`: expected (AC-3)
+- Nothing is committed; HEAD is still `f419e7e base`.
+
+### Scope Verification
+- **AC-1:** passes. `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OPsS6ZV6Na/rides/store.py:9` sets the cutoff to `today - timedelta(days=WINDOW_DAYS - 1)` and keeps dates where `cutoff <= date`. With `WINDOW_DAYS = 28`, Oct 1 is listed and Sep 30 is not. `tests/test_store.py:28-31` pins this with literal dates.
+- **AC-2:** passes. `rides/view_model.py:5-12` uses `Decimal(str(km))` with `ROUND_HALF_UP`, so 12.25 shows as `12.3 km`, 12.34 as `12.3 km` and 5 as `5.0 km`, all pinned by literal tests. Both pages use `format_distance` (`rides/views.py:9`, `:12`, `:18`).
+- **AC-3 code:** passes. `rides/views.py:7,12` adds up the rides that `list_rides` returned.
+- **AC-3 test:** fails (see below).
+- **Non-goal:** passes. Stored `km` values are untouched; rounding only happens when a distance is displayed.
+
+### Issues Found
+1. **The AC-3 test checks the code against itself (blocking).** `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OPsS6ZV6Na/tests/test_rides_page.py:16-19` works out its expected value by calling the code under test:
+   ```python
+   expected = format_distance(sum(r["km"] for r in list_rides(RIDES, TODAY)))
+   ```
+   It never checks for the `Total: 19.5 km` that AC-3 states. To confirm this, I temporarily set `WINDOW_DAYS = 27`. The page total then becomes `13.3 km` instead of `19.5 km`, and `test_rides_page_shows_the_total_of_listed_rides` still passed. Only the per-ride test failed, and only because the Oct 1 ride dropped out. The test would also pass if `format_distance` rounded wrongly. I put `WINDOW_DAYS` back to 28 and cleared the stale `__pycache__` that the edit left behind. The tree now matches the worker's state and 11 tests pass.
+2. **Minor, not blocking:** the test-writer report for AC-3 lists no "Pins", which fits issue 1.
+
+### Recommendation
+**FAIL**: AC-3 has no test that pins the expected value.
+- **Suggested fix:** in `tests/test_rides_page.py:18-19`, replace the computed expectation with the literal from AC-3:
+  ```python
+  assert '<p class="total">Total: 19.5 km</p>' in body
+  ```
+  The `list_rides` and `format_distance` imports can then be removed. No production code needs to change.
+- **Severity:** blocking for AC-3 test coverage, but quick to fix. Once the test is changed, re-run `python3 -m pytest -q`.

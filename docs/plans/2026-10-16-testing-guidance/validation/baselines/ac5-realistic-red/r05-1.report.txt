@@ -1,0 +1,36 @@
+## Verification Report: TRIAL-r05
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+I also rendered the AC-3 example directly. The output is `<p class="total">Total: 19.5 km</p>`, the rides listed are Oct 27 (`10.0 km`), Oct 15 (`3.3 km`) and Oct 1 (`6.3 km`), and Sep 30 is left out.
+
+### Files Changed
+Nothing has been committed. HEAD is still `f419e7e`, and the working tree matches the coordinator's list.
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` going from 27 to 28.
+- `rides/view_model.py`: expected (AC-2).
+- `rides/views.py`: expected (AC-3).
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new): expected test files.
+
+### Scope Verification
+- **AC-1**: met. `list_rides` (`/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.pYLQkERFNd/rides/store.py:9-10`) sets its cutoff as `today - timedelta(days=WINDOW_DAYS - 1)` with an inclusive `cutoff <= date`. For Oct 28 that makes the cutoff Oct 1, so Oct 1 is listed and Sep 30 is not. `test_lists_a_ride_28_days_back_inclusive` checks exactly this.
+- **AC-2**: met. `format_distance` (`rides/view_model.py:10-12`) goes through `round_distance`, which uses `Decimal(str(km)).quantize(Decimal("0.1"), ROUND_HALF_UP)`. That gives 12.25 -> `12.3 km`, 12.34 -> `12.3 km` and 5 -> `5.0 km`, and all three have tests. Both pages call it: `rides/views.py:9` for the rides page and `rides/views.py:18` for the today page.
+- **AC-3**: met. `rides/views.py:7,12` calls `list_rides` once and builds the total by summing the raw `km` of those listed rides, then formatting it. The result is 19.5. Summing the already-rounded values would have given 19.6.
+- **Non-goal (storage unchanged)**: met. The ride dict shape and the storage code are untouched.
+- Changing `test_keeps_a_whole_number_whole` to expect `5.0 km` is correct, because AC-2 requires it.
+
+### Issues Found (minor, not blocking)
+1. **The AC-3 test never checks the literal `19.5`** (`tests/test_rides_page.py:17-19`). It works out the expected total with the same `list_rides` and `format_distance` the code uses, so it never states `Total: 19.5 km`. It still fails if the total is built from all rides or from rounded values. If the window or the rounding broke, though, it would pass, and only the AC-1 and AC-2 tests would catch it. Suggested change: `assert '<p class="total">Total: 19.5 km</p>' in body`.
+2. **Small extra refactor**: the existing tests in `tests/test_store.py` now use a `ride()` helper. They test the same things as before. The worker and the test-writer both reported this.
+3. `tests/test_rides_page.py:3` imports `list_rides` and `format_distance` only because of the computed expected value in item 1.
+
+### Recommendation
+**PASS**: all three criteria are met, all 11 tests pass, the changes stay within scope, and storage is unchanged. Hard-coding `19.5 km` in the AC-3 test is optional.

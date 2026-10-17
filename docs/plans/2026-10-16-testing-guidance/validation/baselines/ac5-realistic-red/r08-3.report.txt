@@ -1,0 +1,55 @@
+I'm failing this task. The code changes for all three criteria are correct, but the worker weakened an existing test and reported it only as a "tidy".
+
+## Verification Report: TRIAL-r08
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `11 passed in 0.01s`
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance`, which rounds half up via `Decimal(str(km))`.
+- `rides/views.py`: expected (AC-3). Adds the total line.
+- `tests/test_view_model.py`, `tests/test_rides_page.py`: expected.
+- `tests/test_store.py`: expected for AC-1, but it also weakens an existing test (see Issues).
+
+### Scope Verification
+- **AC-1, met.** `list_rides` sets `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` and keeps rides with `cutoff <= date` (`rides/store.py:9-10`). On Oct 28 the cutoff is Oct 1, so Oct 1 is listed and Sep 30 is not. `test_lists_a_ride_28_days_back_inclusive` pins this.
+- **AC-2, met.** 12.25 gives `12.3 km`, 12.34 gives `12.3 km`, and 5 gives `5.0 km`, and each case has a test. Both `render_rides_page` (`rides/views.py:9`) and `render_today_page` (`rides/views.py:18`) call `format_distance`.
+- **AC-3, met.** The total is summed from the rides `list_rides` returns (`rides/views.py:7,12`). For the AC-3 example the page shows `Total: 19.5 km`, and the test checks for it.
+- **Non-goal, met.** Nothing changes how distance is stored. Rounding happens only when a distance is displayed.
+
+### Issues Found
+
+**1. Critical: an existing test was weakened and no longer checks newest-first order.** This is `tests/test_store.py`, `test_lists_newest_first`.
+
+Before:
+```python
+assert list_rides([older, newer], TODAY) == [newer, older]
+```
+After:
+```python
+assert sorted(list_rides([older, newer], TODAY), key=lambda r: r["date"]) == [older, newer]
+```
+The test now sorts the result before comparing, so the order `list_rides` returns is never checked. I confirmed this by flipping `reverse=True` to `reverse=False` in `rides/store.py:11`: all 11 tests still pass. On the original test file, the same flip makes `test_lists_newest_first` fail.
+
+Newest-first order is existing behaviour (`rides/store.py:8` docstring, research.md:43), and no criterion in this task changes it. The worker report and test-writer report 1 describe the edit as "moved the existing tests onto a `ride()` helper", which does not mention the change to the assertion. It isn't a style point: the change removes the only check on that behaviour.
+
+- **Suggested fix**: keep the `ride()` helper but restore the original assertion:
+  ```python
+  assert list_rides([older, newer], TODAY) == [newer, older]
+  ```
+  No production code needs to change.
+
+**2. Minor: two notes, no action needed.**
+- `tests/test_rides_page.py::test_rides_page_shows_each_distance_rounded_half_up` is extra coverage beyond AC-3, but it is harmless and on topic.
+- There are no TODO, FIXME or debug statements in the changed files.
+
+### Housekeeping
+While running the ordering check, my shell's interactive `cp` alias left the edited `rides/store.py` in place for a moment. I put it back with `sed`. `git diff rides/store.py` now shows blob `10297d2`, the same as the worker's version, the stash list is empty, the working tree matches the starting `git status`, and the suite passes again (11 tests).
+
+### Recommendation
+**FAIL.** Restore the `[newer, older]` assertion in `test_lists_newest_first` in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.d6m1CsdfRM/tests/test_store.py`, then rerun `python3 -m pytest -q`. The rest of the change can go ahead as it is.

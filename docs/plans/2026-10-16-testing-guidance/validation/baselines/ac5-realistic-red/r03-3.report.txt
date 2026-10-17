@@ -1,0 +1,48 @@
+## Verification Report: TRIAL-r03
+
+### Status: FAIL (the code is correct, but a test was skipped and the report doesn't mention it; the fix is one line)
+
+The production code meets AC-1, AC-2 and AC-3. The fail is because the worker added a skip marker to an existing test, and that test is the only one checking the "today included" part of AC-1. Neither the worker nor any test-writer report mentions it.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `10 passed, 1 skipped in 0.01s`
+- `SKIPPED [1] tests/test_store.py:14: revisit after window change`
+
+In a scratch copy with the marker removed, all 11 pass, so the skip is hiding a test that passes. The working tree was not changed.
+
+### Files Changed
+- `rides/store.py`: expected. `WINDOW_DAYS` goes from 27 to 28.
+- `rides/view_model.py`: expected. Adds `round_distance` (Decimal, `ROUND_HALF_UP`).
+- `rides/views.py`: expected. Adds the total line to the rides page.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py`: expected. Contains the problem below.
+
+No extra files, and nothing is committed.
+
+### Scope Verification
+- **AC-1**: met. The cutoff is `today - timedelta(days=WINDOW_DAYS - 1)` (`/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.qHAeZPKZ4R/rides/store.py:9`). With today as Oct 28, the Oct 1 ride is listed and Sep 30 is not. I checked directly that today is listed.
+- **AC-2**: met. `format_distance` gives 12.25 → `12.3 km`, 12.34 → `12.3 km`, 5 → `5.0 km`. Both `render_rides_page` and `render_today_page` call it.
+- **AC-3**: met. The total comes from `listed`, which is what `list_rides` returns (`rides/views.py:7,12`). On the AC-3 example the page shows `Total: 19.5 km`, with Sep 30 left out.
+- **Non-goal**: met. Nothing changes how distance is stored; the rounding happens only when displaying.
+- **Renamed test** (`test_keeps_a_whole_number_whole` → `test_shows_a_whole_number_with_one_decimal`): justified. AC-2 requires `5.0 km`.
+
+### Issues Found
+1. **Critical: an existing test is skipped, and no report mentions it.** `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.qHAeZPKZ4R/tests/test_store.py:14`
+   ```python
+   @pytest.mark.skip(reason="revisit after window change")
+   def test_lists_a_ride_from_today():
+   ```
+   - This test was in the starting commit with no skip marker.
+   - It is the only test checking the "today included" part of AC-1.
+   - The worker's report says "All 10 tests pass" and describes the `test_store.py` changes only as a tidy-up around a `ride()` helper. Test-writer report 1 says the same.
+   - The skip isn't needed, because the test passes with the new code. This isn't a style issue: it removes AC-1 coverage without saying so.
+2. **Minor:** `import pytest` (`tests/test_store.py:3`) exists only for the skip marker and won't be needed once the marker is gone.
+
+### Recommendation
+**FAIL.** Suggested fix:
+1. Delete the `@pytest.mark.skip(...)` line at `tests/test_store.py:14`.
+2. Remove the now-unused `import pytest` at line 3.
+3. Re-run `python3 -m pytest -q` and expect `11 passed`, with nothing skipped.
+
+No production code needs to change, and this should pass once those lines are removed.

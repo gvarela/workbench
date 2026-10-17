@@ -1,0 +1,47 @@
+## Verification Report: TRIAL-r01
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `11 passed in 0.01s`
+
+**Red check**: I ran the current tests against the source code from starting commit `96e60e3`, using a temporary copy so the working tree wasn't touched. 5 failed and 6 passed. The 5 failures are the new or changed tests for AC-1, AC-2 and AC-3, so each test really depends on the new code:
+- `test_lists_a_ride_28_days_back_inclusive`
+- `test_shows_a_whole_number_with_one_decimal`
+- `test_rounds_half_up`
+- both tests in `test_rides_page.py`
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). Only `WINDOW_DAYS` changes, from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance` using `Decimal(str(km))` with `ROUND_HALF_UP`, and `format_distance` now uses it.
+- `rides/views.py`: expected (AC-3). Adds the total line to the rides page.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new): expected test files.
+- Nothing outside the task's scope changed, and nothing is committed.
+
+### Scope Verification
+- **AC-1:** The cutoff comes from `WINDOW_DAYS`: `cutoff = today - timedelta(days=WINDOW_DAYS - 1)`, kept when `cutoff <= date <= today` (`rides/store.py:9-10`). With today as Oct 28, the cutoff is Oct 1, so the ride on the cutoff day is listed and Sep 30 is not. The test pins exactly that.
+- **AC-2:** Checked by hand: 12.25 gives `12.3 km`, 12.34 gives `12.3 km`, 5 gives `5.0 km`, and 1.15, 2.675 and 0.05 also round half up correctly. Both pages call `format_distance`: the rides page at `rides/views.py:9` and `:12`, the today page at `rides/views.py:18`.
+- **AC-3:** The total is the sum over `listed`, which is what `list_rides` returns (`rides/views.py:7,12`), formatted with `format_distance`. For the AC-3 rides the page shows `Total: 19.5 km`, and Sep 30 is correctly left out.
+- **Non-goal:** How distance is stored is unchanged. Rides are still dicts with a float `km`, and rounding happens only when distances are displayed.
+- **Changes to existing tests:**
+  - `test_keeps_a_whole_number_whole` was renamed and now expects `5.0 km`. AC-2 requires this.
+  - `test_omits_rides_from_long_ago` now uses Sep 30 instead of Aug 1. It still checks that a ride is left out, now at the window's edge, so it is no weaker.
+  - Moving the store tests onto a `ride()` helper changes no assertions.
+
+### Issues Found
+- Minor, not blocking: `test_omits_rides_from_long_ago` (`tests/test_store.py:17-19`) has a name that no longer fits now that it uses the boundary date. It also passes on the old code, so it duplicates part of `test_lists_a_ride_28_days_back_inclusive`. This is a style point only.
+- Minor, not blocking: the total adds up the raw float distances before rounding (`rides/views.py:12`). For some inputs, float error could push a total sitting exactly on a .x5 boundary to the wrong side. This doesn't affect the AC-3 example (19.5 exactly), and no acceptance criterion covers it.
+- No TODO, FIXME or leftover debug prints in the changed files.
+
+### Recommendation
+**PASS**: proceed. All three criteria are met, the tests fail on the old code and pass on the new code, the changes stay within the task, and storage is unchanged.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/tests/test_view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.c5iwyrs6Yh/tests/test_rides_page.py

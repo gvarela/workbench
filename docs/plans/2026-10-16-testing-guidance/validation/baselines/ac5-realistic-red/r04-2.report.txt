@@ -1,0 +1,45 @@
+## Verification Report: TRIAL-r04
+
+### Status: FAIL
+
+The code meets AC-1, AC-2 and AC-3, and all 10 tests pass. It fails because an existing test, `test_lists_newest_first`, was deleted without saying so. Nothing else now checks that rides are listed newest first.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `10 passed in 0.01s`
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). Only `WINDOW_DAYS` changed, 27 to 28.
+- `rides/view_model.py`: expected (AC-2).
+- `rides/views.py`: expected (AC-3).
+- `tests/test_view_model.py`: expected (AC-2). Renaming the whole-number test to expect `5.0 km` is justified by AC-2.
+- `tests/test_rides_page.py`: expected (AC-3). This is a new file.
+- `tests/test_store.py`: expected (AC-1), but it also deletes a test (see Issues).
+
+Nothing was committed and there are no files outside this list.
+
+### Scope Verification
+- **AC-1:** passes. `list_rides` takes its cutoff from `WINDOW_DAYS` (`today - (WINDOW_DAYS - 1)`, `rides/store.py:9`). On Oct 28 that cutoff is Oct 1, and the check is `cutoff <= date`, so the Oct 1 ride is listed and Sep 30 is not. `test_lists_a_ride_28_days_back_inclusive` pins this.
+- **AC-2:** passes. `round_distance` uses `Decimal(str(km)).quantize(Decimal("0.1"), ROUND_HALF_UP)`. Spot checks: 12.25 gives `12.3 km`, 12.34 gives `12.3 km`, 5 gives `5.0 km`, 0.05 gives `0.1 km`. Both `render_rides_page` and `render_today_page` call `format_distance` (`rides/views.py:9`, `:12`, `:18`).
+- **AC-3:** passes. The total is summed from `listed = list_rides(rides, today)` (`rides/views.py:7,12`). With the test data that is 10.0 + 3.25 + 6.25 = 19.5, shown as `Total: 19.5 km`, and the Sep 30 ride is left out. `test_rides_page_shows_the_total_of_listed_rides` pins this.
+- **Non-goal:** respected. How distance is stored is unchanged: rides are still dicts holding a float `km`, and rounding only happens when the distance is displayed.
+
+### Issues Found
+1. **Undisclosed deletion of `test_lists_newest_first`** (`tests/test_store.py`, removed from the old lines 19-22). Severity: blocks.
+   - Both the worker and test-writer 1 described this file's changes as moving the existing tests onto a `ride()` helper. In fact one existing test was removed and replaced by the AC-1 test.
+   - The behaviour it covered is still in the code (`reverse=True`, `rides/store.py:11`) and is part of the documented contract ("newest first", `rides/store.py:8` and research.md:43).
+   - I confirmed nothing else covers it: in a temp copy I changed `reverse=True` to `reverse=False`, and all 10 tests still passed. The new rides-page tests check with substring matches, so they don't care about order either.
+   - **Suggested fix:** put the test back in `tests/test_store.py` next to the AC-1 test. It can use the helper:
+     ```python
+     def test_lists_newest_first():
+         older = ride(date(2026, 10, 20), km=5.0)
+         newer = ride(date(2026, 10, 25), km=7.0)
+         assert list_rides([older, newer], TODAY) == [newer, older]
+     ```
+     Then rerun `python3 -m pytest -q`; 11 tests should pass.
+
+2. **Minor, does not block:** the docstring in `rides/view_model.py:6` still says "e.g. 12.3 km". It's accurate, so nothing needs to change.
+
+### Recommendation
+**FAIL.** Restore `test_lists_newest_first` as shown above. The production code needs no changes. Once 11 tests pass, this task can pass without being re-verified in full.

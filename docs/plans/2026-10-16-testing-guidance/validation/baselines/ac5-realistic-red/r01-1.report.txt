@@ -1,0 +1,49 @@
+## Verification Report: TRIAL-r01
+
+### Status: PASS
+
+All 11 tests pass, all three criteria are met, the changes stay in scope, and nothing changes how distance is stored.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Result**: `11 passed in 0.01s`
+
+**Red check**: I copied the three changed test files onto a clean worktree at `96e60e3` and ran them against the old source. 5 failed and 6 passed:
+- `test_rides_page.py::test_rides_page_shows_the_total_of_listed_rides`
+- `test_rides_page.py::test_rides_page_shows_each_distance_rounded_half_up`
+- `test_store.py::test_lists_a_ride_28_days_back_inclusive`
+- `test_view_model.py::test_shows_a_whole_number_with_one_decimal`
+- `test_view_model.py::test_rounds_half_up`
+
+So the new tests do test the new behaviour. The temp worktree was removed afterwards and the working tree is unchanged.
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). Only change: `WINDOW_DAYS` goes from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance` (`Decimal(str(km))`, quantized to 0.1 with `ROUND_HALF_UP`), which `format_distance` now uses.
+- `rides/views.py`: expected (AC-3). `render_rides_page` gets a `Total:` line.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new): expected test files.
+
+No other files were touched, and nothing is committed.
+
+### Coordinator Checks
+- **Cutoff from `WINDOW_DAYS`, cutoff day listed:** met. `rides/store.py:9` sets `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` and line 10 keeps rides where `cutoff <= date <= today`. For Oct 28 the cutoff is Oct 1, so Oct 1 is listed and Sep 30 is not.
+- **`format_distance` rounds half up, both pages call it:** met. My own checks gave 12.25 → `12.3 km`, 12.34 → `12.3 km`, 5 → `5.0 km`, 2.675 → `2.7 km`, 1.15 → `1.2 km` and 0.1+0.2 → `0.3 km`. Going through `str()` avoids float rounding errors. The rides page calls it at `rides/views.py:9,12` and the today page at `rides/views.py:18`.
+- **Total built from what `list_rides` returns:** met. `rides/views.py:7` saves `listed = list_rides(...)`, and line 12 sums `listed` and passes the sum to `format_distance`. With the AC-3 data the total is 10.0 + 3.25 + 6.25 = `Total: 19.5 km`, and the Sep 30 ride is left out.
+- **Storage unchanged (non-goal):** met. Ride dicts and `km` values are not touched. Rounding only happens at display time and returns a string.
+
+### Scope Verification
+- AC-1: implemented, and pinned by `tests/test_store.py::test_lists_a_ride_28_days_back_inclusive`.
+- AC-2: implemented, and pinned by `test_formats_with_one_decimal`, `test_rounds_half_up` and `test_shows_a_whole_number_with_one_decimal`.
+- AC-3: implemented, and pinned by `tests/test_rides_page.py::test_rides_page_shows_the_total_of_listed_rides`.
+- No extra features.
+
+### Changes to Existing Tests (all justified)
+- `tests/test_view_model.py`: `test_keeps_a_whole_number_whole` (`5 km`) was renamed to `test_shows_a_whole_number_with_one_decimal` (`5.0 km`). AC-2 requires this, because the old expectation contradicts it.
+- `tests/test_store.py`: the existing tests now use a `ride()` helper. The data and assertions are the same, so this is only a tidy-up.
+
+### Issues Found
+One minor issue, not blocking:
+- `tests/test_store.py:17-19`: `test_omits_rides_from_long_ago` now uses Sep 30 instead of Aug 1. That repeats the exclusion already checked in `test_lists_a_ride_28_days_back_inclusive` (line 28-31), and it would pass with the old 27-day window too. Coverage is not weakened: the date filter is a simple range, so excluding Sep 30 means Aug 1 is excluded as well. If you want the old test to keep its original meaning, put Aug 1 back.
+
+### Recommendation
+**PASS**: go ahead and commit.

@@ -1,0 +1,31 @@
+## Verification Report: TRIAL-r01
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit code**: 0
+**Output**: `11 passed in 0.01s`
+
+**Red check**: I ran the current tests against the source code from the starting commit `96e60e3`. 5 tests failed and 6 passed. The failures were the AC-1 boundary test, the two AC-2 tests and both `test_rides_page.py` tests. So the new tests do catch the old behaviour, which matches the test-writer reports.
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` going from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance`, which rounds half up to one decimal, and `format_distance` now uses it.
+- `rides/views.py`: expected (AC-3). Adds the total line to `render_rides_page`.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new): expected test files.
+
+No other files were changed and nothing has been committed. There are no TODO, FIXME or debug `print` lines in `rides/`.
+
+### Scope Verification
+- **AC-1**: `list_rides` at `rides/store.py:9` still sets `cutoff = today - timedelta(days=WINDOW_DAYS - 1)`. On Oct 28 that cutoff is Oct 1, and the `cutoff <= date` check means a ride on Oct 1 is listed and one on Sep 30 is not. `test_lists_a_ride_28_days_back_inclusive` covers this.
+- **AC-2**: `format_distance` rounds half up to one decimal. Spot checks: 12.25 shows as `12.3 km`, 12.34 as `12.3 km`, 5 as `5.0 km`, 2.675 as `2.7 km` and 0.05 as `0.1 km`. It converts with `Decimal(str(km))`, so float rounding errors don't affect it. Both pages call it: `rides/views.py:9` and `:12` for the rides page, and `:18` for the today page.
+- **AC-3**: the total is built from `listed`, the list `list_rides` returns (`rides/views.py:7,12`), so the Sep 30 ride is left out. It is formatted with `format_distance`. The AC example renders `Total: 19.5 km`, and `test_rides_page_shows_the_total_of_listed_rides` checks it.
+- **Non-goal** (no change to how distance is stored): met. Rides are still `{"date", "km"}` dicts with float `km`, and the code reads values without changing them.
+
+### Issues Found (minor, not blocking)
+- `tests/test_store.py:17-19`: `test_omits_rides_from_long_ago` now uses Sep 30 instead of Aug 1. It passes on both the old and new code, and it repeats the Sep 30 check already in `test_lists_a_ride_28_days_back_inclusive`. As a result, a ride from long ago is no longer tested. This is a test-style point only.
+- `rides/views.py:12`: the total adds up the raw float values before rounding. That gives the right answer for the AC example. In rare cases, adding floats could land just below a .x5 value and round down. No AC covers this, so it is not a FAIL.
+
+### Recommendation
+**PASS**: AC-1, AC-2 and AC-3 are all met, all tests pass, and the changes stay within the task's scope. Proceed to commit.
