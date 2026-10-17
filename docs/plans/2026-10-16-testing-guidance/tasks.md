@@ -114,13 +114,29 @@ The plan follows the design's own method. Expected behavior is fixed first, a ha
 
 wb is markdown prompts plus small shell scripts and has no unit-test suite. The "tests" for this plan are three kinds of validation, all built in Phase 1 and all kept under `docs/plans/2026-10-16-testing-guidance/validation/`, never under `plugin/`:
 
-- **Static checks** (`validation/static-checks.sh`): no model; run after every task. Line counts must not grow from the base commit. Literal verdict markers must appear only in the verifier's own status line. Spawns must use the `wb:` prefix. Agent frontmatter must match D3, D8a, and D8b. The rubric must exist in a single source. The help drift check, both manifests at a matching version, lint zero-delta, and the "predates 5.0.0" fallback strings round out the 16 checks.
+- **Static checks** (`validation/static-checks.sh`): no model; run after every task. Line counts must not grow from the base commit. Literal verdict markers must appear only in the verifier's own status line. Spawns must use the `wb:` prefix. Agent frontmatter must match D3, D8a, and D8b. The rubric must exist in a single source. The help drift check, both manifests at a matching version, lint zero-delta, and the "predates 5.0.0" fallback strings, and the presence of prompt-audit reports round out the 17 checks.
 - **Headless fixture runs** (`validation/run-headless.sh`): `claude -p --plugin-dir` against scratch copies of the fixtures, following the `wb-headless-plugin-run-recipe` memory:
   - `Skill` is in `--allowedTools`.
   - Every intake answer is pre-supplied.
   - Only assistant lines are grepped, with `grep -E`.
   - Scratch copies live in an untracked directory inside the worktree and are deleted afterwards.
 - **Blind trials** for AC-5: fresh contexts get only the verbatim verifier text plus a synthesized fixture, never the expected answer. There are 3 trials per fixture, run first against the 4.0.0 verifier (red) and then against the new verifier (green).
+
+- **Prompt audit gate** (added at the user's request): every task that creates or meaningfully modifies prompt text runs the claude-api skill's `prompt-audit` subcommand on the files it touched, before closing its beads issue.
+  - **What counts as prompt text**: anything under `plugin/` that a model reads, meaning `SKILL.md` and its supporting files (`templates.md`, `sub-agent-prompts.md`, `reference.md`, `examples.md`), `plugin/agents/*.md`, the orientation text in `plugin/hooks/wb-prime.sh`, plus the repository `CLAUDE.md`.
+  - **What counts as meaningful**: a new file, or any change to instruction or behavior text. Purely mechanical edits are exempt: link or path fixes, renames, version strings, line counts, a help table row that only mirrors a stage's intake sentence. The exemption is stated in the task's close reason.
+  - **How to run it**: `/claude-api prompt-audit <the touched files>`.
+    - The scope is exactly the files the task touched.
+    - The target model is the model that reads the file: an agent's frontmatter `model` (test-writer → Sonnet 5.5; test-reviewer, test-auditor and task-verifier → Opus 5.5; task-worker → its per-spawn model, audited against Sonnet 5.5 as the default tier). A skill is audited against the session model, Opus 5.5.
+    - The audit is non-interactive and produces a report and a proposed diff. It applies nothing on its own.
+  - **Recording**: save the report to `validation/prompt-audits/<task-key>.md`, for example `phase4_impl_1.md`.
+  - **Handling findings**:
+    - Every **high- or medium-confidence** finding is either applied in the same task, or declined with a one-line reason in that report. A Group 2 conflict between instruction files must be resolved, not declined.
+    - **Low-confidence and `flag`** items are recorded only.
+    - The keep-list governs: context, tool contracts, load-bearing trigger text, and prohibitions against current failures stay.
+  - **Who checks**: the task-verifier for that task confirms the report exists and every high or medium finding has a disposition.
+  - **Applicable tasks**: phase2_impl_1, 2 and 3; phase3_impl_1 and 2; phase4_impl_1 to 4; phase5_impl_1 to 4; phase6_impl_1 to 4; phase7_integration_1 (the `CLAUDE.md` portion).
+  - **One extra audit at the end**: the Phase 7 gate also audits the whole changed prompt surface as one scope, to catch contradictions that only appear across files.
 
 Each phase's last task runs that phase's acceptance criteria. Because Phase 1 recorded each criterion failing first, a phase's validation task shows the change turned it green. That is the design's own "the outer test is red on an assertion before implementation" applied to wb itself.
 
@@ -210,6 +226,7 @@ Build the fixtures, scripts, and blind-trial set that judge the design's accepta
 14. If a bd command changed under `plugin/`, `docs/beads-guide.md` changed too.
 15. The "predates 5.0.0" fallback appears in create_tasks, implement, and implement_inline.
 16. No file under `plugin/` references `validation/`.
+17. Every task in the prompt-audit gate's applicable list that is closed in beads has a `validation/prompt-audits/<task-key>.md` report, or its close reason states the mechanical-edit exemption.
 
 **Pattern reference**: RELEASING.md:31 (verification gate); `plugin/scripts/lint` (script style, colored PASS/FAIL).
 
@@ -298,7 +315,7 @@ It is used for AC-7 stack detection and as a cheap smoke target for D8b detector
 
 #### Setup Tasks
 
-- **Write `validation/static-checks.sh`** with the 16 checks above. → `[beads:phase1_setup_1]`
+- **Write `validation/static-checks.sh`** with the 17 checks above. → `[beads:phase1_setup_1]`
   - Run it at this commit. Record which checks FAIL today (the red baseline) in `validation/baselines/static-4.0.0.txt`.
   - Projected about 30 tool calls.
 - **Build Fixture P and its variants** (`python-rides/`, `with-profile/`, `legacy/`, answers file) as specified in Changes Required 2. → `[beads:phase1_setup_2]`
@@ -1067,6 +1084,7 @@ Cite the evidence inline: the AC-5 tallies and the AC-6 results.
 #### 3. Full gate
 
 - `static-checks.sh` all PASS.
+- A whole-surface `/claude-api prompt-audit` over every prompt file changed since base commit `9020332` (`git diff --name-only 9020332 -- plugin/ CLAUDE.md`), target Opus 5.5. It catches contradictions that per-task audits can't see. High- and medium-confidence findings are applied or declined with a reason in `validation/prompt-audits/phase7-whole-surface.md`.
 - `claude plugin validate ./plugin`.
 - `claude plugin details` for context cost: four agents preload the rubric.
 - A `--plugin-dir` smoke session: the `/wb:` menu, `/wb:help`, and one intake.
