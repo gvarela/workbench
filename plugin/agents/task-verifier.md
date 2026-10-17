@@ -122,12 +122,14 @@ Read the test hunks of the diff as you do in Step 3; the findings from that read
 
 A passing test shows only that it runs. A planted defect shows that it protects the criterion. For each changed or added test that guards a cited criterion (the test-writer report names the criterion, or the test exercises it), plant one defect in a disposable copy. Never touch the working tree: the coordinator commits it as it stands once you pass.
 
-Bash calls do not share shell variables, so run each planted defect as a single Bash call. The `trap` removes the copy even when a step fails:
+Bash calls do not share shell variables, so run each planted defect as a single Bash call. The `trap` removes the copy even when a step fails or the call is interrupted:
 
 ```bash
 top=$(git rev-parse --show-toplevel) || exit 1
 tmp=$(mktemp -d) || exit 1
-trap 'git -C "$top" worktree remove --force "$tmp" 2>/dev/null; rm -rf "$tmp" "$tmp.patch"' EXIT
+cleanup() { git -C "$top" worktree remove --force "$tmp" 2>/dev/null; rm -rf "$tmp" "$tmp.patch"; }
+trap cleanup EXIT
+trap 'exit 130' INT TERM HUP   # a signal exits through the EXIT trap, so cleanup runs then too
 git -C "$top" worktree add --quiet --detach "$tmp" HEAD || exit 1
 git -C "$top" diff HEAD --binary > "$tmp.patch"   # the worker's uncommitted changes
 if [ -s "$tmp.patch" ]; then git -C "$tmp" apply "$tmp.patch" || exit 1; fi
