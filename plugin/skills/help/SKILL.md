@@ -99,7 +99,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | Stage | You provide | You decide | You confirm | How you know it did enough |
 | ----- | ----------- | ---------- | ----------- | -------------------------- |
 | `create_project` | the goal, what success looks like, non-goals (or prose that carries them); name, base directory, ticket | — | the intent as read back to you | README has an Intent section: a Goal, two to four success statements, non-goals; nothing was written before you confirmed |
-| `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references |
+| `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references; a Testing Conventions section records frameworks, commands, and harness |
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
 | `create_design` | the approach, when no decision record exists | the approach; the refined metrics | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
 | `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; Target State names the Intent-refining metrics |
@@ -216,7 +216,7 @@ Creates project structure with research.md, design.md, tasks.md.
 
 ### `/wb:create_research [directory]`
 
-Spawns parallel agents to document codebase. Facts only, no opinions.
+Spawns parallel agents to document codebase, including its testing conventions. Facts only, no opinions.
 
 ### `/wb:create_product_research [directory]`
 

@@ -14,7 +14,7 @@ orientation() {
 wb: structured development workflow. Orientation for this session.
 Stages, in order. Each stage reads the previous stage's document and stops if it is missing or not approved:
   /wb:create_project  -> docs/plans/<date>-<name>/ with README, research.md, design.md, tasks.md skeletons
-  /wb:create_research -> research.md: facts only, file:line references, no recommendations
+  /wb:create_research -> research.md: facts only (including testing conventions), file:line references, no recommendations
   /wb:explore_design  -> optional: think through trade-offs; records a decision in thoughts/ and a closed Decide: issue
   /wb:create_design   -> design.md: what to build and why; needs research.md complete
   /wb:create_tasks    -> tasks.md: phased plan plus the beads epic, milestones, and task issues; needs design.md approved
