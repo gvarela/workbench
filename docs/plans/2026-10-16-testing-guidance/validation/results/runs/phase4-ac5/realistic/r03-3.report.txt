@@ -1,0 +1,71 @@
+## Verification Report: TRIAL-r03
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...s.......                                                              [100%]
+10 passed, 1 skipped in 0.01s
+```
+The suite passes, but one of the 11 tests is skipped: `test_lists_a_ride_from_today`. The worker's "All 10 tests pass" leaves that out.
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` from 27 to 28 at line 4.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance` using `Decimal` with `ROUND_HALF_UP`, and `format_distance` calls it.
+- `rides/views.py`: expected (AC-3). Lines 7-13 build the total from `listed = list_rides(...)`.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+- Nothing is committed (HEAD is still `c5ff864`).
+
+### Scope Verification
+- AC-1: done. `list_rides` takes its cutoff from `WINDOW_DAYS` (`today - timedelta(days=WINDOW_DAYS - 1)`, `rides/store.py:9`), so Oct 1 is listed and Sep 30 is not when today is Oct 28.
+- AC-2: done. Half-up rounding to one decimal, and `5` shows as `5.0 km`. Both pages call `format_distance`: `rides/views.py:9` and `rides/views.py:18`.
+- AC-3: done. The total comes from the rides `list_rides` returns (`rides/views.py:12`), and the page shows `Total: 19.5 km`.
+- Non-goal: met. The ride dict shape and stored `km` are unchanged, and rounding happens only at display time.
+- No scope creep in the production code.
+
+### Test Integrity
+Findings: 3 (1 escalated)
+- Outer tests: not checked, because the task has no outer test or red commit.
+- Report coverage: one undeclared change, at `tests/test_store.py:14`.
+- `tests/test_store.py:14`: **escalated: yes.** `@pytest.mark.skip(reason="revisit after window change")` was added to `test_lists_a_ride_from_today`, which is at line 8 in `c5ff864`.
+  - Test-writer report 1 only says it "moved the existing tests onto a `ride()` helper". It does not mention the skip, so the skip is undeclared.
+  - The skip also switches off the only guard for "today included" in AC-1. Evidence (deterministic): I removed the skip in a disposable copy and the test passes on the current code (4 passed), so nothing needed skipping.
+- `tests/test_view_model.py:8-9`: the rename of `test_keeps_a_whole_number_whole` to `test_shows_a_whole_number_with_one_decimal`, now expecting `5.0 km`. Escalated: no. Report 2 declares it, and `5.0 km` comes from the AC-2 example.
+- `tests/test_store.py:10-11,21,26-27`: moving the tests onto the `ride()` helper. Escalated: no. Report 1 declares it, and the data and assertions are unchanged.
+- Expected values in all new tests come from the criterion examples (`12.3 km`, `5.0 km`, `Total: 19.5 km`, Oct 1 / Sep 30), not from the code under test.
+- `tests/test_rides_page.py:19-21` (`6.3 km` per-ride check): report 3 doesn't list it per test, but the file is declared and the expected value follows AC-2. Not escalated.
+
+### Criterion Check
+- **AC-1, part 1 (28-day edge).** Smallest regression: window back to 27 days. Caught by `tests/test_store.py:31-34`.
+  - Planted defect: `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable copy. The test failed on an assertion (`assert [] == [{... 'km': 6.0}]`). The two rides-page tests failed too.
+- **AC-1, part 2 ("today included").** Smallest regression: dropping today from the window. No active test catches it.
+  - Planted defect: `cutoff <= r["date"] <= today` changed to `< today` at `rides/store.py:10` in a disposable copy. The suite still passed (10 passed, 1 skipped), so no active test protects this part of AC-1.
+  - With the skip removed, `test_lists_a_ride_from_today` fails on this defect. So the skip at `tests/test_store.py:14` is exactly what leaves the gap.
+- **AC-2.** Smallest regression: banker's rounding (`ROUND_HALF_EVEN`). Caught by `tests/test_view_model.py:12-13` and `tests/test_rides_page.py:19-21`.
+  - Planted defect: `ROUND_HALF_EVEN` at `rides/view_model.py:8` in a disposable copy. Both tests failed (`'12.2 km' == '12.3 km'`, and `6.2 km` where `6.3 km` was expected).
+  - The one-decimal display of whole numbers is pinned by `tests/test_view_model.py:8-9`.
+- **AC-3.** Smallest regression: totalling every ride instead of the listed ones. Caught by `tests/test_rides_page.py:14-16`.
+  - Planted defect: `sum(... for r in rides)` at `rides/views.py:12` in a disposable copy. The test failed (it got `Total: 23.5 km`, expected `19.5 km`).
+
+### Issues Found
+1. **Critical (integrity and protection): a skipped guard and an undeclared change.** `tests/test_store.py:14` skips `test_lists_a_ride_from_today`.
+   - Breaks Part 1 item 3: the test is skipped, and its reason points to no real blocker.
+   - It is a test change that no test-writer report names.
+   - It leaves AC-1's "today included" unprotected, as the planted defect shows.
+2. **Minor, existing before this task, not escalated:** `tests/test_today_page.py:8` (`assert "x" not in body`) is a negative check with nothing confirming the page rendered first. No test checks the today page's distance format, though `rides/views.py:18` does call `format_distance`. Neither file was touched by this task, so this is a note only.
+
+### Recommendation
+- **FAIL**: the skip at `tests/test_store.py:14` was added without being declared, and it turns off the only test protecting "today included" in AC-1.
+  - Cause: implementation defect.
+  - Suggested fix: remove `@pytest.mark.skip(reason="revisit after window change")` from `tests/test_store.py:14`. Remove the `import pytest` at line 3 too, if nothing else uses it. The test passes on the current code as it is. If the skip was meant to stay, a test-writer run has to declare and justify it, but it shouldn't stay, because it is the only guard for that part of AC-1.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/tests/test_view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.eIIG0GtzNe/tests/test_rides_page.py

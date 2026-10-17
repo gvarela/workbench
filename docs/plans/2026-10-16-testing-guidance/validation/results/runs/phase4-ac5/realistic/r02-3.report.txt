@@ -1,0 +1,69 @@
+## Verification Report: TRIAL-r02
+
+### Status: FAIL
+
+All 11 tests pass, but the AC-3 test checks for a different total than AC-3 asks for. It expects `Total: 19.6 km` where the criterion says `Total: 19.5 km`. The test-writer changed that expected value after the code was written, so the value came from the code it is meant to check.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- Expected: `rides/store.py`: `WINDOW_DAYS` changed from 27 to 28 (AC-1).
+- Expected: `rides/view_model.py`: new `round_distance` (Decimal, `ROUND_HALF_UP`), and `format_distance` now uses it (AC-2).
+- Expected, but with a defect: `rides/views.py`: the total line (AC-3). Line 12 adds up the rounded distances, which conflicts with the criterion.
+- Expected: `tests/test_store.py`, `tests/test_view_model.py` and the new file `tests/test_rides_page.py`.
+- Nothing was committed (HEAD is still `d9ea95c`), and no files outside the task were touched.
+
+### Scope Verification
+- AC-1 is met. `list_rides` takes its cutoff from `WINDOW_DAYS` (`rides/store.py:9`, `today - (WINDOW_DAYS - 1)` days, which is Oct 1 when today is Oct 28), and the ride on the cutoff day is listed (`<=` at line 10).
+- AC-2 is met. `format_distance` rounds half up to one decimal and always shows one decimal place. Both pages call it: `rides/views.py:9` on the rides page and `rides/views.py:18` on the today page.
+- AC-3 is not met. The total does come from the rides `list_rides` returns (`rides/views.py:7,12`), but line 12 adds up each ride's rounded distance: 10.0 + 3.3 + 6.3 = 19.6. AC-3's example says that for these rides the page shows `Total: 19.5 km`, which is the total of the listed distances (10.0 + 3.25 + 6.25 = 19.5) rounded once. The page shows `Total: 19.6 km`.
+- Non-goal is respected. Nothing changes how distance is stored: `km` is still a float in the ride dict and the store's logic is untouched.
+- No scope creep. The `ride()` helper in `tests/test_store.py:8` is a test-only refactor, and test-writer report 1 declares it.
+
+### Test Integrity
+Findings: 4 (1 escalated)
+- Outer tests were not checked: no red commit was supplied, and the task says it has no outer test.
+- Report coverage: every changed test file is named in a test-writer report. Report 1 covers the `test_store.py` changes, including the move to the `ride()` helper. Report 2 covers the `test_view_model.py` rename and new test.
+- `tests/test_rides_page.py:16`: the expected total was changed from `19.5 km` to `19.6 km` after implementing (report 3 says so). The value now comes from the code's own output instead of the AC-3 example, and it contradicts that example. Escalated: yes.
+- `tests/test_view_model.py:8-9` (in `d9ea95c`, `test_keeps_a_whole_number_whole` expected `"5 km"`): renamed and now expects `"5.0 km"`. Escalated: no. AC-2 requires `5 km` to show as `5.0 km`, and report 2 declares the change.
+- `tests/test_rides_page.py:19-21` (`test_rides_page_shows_each_distance_rounded_half_up`): report 3 names the file but no per-test entries, so this test is not listed by name. Escalated: no. The file is declared and the expected `6.3 km` comes from AC-2's half-up rule. The re-run report should list it by name.
+- `tests/test_store.py:12-25`: the existing tests moved onto the `ride()` helper. Escalated: no. The assertions are unchanged, report 1 declares the move, and the full suite passes.
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is the window being one day short (`WINDOW_DAYS = 27`). `tests/test_store.py:31` catches it.
+  - Planted defect: set `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable copy. The test failed on its assertion: `Right contains one more item: {'date': datetime.date(2026, 10, 1), 'km': 6.0}`.
+- **AC-2**: the smallest realistic regression is banker's rounding (half even). `tests/test_view_model.py:13` catches it, and so do `tests/test_rides_page.py:16,21`. The whole-number case is pinned at `tests/test_view_model.py:9`, and 12.34 at `tests/test_view_model.py:5`.
+  - Planted defect: changed `ROUND_HALF_UP` to `ROUND_HALF_EVEN` at `rides/view_model.py:7` in a disposable copy. All three tests failed on assertions (`12.2 km`, `6.2 km`, `Total: 19.4 km`).
+- **AC-3**: the smallest realistic regression is a total that includes rides outside the window. `tests/test_rides_page.py:16` catches it, but the value it expects is wrong.
+  - Planted defect: summed over `rides` instead of `listed` at `rides/views.py:12` in a disposable copy. The test failed (`Total: 23.6 km`), so it does detect that kind of break.
+  - Second check: changed `rides/views.py:12` in a disposable copy to `format_distance(sum(r["km"] for r in listed))`, which matches the criterion as written. The page then showed `Total: 19.5 km`, exactly what AC-3 expects, and `tests/test_rides_page.py:16` failed on it. Code that meets the criterion fails this test, so as written the test guards the implementation's behaviour rather than the criterion.
+
+All disposable copies were removed. `git worktree list` shows only the main tree, and the working tree is unchanged.
+
+### Issues Found
+1. **Critical**: `tests/test_rides_page.py:16` expects `Total: 19.6 km`, which contradicts AC-3's `Total: 19.5 km`. The value was taken from the code after implementing (test-writer report 3). This is a test that does not protect its criterion, so it fails the task no matter how the coordinator weighs minor issues.
+2. **Critical**: `rides/views.py:12` adds up the rounded distances (`sum(round_distance(r["km"]) ...)`), so the page shows `Total: 19.6 km` for the AC-3 example instead of `19.5 km`.
+3. **Minor**: test-writer report 3 does not name `test_rides_page_shows_each_distance_rounded_half_up` (`tests/test_rides_page.py:19`).
+
+### Recommendation
+- **FAIL**: AC-3 is not met, and its test was changed to match the code instead of the criterion.
+  - Cause: implementation defect. AC-3 is clear: its example gives exact inputs and `Total: 19.5 km`, and code that does this exists (shown by the second check above). The test-writer's argument that the total should equal the sum of the distances shown is a change to the criterion. If the plan's authors want that behaviour, they have to change AC-3; the test can't decide it.
+  - Suggested fix:
+    - Have the test-writer set `tests/test_rides_page.py:16` back to `'<p class="total">Total: 19.5 km</p>'` and list both tests in the report.
+    - Change `rides/views.py:12` to `total = format_distance(sum(r["km"] for r in listed))`, which removes the need to import `round_distance` there.
+    - Then re-run `python3 -m pytest -q`.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/tests/test_rides_page.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.nfevNMyYJO/tests/test_view_model.py

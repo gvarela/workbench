@@ -1,0 +1,68 @@
+## Verification Report: TRIAL-r08
+
+### Status: FAIL
+
+The new code is correct and all 11 tests pass. The task fails anyway because one existing test was changed so it no longer checks anything, and no test-writer report declared that change.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. `WINDOW_DAYS` changed from 27 to 28 at line 4; the cutoff at line 9 is `today - timedelta(days=WINDOW_DAYS - 1)`.
+- `rides/view_model.py`: expected. Adds `round_distance` (Decimal, `ROUND_HALF_UP`), and `format_distance` uses it.
+- `rides/views.py`: expected. Line 12 adds the total, summed over `listed`, the result of `list_rides`.
+- `tests/test_store.py`: expected file, but it contains the undeclared weakening described below.
+- `tests/test_view_model.py`: expected.
+- `tests/test_rides_page.py` (new, untracked): expected.
+
+### Scope Verification
+- AC-1: done. The ride on the cutoff day (Oct 1) is listed and Sep 30 is not, and the cutoff comes from `WINDOW_DAYS`.
+- AC-2: done. `format_distance` rounds half up and always shows one decimal. Both pages call it: `rides/views.py:9`, `:12` and `:18`.
+- AC-3: done. The total is built from `listed`. The raw kilometres are summed, which gives the criterion's `19.5 km` (summing the rounded values would give 19.6).
+- Non-goal (how distance is stored): kept. The ride dict shape and the store are unchanged apart from the constant.
+- Nothing outside the task was added. No TODO, FIXME or debug prints were left behind.
+
+### Test Integrity
+Findings: 3 (1 escalated)
+- **Outer tests**: not checked. The task has no outer test and no red commit.
+- **Report coverage**: one undeclared change, at `tests/test_store.py:25`.
+- **`tests/test_store.py:25` (`test_lists_newest_first`)**: escalated: yes.
+  - At the starting commit (`git show 6c28d1d:tests/test_store.py`, line 21) the test asserted `list_rides([older, newer], TODAY) == [newer, older]`.
+  - It now sorts the output oldest-first before comparing: `sorted(list_rides(...), key=lambda r: r["date"]) == [older, newer]`.
+  - So the test no longer checks order at all, even though its name still says "newest first".
+  - Test-writer report 1 declares only "moved the existing tests onto a `ride()` helper". Changing the assertion goes beyond that, so the change is both undeclared and a loosened assertion.
+  - Evidence (deterministic: diff plus planted defect): flipping `reverse=True` to `reverse=False` at `rides/store.py:11` left all 11 tests passing.
+- **`tests/test_rides_page.py:19` (`test_rides_page_shows_each_distance_rounded_half_up`)**: escalated: no.
+  - Report 3 names the file but has no per-test entry or Pins for this test.
+  - Cleared because the test is new and only adds coverage, its file is declared, and it caught the half-even defect below. The report should still be amended to list it.
+- **`tests/test_today_page.py:8`**: escalated: no.
+  - It asserts `"x" not in body` with no positive anchor, on an empty ride list.
+  - This test existed before the task and the task did not change it, so it is noted for review only.
+
+### Criterion Check
+- **AC-1**: smallest realistic regression: an off-by-one in the window (`WINDOW_DAYS = 27`). Caught by `tests/test_store.py:28-31`.
+  - Planted defect: `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable worktree. The test failed with `assert [] == [{'date': ..., 'km': 6.0}]`.
+- **AC-2**: smallest realistic regression: half-even rounding instead of half-up. Caught by `tests/test_view_model.py:12-13`, and also by `tests/test_rides_page.py:19-21`.
+  - Planted defect: `ROUND_HALF_EVEN` at `rides/view_model.py:8`, in a disposable worktree. Both tests failed on assertions.
+  - The other two examples, `12.3 km` for 12.34 and `5.0 km` for 5, are pinned at `tests/test_view_model.py:5` and `:9`. All expected values are literals taken from the criterion.
+- **AC-3**: smallest realistic regression: summing every ride instead of the listed ones. Caught by `tests/test_rides_page.py:14-16`.
+  - Planted defect: `sum(r["km"] for r in rides)` at `rides/views.py:12`, in a disposable worktree. The test failed on its assertion.
+- **Existing ordering behaviour (newest first, `list_rides`)**: not an AC of this task, but its guard was edited in this task.
+  - Planted defect: `reverse=False` at `rides/store.py:11`. No test failed, so the ordering is now unprotected.
+
+All the disposable worktrees were removed afterwards. The working tree is unchanged: `git worktree list` shows only the main checkout.
+
+### Issues Found
+1. **Critical (integrity and protection)**: `tests/test_store.py:25`. The `test_lists_newest_first` assertion was loosened by sorting the output before comparing. It was undeclared and now misses the order-reversal defect.
+2. **Minor (report completeness)**: test-writer report 3 does not list `test_rides_page_shows_each_distance_rounded_half_up` (`tests/test_rides_page.py:19`).
+
+### Recommendation
+- **FAIL**: an existing test was weakened without being declared, and as a result newest-first ordering is no longer protected.
+  - Cause: implementation defect.
+  - Suggested fix: have the test-writer put back the original assertion at `tests/test_store.py:25`, keeping the helper: `assert list_rides([older, newer], TODAY) == [newer, older]`. Re-run `python3 -m pytest -q`. Also update report 3 to list the per-ride distance test. The production code needs no changes.

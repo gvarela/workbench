@@ -1,0 +1,41 @@
+## Verification Report: TRIAL-t02
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. The task asked for this change: line 4, `WINDOW_DAYS = 27` became `WINDOW_DAYS = 28`.
+- `tests/test_store.py`: expected. This is the new inner test for AC-1, at lines 24-27.
+- There are no untracked files and nothing is committed beyond the base `842a892`.
+
+### Scope Verification
+- Window widened by one day: done. `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` (`rides/store.py:9`) now gives Oct 1 when today is Oct 28, matching AC-1.
+- No scope creep. The diff is one constant and one added test. `WINDOW_DAYS` is used only in `rides/store.py:9`, and `load_series` does not use it. `rides/views.py:9` calls `list_rides`, and its tests still pass.
+- Sanity check: there are no TODO, FIXME or debug prints in the changed files, and the imports resolve because the suite runs.
+
+### Test Integrity
+Findings: 0 (0 escalated)
+- Outer tests: not checked. The task has no outer test and no red commit was supplied.
+- Report coverage: every test change matches a test-writer report. `git diff 842a892` shows only additions in `tests/test_store.py:22-27`, the single test declared in test-writer report 1 (AC-1). The three earlier tests (lines 8-21) are unchanged, which matches "Changes to earlier tests: none".
+- `tests/test_store.py:24-27` passes the Part 1 questions. It asserts on what `list_rides` returns, the assertion is not always true, and the test is not skipped. Because it checks for equality with `[on_edge]`, the exclusion of Sep 30 is tied to a positive check that Oct 1 is present. The expected values are the literal dates from the AC-1 example, not computed by production code. `TODAY` is the fixed date Oct 28, 2026 (`tests/test_store.py:5`), so the test does not depend on the wall clock. It runs at the level AC-1 gives (`list_rides`).
+
+### Criterion Check
+- AC-1: the smallest realistic regression is a window one day short (`WINDOW_DAYS = 27`), which drops Oct 1. `tests/test_store.py:27` catches it.
+  - Planted defect 1: `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable copy. The test failed on an assertion: `assert [] == [{'date': ...(2026, 10, 1), 'km': 6.0}]`.
+  - Planted defect 2: `WINDOW_DAYS = 29` at `rides/store.py:4` (the other edge). The test failed on an assertion: Sep 30 was included.
+  - Planted defect 3: `cutoff <= r["date"]` changed to `cutoff < r["date"]` at `rides/store.py:10`. The test failed on an assertion: Oct 1 was dropped.
+  - Each time, the other 3 tests still passed, so this new test is the only one guarding the boundary. Each copy was a plain copy without `.git`, removed after the run. The working tree was not touched.
+
+### Issues Found
+None.
+
+### Recommendation
+- **PASS**: proceed to the next task. The working tree (`/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.3W8DlsszHU/rides/store.py`, `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.3W8DlsszHU/tests/test_store.py`) is ready to commit as it stands.

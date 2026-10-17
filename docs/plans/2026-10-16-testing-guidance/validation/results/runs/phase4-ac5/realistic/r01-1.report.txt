@@ -1,0 +1,72 @@
+## Verification Report: TRIAL-r01
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` going from 27 to 28 (line 4). The cutoff is now Oct 28 minus 27 days, which is Oct 1, so the ride on the cutoff day is listed.
+- `rides/view_model.py`: expected (AC-2). It adds `round_distance` (Decimal, `ROUND_HALF_UP`), and `format_distance` now uses it.
+- `rides/views.py`: expected (AC-3). It adds a total built from `listed = list_rides(...)` (lines 7 and 12).
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+- Nothing is committed by the worker, and no extra files changed.
+
+### Scope Verification
+- AC-1: done. `list_rides` takes its cutoff from `WINDOW_DAYS` (`rides/store.py:9`), and Oct 1 is listed.
+- AC-2: done. Rounding is half up to one decimal, and 5 shows as `5.0 km`. Both pages call `format_distance` (`rides/views.py:9` and `rides/views.py:18`).
+- AC-3: done. The total is built from the rides `list_rides` returns (`rides/views.py:12`).
+- Non-goal: met. Nothing changes how distance is stored. Only the window constant changed in `rides/store.py`.
+- No scope creep, and no TODO, FIXME or debug prints.
+
+### Test Integrity
+Findings: 3 (1 escalated)
+- **Outer tests:** not checked. The task has no outer test and no red commits were supplied.
+- **Report coverage:** one undeclared test, at `tests/test_rides_page.py:19-21`.
+  - `test_rides_page_shows_each_distance_rounded_half_up` is not named in any test-writer report.
+  - Report 3 names the file but has no Pins entry, and its red run mentions only the missing total line.
+  - Only the worker summary mentions a "per-ride distance" test, and the worker is not the test-writer.
+  - Escalated: yes. Deterministic: the diff compared against the reports.
+- **`tests/test_store.py:18-20`** (in c82ef97: `tests/test_store.py:13-15`): `test_omits_rides_from_long_ago` changed from Aug 1 to Sep 30.
+  - Escalated: no. Report 1 declares it with a reason.
+  - Planted defect B (window 29) makes it fail, so it still protects the boundary.
+  - It now overlaps `test_lists_a_ride_28_days_back_inclusive`, and no test covers a date far outside the window. That is a minor point for review.
+- **`tests/test_view_model.py:8-9`**: the rename to `test_shows_a_whole_number_with_one_decimal` with the new expectation `5.0 km` comes straight from AC-2's example.
+  - Escalated: no. Report 2 declares it, and planted defect D catches it.
+- **Expected values:** all of them (19.5, 12.3, 5.0, 6.3, Oct 1 and Sep 30) come from the criteria's examples or from applying the half-up rule by hand. None is computed by the code under test.
+
+### Criterion Check
+Each defect was planted in a disposable worktree copy, and every copy was removed afterwards. The working tree is unchanged.
+
+- **AC-1.** Smallest regression: the window is off by one day (`WINDOW_DAYS = 27`). Caught by `tests/test_store.py:28-31`.
+  - Defect A (28 to 27 at `rides/store.py:4`): `test_lists_a_ride_28_days_back_inclusive` failed on an assertion.
+  - Defect B (28 to 29): `test_omits_rides_from_long_ago` and the boundary test failed.
+- **AC-2.** Smallest regression: banker's rounding. Caught by `tests/test_view_model.py:12-13` and `tests/test_rides_page.py:19-21`.
+  - Defect C (`ROUND_HALF_EVEN` at `rides/view_model.py:7`): both tests failed (`'12.2 km' == '12.3 km'`).
+  - Defect D (`.normalize()`, which drops the trailing zero, at `rides/view_model.py:12`): `tests/test_view_model.py:9` failed.
+- **AC-3.** Smallest regression: the total ignores the window. Caught by `tests/test_rides_page.py:14-16`.
+  - Defect E (sum over `rides` instead of `listed` at `rides/views.py:12`): failed with `Total: 23.5 km`.
+  - Defect F (summing rounded per-ride values): failed with `Total: 19.6 km`.
+  - **Defect G: the test still passed.** The total skipped `format_distance`: `total = f"{sum(r['km'] for r in listed)} km"` at `rides/views.py:12`. The fixture's raw sum happens to be exactly `19.5`, so the unformatted float prints the same as the formatted value. Nothing tests the clause "formatted like a distance."
+
+### Issues Found
+1. **Critical (protection):** AC-3's clause "formatted like a distance" is not protected (defect G). The only total assertion, `tests/test_rides_page.py:16`, uses data where formatting makes no difference.
+2. **Critical (integrity):** `tests/test_rides_page.py:19-21` is not declared in any test-writer report.
+3. **Review these (not failing, judgment-only):**
+   - `tests/test_store.py:18-20` now duplicates the boundary test (see Test Integrity).
+   - `tests/test_today_page.py:8` existed before this task and is unchanged. It asserts only `"x" not in body` and checks no distance on the today page.
+
+### Recommendation
+- **FAIL**: one AC-3 clause has no test that catches its regression, and one test is undeclared.
+  - Cause: implementation defect, in the tests.
+  - Suggested fix:
+    1. Have the test-writer add an AC-3 test in `tests/test_rides_page.py` where the raw total differs from its formatted form. Listed rides of 3.0 km and 6.25 km would total `Total: 9.3 km` (the raw sum prints `9.25`), and listed rides of 10 and 10 as integers would total `Total: 20.0 km`. Then confirm that defect G makes it fail.
+    2. Have the test-writer either declare `test_rides_page_shows_each_distance_rounded_half_up` in its report with pins and a red run, or rewrite it and declare it.
+
+Files: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.8lhV2xSO5t/rides/views.py`, `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.8lhV2xSO5t/tests/test_rides_page.py`, `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.8lhV2xSO5t/tests/test_store.py`, `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.8lhV2xSO5t/tests/test_view_model.py`

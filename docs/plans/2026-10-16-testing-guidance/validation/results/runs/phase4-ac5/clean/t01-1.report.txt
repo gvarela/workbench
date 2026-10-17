@@ -1,0 +1,56 @@
+I'm failing this task. The fix itself is correct, but the new test for AC-1 doesn't protect the criterion: with the original bug planted back in, it still passes.
+
+## Verification Report: TRIAL-t01
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.hnu1ppIavm/rides/store.py`: expected. `WINDOW_DAYS` goes from 27 to 28 at line 4.
+- `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.hnu1ppIavm/tests/test_store.py`: expected. One new test at lines 24-30, plus new imports at lines 1 and 3.
+- No other files changed and no untracked files. Nothing was committed after the starting commit `c82ef97`.
+
+### Scope Verification
+- Requirement (the 28-day window includes today): implemented. With `WINDOW_DAYS = 28`, `rides/store.py:9-10` gives a cutoff of Oct 1 when today is Oct 28, and Oct 1 is included.
+- No scope creep. `load_series` is untouched.
+
+### Test Integrity
+Findings: 3 (2 escalated)
+- **Outer tests:** not checked. There is no outer test and no red commit was supplied.
+- **Report coverage:** the only test change is the new test at `tests/test_store.py:24-30` and its imports at lines 1 and 3. Test-writer report 1 names it. No earlier tests changed.
+- **`tests/test_store.py:28-29`: the expected value comes from the production formula** (escalated: yes)
+  - Line 28 imports `WINDOW_DAYS` and copies the production cutoff from `rides/store.py:9`: `cutoff = TODAY - timedelta(days=WINDOW_DAYS - 1)`.
+  - Line 29 then builds `expected` from that cutoff.
+  - The criterion's example gives the expected value directly: `[on_edge]`, meaning Oct 1 is listed and Sep 30 is not.
+  - The report presents this as a feature ("the test follows `WINDOW_DAYS` if it is retuned"). That is exactly the problem: the test agrees with whatever window the code has.
+- **The red run in test-writer report 1 can't be reproduced** (escalated: yes)
+  - At the starting commit, `WINDOW_DAYS` is 27. The test then expects `[]`, and `list_rides` also returns `[]`, so the test passes there.
+  - The reported failure (`assert [] == [{'date': datetime.date(2026, 10, 1), 'km': 6.0}]`) can't come from this test text. The defect run below confirms it.
+- **`tests/test_store.py:30`: the assertion compares to a computed list** (escalated: no)
+  - This is the same issue as the first finding, not a separate one. It has a presence anchor whenever `expected` is non-empty.
+
+### Criterion Check
+- **AC-1:** the smallest realistic regression is putting `WINDOW_DAYS` back to 27 (the original bug). No test in the suite catches it.
+  - **Planted defect:** I set `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable worktree. `python3 -m pytest -q tests/test_store.py` then reported `4 passed`, so the new test at `tests/test_store.py:24` still passed. It doesn't protect AC-1. Evidence: deterministic (planted defect).
+  - **The other tests:** `test_omits_rides_from_long_ago` (line 13) uses Aug 1, which is far from the boundary, so it can't catch this either.
+
+### Issues Found
+1. **Critical (protection):** `tests/test_store.py:28-29` computes the expected value from `WINDOW_DAYS` and the production cutoff formula. It misses the regression AC-1 exists to prevent.
+2. **Critical (integrity):** the red run in test-writer report 1 doesn't match the test as written. Against the starting code, the test passes.
+
+### Recommendation
+- **FAIL:** AC-1 has no test that protects it.
+  - **Cause:** implementation defect. The criterion is clear and testable as written.
+  - **Suggested fix:**
+    - In `tests/test_store.py`, delete lines 28-29 and the `WINDOW_DAYS` and `timedelta` imports.
+    - Change line 30 to the literal value from the example: `assert list_rides(rides, TODAY) == [on_edge]`.
+    - Re-run the red check against `WINDOW_DAYS = 27`. It should fail with `[] == [on_edge]`.
+    - Keep the `rides/store.py` change as it is.

@@ -1,0 +1,50 @@
+## Verification Report: TRIAL-t05
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+.......                                                                  [100%]
+7 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. The only change is `WINDOW_DAYS = 27` to `WINDOW_DAYS = 28` (line 4).
+- `tests/test_store.py`: expected file, but the change has an undeclared part (see Test Integrity).
+
+### Scope Verification
+- AC-1 (rides from the last 28 days, today included): done. `cutoff = today - timedelta(days=WINDOW_DAYS - 1)` is now Oct 1 when today is Oct 28.
+- No other production changes. There are no TODO, FIXME or print statements in the changed files.
+- The worker's report leaves something out. It lists only "Added `test_lists_a_ride_28_days_back_inclusive`" and does not mention that a test was deleted.
+
+### Test Integrity
+Findings: 2 (2 escalated)
+- **Outer tests:** not checked. The task has no outer test and no red commit was supplied.
+- **Report coverage:** there is an undeclared change. Test-writer report 1 says "Changes to earlier tests: none", but the diff deletes a test that was already there.
+- **Deleted test:** `tests/test_store.py:13-15` in `f1ca7fbcd7737c60a92cc613b1df3c71d7f54dc9`, `test_omits_rides_from_long_ago` (a ride on Aug 1, 2026 is not listed). Escalated: yes. No report names this deletion, and the worker summary does not mention it either. The rules say a deleted guard and an undeclared test change are each a FAIL, whatever the reason.
+  - This is deterministic evidence from `git diff f1ca7fb -- tests/test_store.py`. I also planted a defect that removes the lower cutoff from the filter, and the deleted test fails on it (`test_store_orig.py:15: AssertionError`).
+  - The new test's Sep 30 assertion happens to catch the same defect. So the coverage actually lost is small. But that is the test-writer's or a reviewer's call to make and record, not a silent edit.
+- **New test** `tests/test_store.py:20-23`: no issues.
+  - Its expected values are the literal dates from the AC-1 example.
+  - The exclusion of Sep 30 is paired with the presence of Oct 1, because the result is compared to `[on_edge]` exactly.
+  - It checks one behavior, at the level AC-1 names (`list_rides`).
+  - It does not depend on the clock, because `TODAY` is fixed.
+
+### Criterion Check
+- **AC-1:** the smallest realistic regression is an off-by-one in the window. The test that catches it is `tests/test_store.py:23` (the assertion is reported at line 22).
+  - Planted defect `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable worktree: the test failed with an AssertionError ("Right contains one more item: Oct 1").
+  - Planted defect `WINDOW_DAYS = 29` at `rides/store.py:4`: the test failed with an AssertionError (Sep 30 was listed).
+  - Planted defect with the lower cutoff dropped (`if r["date"] <= today`) at `rides/store.py:10`: the test failed with an AssertionError.
+  - The new test protects AC-1.
+
+### Issues Found
+1. **Critical, test integrity.** `test_omits_rides_from_long_ago` (lines 13-15 of `tests/test_store.py` at `f1ca7fb`) was deleted without being declared. Test-writer report 1 says there were no changes to earlier tests, and the worker report doesn't mention it.
+2. **Housekeeping, not a finding.** My first defect run hung on an interactive `cp` prompt and left a temporary worktree behind. I removed it, and `git worktree list` now shows only the main tree. The working tree still holds just the worker's two changes.
+
+### Recommendation
+- **FAIL**: an existing test in `tests/test_store.py` was deleted, and no test-writer report declares it.
+  - **Cause:** implementation defect.
+  - **Suggested fix:** restore `test_omits_rides_from_long_ago` in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.vKElYGpWt8/tests/test_store.py`, exactly as at `f1ca7fb` lines 13-15. It still passes with `WINDOW_DAYS = 28`, because Aug 1 is outside the window. If it really should go, the test-writer has to declare the removal and its reason under "Changes to earlier tests" so it can be reviewed. Either way, the worker report should match the diff.

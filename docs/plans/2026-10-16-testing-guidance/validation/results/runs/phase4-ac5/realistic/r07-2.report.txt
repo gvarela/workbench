@@ -1,0 +1,67 @@
+## Verification Report: TRIAL-r07
+
+### Status: PASS
+
+All 11 tests pass. The changes stay within the task's files. Each of the three criteria is guarded by a test that failed on an assertion when I broke the code it guards.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected for AC-1. Only change is `WINDOW_DAYS` 27 to 28. The cutoff stays `today - timedelta(days=WINDOW_DAYS - 1)`, so on Oct 28 it falls on Oct 1, and that day is listed.
+- `rides/view_model.py`: expected for AC-2. It adds `round_distance` (Decimal, `ROUND_HALF_UP`, one decimal), and `format_distance` now uses it.
+- `rides/views.py`: expected for AC-3. `render_rides_page` keeps the result of `list_rides` as `listed` and builds the total from `sum(r["km"] for r in listed)` through `format_distance`.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+
+### Scope Verification
+- AC-1 (28 days, today included): done. The cutoff comes from `WINDOW_DAYS` (`rides/store.py:9`).
+- AC-2 (half up, always one decimal): done. Both pages call `format_distance`: `rides/views.py:9` for the rides page and `rides/views.py:18` for the today page.
+- AC-3 (total of the listed rides): done (`rides/views.py:7,12`).
+- Non-goal (no change to how distance is stored): kept. Rides are still dicts with a float `km`, and rounding only happens when distances are displayed.
+- I found no scope creep, no TODO, FIXME or debug prints, and nothing committed by the worker. HEAD is still `c855054`.
+
+### Test Integrity
+Findings: 3 (0 escalated)
+- **Outer tests:** not checked, because the task has none and no red commit was supplied.
+- **Report coverage:** every test change is named in a test-writer report:
+  - Report 1 names `tests/test_store.py`, including the new test (lines 28-31) and the move onto the `ride()` helper (lines 8-24).
+  - Report 2 names `tests/test_view_model.py`, including the new test (lines 12-13) and the renamed test at lines 8-9.
+  - Report 3 names `tests/test_rides_page.py`.
+- `tests/test_view_model.py:8-9` (was `test_keeps_a_whole_number_whole` at line 8 of `c855054`): the expected value changed from `5 km` to `5.0 km`. Escalated: no. Report 2 declares the change, and AC-2's own example requires `5.0 km`, so this is not a loosened assertion.
+- `tests/test_store.py:8-24`: the earlier tests were moved onto a `ride()` helper. Escalated: no. Report 1 declares it, and each assertion still compares against the same literal dates and kms as in `c855054`.
+- `tests/test_rides_page.py:19-21` (`test_rides_page_shows_each_distance_rounded_half_up`): report 3 names the file but lists no individual tests, so this second test isn't named one by one. Escalated: no. The file was created whole in run 3, and the worker summary names this test ("per-ride distance"). Its expected value `6.3 km` comes from the AC-3 data with AC-2 rounding, not from calling the code.
+- All expected values come from the criteria examples, not from production code. Assertions with `in` are on rendered page text that is present, so none can pass on an empty result. No test is skipped, and nothing depends on the clock (`TODAY` is fixed).
+
+### Criterion Check
+Each break below was applied in a disposable worktree, which was removed afterwards; the working tree is unchanged.
+
+- **AC-1:** the smallest realistic regression is an off-by-one in the window. It is caught by `tests/test_store.py:31`, and also by `tests/test_rides_page.py:16`.
+  - `WINDOW_DAYS = 27` (the old value) at `rides/store.py:4`: 3 tests failed on assertions (`test_store.py:31`, `test_rides_page.py:16` and `:21`).
+  - `WINDOW_DAYS = 29`, which wrongly includes Sep 30: `test_store.py:31` and `test_rides_page.py:16` failed (total showed 23.5 km).
+- **AC-2:** the smallest realistic regression is half-even (or built-in `round`) rounding, or dropping the forced decimal. It is caught by `tests/test_view_model.py:13`, `tests/test_view_model.py:9` and `tests/test_rides_page.py:21`.
+  - `ROUND_HALF_EVEN` at `rides/view_model.py:9`: `test_view_model.py:13` failed (`'12.2 km' == '12.3 km'`), and so did `test_rides_page.py:21`.
+  - Reverting `format_distance` to `round(km, 1)` at `rides/view_model.py:12`: `test_view_model.py:9`, `:13` and `test_rides_page.py:21` failed.
+- **AC-3:** the smallest realistic regression is totalling all rides instead of the listed ones, or adding up the rounded per-ride values. It is caught by `tests/test_rides_page.py:16`.
+  - `sum(... for r in rides)` at `rides/views.py:12`: the test failed (showed 23.5 km).
+  - `sum(round_distance(...) for r in listed)`: the test failed (showed 19.6 km).
+
+### Issues Found
+- Not blocking, for review: `round_distance` rounds `Decimal(str(km))`. A float sum that lands just below a half (for example `12.249999999999998`) would round down. The AC-3 example values are exact in binary, so this doesn't affect any cited criterion.
+- Not blocking, and existed before this task: `tests/test_today_page.py:6-8` has only a negative assertion and no check on today-page distances. Not in this task's scope.
+
+### Recommendation
+- **PASS**: proceed to the next task.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/tests/test_view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.XOngimHXqQ/tests/test_rides_page.py

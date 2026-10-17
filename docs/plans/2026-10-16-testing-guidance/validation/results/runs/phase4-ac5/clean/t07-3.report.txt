@@ -1,0 +1,52 @@
+## Verification Report: TRIAL-t07
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. The only change is `WINDOW_DAYS` going from 27 to 28 at line 4.
+- `tests/test_store.py`: expected. One test was added and one earlier test was updated.
+- There are no untracked files. `git diff 943e113 --stat` shows only these two files, and HEAD is still the starting commit, so the worker committed nothing.
+
+### Scope Verification
+- AC-1 is met. The cutoff is `today - (WINDOW_DAYS - 1)`, so on Oct 28 it is now Oct 1. Oct 1 is listed and Sep 30 is not.
+- No scope creep. `load_series`, `rides/views.py` and the other modules are untouched.
+- There are no TODO, FIXME or debug prints in the changed files.
+
+### Test Integrity
+Findings: 2 (0 escalated)
+- **Outer tests**: not checked. The task says there are no outer tests and no red commit.
+- **Report coverage**: every test change matches the test-writer report.
+  - The new `test_lists_a_ride_28_days_back_inclusive` (`/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.JumS6jCDI1/tests/test_store.py:24-27`) matches the report entry "Pins".
+  - The change to `test_omits_rides_from_long_ago` at `tests/test_store.py:14` matches the entry "Changes to earlier tests".
+- **Finding 1, `tests/test_store.py:14`**: the old-ride date in `test_omits_rides_from_long_ago` moved from Aug 1 to Sep 30. Escalated: no.
+  - The report declares the change and gives a reason, and Sep 30 is the AC-1 example date.
+  - The change makes the test stronger, not weaker. With a planted 29-day window the test now fails at line 15. With Aug 1 it would have passed.
+- **Finding 2, `tests/test_store.py:15`**: `assert list_rides([old], TODAY) == []` makes a "nothing listed" claim with no positive check in the same test, so it would pass if `list_rides` always returned an empty list. Escalated: no.
+  - The assertion has the same shape as in the starting commit; this task did not add it.
+  - The positive check for the same boundary is at `tests/test_store.py:27`, where Oct 1 must be listed alongside Sep 30.
+  - Planted defect (deterministic): I set `WINDOW_DAYS = 0` so nothing is listed. Line 15 still passed, but the suite failed at `:10`, `:21` and `:27`.
+  - Worth reviewing, but it does not fail this task.
+- Expected values in both changed tests are literal dates from the AC-1 example, not computed by the code under test. Nothing reads the wall clock (`TODAY` is fixed at `tests/test_store.py:5`), no tests are skipped, and doubles are not used.
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is the original bug, a window one day short, which drops Oct 1. `tests/test_store.py:27` catches it.
+  - Planted defect 1: `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable worktree. The test failed at line 27 with `assert [] == [{'date': ... 10, 1 ..., 'km': 6.0}]`.
+  - Planted defect 2: a strict lower bound, `cutoff < r["date"]` at `rides/store.py:10`. The test failed at line 27.
+  - Planted defect 3: a window one day too wide, `WINDOW_DAYS = 29`, which lets Sep 30 in. The test failed at line 27, and line 15 failed too.
+- The test calls `list_rides` directly, which is the level the criterion's "Observed at" names.
+- There was no Testing Conventions section in research and no `.claude/wb/testing.md`, so I judged style from the existing tests.
+
+### Issues Found
+- Minor, not blocking: `tests/test_store.py:15`, as in Finding 2. It is cleared because `tests/test_store.py:27` checks the same boundary with a positive case.
+
+### Recommendation
+- **PASS**: go on to the next task. The working tree is unchanged and ready to commit as it stands.

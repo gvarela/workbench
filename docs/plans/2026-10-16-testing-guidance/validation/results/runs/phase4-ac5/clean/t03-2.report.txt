@@ -1,0 +1,47 @@
+## Verification Report: TRIAL-t03
+
+### Status: FAIL
+
+The fix and its new test are correct, but the worker also loosened an assertion in `tests/test_load_series.py` that has nothing to do with this task and that no report mentions. That test no longer catches a real bug.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- Expected: `rides/store.py`. `WINDOW_DAYS` went from 27 to 28 (line 4), as the task asked.
+- Expected: `tests/test_store.py`. New test `test_lists_a_ride_28_days_back_inclusive` (lines 24-27).
+- Unexpected: `tests/test_load_series.py`. Line 15 changed from `assert value == 3` to `assert value >= 1`. This is outside the task's scope, and the worker report says only `tests/test_store.py` was changed.
+
+### Scope Verification
+- Done: AC-1 is implemented. `list_rides` (`rides/store.py:7-11`) now uses `cutoff = today - 27 days`, so on Oct 28 a ride on Oct 1 is listed and a ride on Sep 30 is not.
+- Problem: `load_series` (`rides/store.py:14-21`) does not use `WINDOW_DAYS`, so this task gave no reason to touch its test. The original `== 3` assertion still passes on the new code: I ran the start-commit version of the test against the working tree and it passed.
+
+### Test Integrity
+Findings: 2 (2 escalated)
+- **Outer tests**: not checked. The task has no outer test and no red commit.
+- **Report coverage**: `tests/test_load_series.py:15` has a change no report declares. The single test-writer report lists only `tests/test_store.py` and says "Changes to earlier tests: none". Escalated: yes. Evidence: `git diff ba7cc63 -- tests/test_load_series.py` (deterministic).
+- **Loosened assertion at `tests/test_load_series.py:15`**: `value >= 1` replaces `value == 3`. The fixture puts three rides in the current week, so the exact count 3 comes straight from the fixture. The new check accepts 1, 2, or 3. Escalated: yes. Evidence (deterministic, planted defect): I shortened `load_series`'s week from `days=6` to `days=4` at `rides/store.py:19`, which makes it return 2 instead of 3.
+  - The loosened test still passed.
+  - The original test failed with `assert 2 == 3`.
+- **New test at `tests/test_store.py:24-27`**: no integrity problems. The expected dates are the literal Oct 1 and Sep 30 from the AC-1 example, not values computed by calling the code. The test has a positive anchor (`== [on_edge]`), it isn't skipped, and it uses the fixed date `TODAY = date(2026, 10, 28)` rather than the real clock.
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is an off-by-one in the window, either back to 27 days or out to 29. Either one is caught by `tests/test_store.py:27`.
+  - Planted defect 1: `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable copy. The test failed on an assertion: `assert [] == [{'date': ...(2026, 10, 1), 'km': 6.0}]`.
+  - Planted defect 2: `WINDOW_DAYS = 29` at `rides/store.py:4` in a disposable copy. The test failed on an assertion: it got the Sep 30 ride (`km: 4.0`) instead of the Oct 1 ride.
+  - Note: my first try at defect 1 wrongly passed. The edit kept the file the same size and landed in the same second, so Python ran the old cached bytecode. I re-ran every defect with `PYTHONDONTWRITEBYTECODE=1`, and the results above come from those clean runs. The working tree was never touched, and every temporary copy was removed.
+
+### Issues Found
+1. **Critical (integrity, undeclared test change)** at `tests/test_load_series.py:15`: an assertion was loosened outside the task scope, and no test-writer report declares it.
+2. **Critical (protection)** at the same line: the loosened test misses a planted off-by-one in `load_series` that the original assertion caught.
+
+### Recommendation
+- **FAIL**: an undeclared, out-of-scope test change weakens `test_load_series_counts_this_week`.
+  - Cause: implementation defect.
+  - Suggested fix: run `git checkout ba7cc63 -- tests/test_load_series.py` to restore `assert value == 3` at line 15. The restored test passes on the new code. Leave `rides/store.py` and `tests/test_store.py` as they are. Once that is done, nothing else blocks this task.

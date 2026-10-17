@@ -1,0 +1,55 @@
+## Verification Report: TRIAL-t01
+
+### Status: FAIL
+
+The production change is correct. The new test does not protect AC-1: it computes its expected value with the same formula as the code it checks. When I put the original bug back in a disposable copy, the test still passed.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. `WINDOW_DAYS` changed from 27 to 28 at line 4.
+- `tests/test_store.py`: expected. It adds `test_lists_a_ride_28_days_back_inclusive` at lines 24-30 and new imports at lines 1 and 3.
+- There are no untracked files, nothing is committed beyond `57f2986`, and nothing outside the task's scope changed.
+
+### Scope Verification
+- Window includes today and the 27 days before it: done. Run directly, `list_rides([Oct 1, Sep 30], date(2026, 10, 28))` returns only the Oct 1 ride, which matches AC-1's example.
+- No scope creep, and no TODO, FIXME or debug output in the changed files.
+
+### Test Integrity
+Findings: 2 (1 escalated)
+- **Outer tests**: not checked. There are no red commits, because this task has no outer test.
+- **Report coverage**: every test change is covered by test-writer report 1. It names `tests/test_store.py`, the new test, and "Changes to earlier tests: none". The three earlier tests (lines 8, 13 and 18 in `57f2986`) are byte-identical in the diff.
+- `tests/test_store.py:28-29`: the expected value is computed by the production rule. Escalated: yes. Line 28 rebuilds the cutoff from production's `WINDOW_DAYS` using the same expression as `rides/store.py:9` (`TODAY - timedelta(days=WINDOW_DAYS - 1)`). Line 29 then filters with that cutoff. So the test only checks that `list_rides` agrees with its own formula, not that the window is 28 days. The test-writer report says this openly ("Pins: the 28-day window against the same cutoff the production code uses, so the test follows `WINDOW_DAYS` if it is retuned"). Following the constant when it changes is exactly what stops the test from catching a wrong constant. This fails test-quality's Behavioral item: expected values must come from the criterion's example, not from a production formula. Evidence: deterministic (diff plus planted defect).
+- `tests/test_store.py:3`: imports `WINDOW_DAYS` from the module under test. Escalated: no. This is not a separate defect; it is how the line 28-29 problem happens, and it goes away with that fix.
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is the window going back to 27 days (`WINDOW_DAYS = 27`, the original bug). This would drop the Oct 1 ride when the page is listed on Oct 28. No test catches it.
+  - **Planted defect**: I set `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable worktree copy, then ran `python3 -m pytest -q tests/test_store.py`. The result was `4 passed` with exit 0, so the test still passed. With the constant at 27, both the production code and the test's expected value lose the Oct 1 ride, so `[] == []` passes. `test_lists_a_ride_28_days_back_inclusive` does not protect AC-1.
+  - The test does catch one kind of break: a change to the comparison in `list_rides` (for example `<` instead of `<=`) that leaves the constant alone. That is the narrower break the report names: "`list_rides` disagreeing with the cutoff rule". AC-1's regression is the window length itself, and that is not covered.
+- **Gap**: no test in the suite fails when the 28-day window is wrong.
+
+### Issues Found
+1. **Critical (protection)**: `tests/test_store.py:28-29` takes its expected value from production's `WINDOW_DAYS` and cutoff formula, and it misses the planted regression to 27 days. Cause: implementation defect (the test-writer's test). AC-1 is clear and its example is concrete, so this is not a plan defect.
+
+### Recommendation
+- **FAIL**: the AC-1 test cannot detect the bug this task fixes.
+  - **Cause**: implementation defect.
+  - **Suggested fix**: have the test-writer take the expected value from AC-1's example, as literals, and drop the `WINDOW_DAYS` and `timedelta` imports:
+    ```python
+    def test_lists_a_ride_28_days_back_inclusive():
+        on_edge = {"date": date(2026, 10, 1), "km": 6.0}
+        too_old = {"date": date(2026, 9, 30), "km": 4.0}
+        assert list_rides([on_edge, too_old], TODAY) == [on_edge]
+    ```
+    Then re-run the planted defect (`WINDOW_DAYS = 27`). The test should fail with `assert [] == [{... Oct 1 ...}]`. The production change in `rides/store.py` needs no edit.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.IMbLucruAD/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.IMbLucruAD/tests/test_store.py

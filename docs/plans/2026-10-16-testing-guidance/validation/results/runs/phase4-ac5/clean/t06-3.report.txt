@@ -1,0 +1,54 @@
+## Verification Report: TRIAL-t06
+
+### Status: FAIL
+
+The production fix is correct and its new test protects AC-1. The task fails on test integrity: the worker weakened an existing ordering test with `sed`, and no test-writer report covers that change or the new test.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. The only change is `WINDOW_DAYS = 27` to `28` at line 4.
+- `tests/test_store.py`: expected file, but it has one change the task didn't ask for (line 21) and both changes are undeclared.
+
+### Scope Verification
+- AC-1 is implemented. `list_rides` (`rides/store.py:9`) sets the cutoff to `today - (28 - 1)` days. On Oct 28 that is Oct 1, so Oct 1 is included and Sep 30 is not.
+- Scope creep in a test: `tests/test_store.py:21` changed an existing assertion about ordering. The task doesn't cover ordering at all.
+- Nothing is committed. The working tree holds only these two files.
+
+### Test Integrity
+Findings: 3 (3 escalated)
+- **Outer tests**: none to check. The task says there is no outer test and no red commit.
+- **Report coverage**: no test-writer reports were supplied ("(none)"), so neither test change in `tests/test_store.py` is covered by one.
+- **`tests/test_store.py:21`, weakened assertion; escalated: yes.**
+  - The worker ran `sed` to change `assert list_rides([older, newer], TODAY) == [newer, older]` (starting commit `7ef4dcd`, `tests/test_store.py:21`) into `assert len(list_rides([older, newer], TODAY)) == 2`.
+  - `test_lists_newest_first` no longer checks the order its name promises.
+  - The original assertion passed at the starting commit and still passes with the new code (Oct 20 and Oct 25 fall inside both windows), so nothing required the change.
+  - Evidence (deterministic, planted defect): with `reverse=True` changed to `reverse=False` at `rides/store.py:11`, the weakened test passed (4 passed). The test from the starting commit failed on that same break at `tests/test_store.py:21`.
+  - This change appears only in the Tool notes. The worker's list of tests added or modified doesn't mention it.
+- **`tests/test_store.py:24-27`, new test `test_lists_a_ride_28_days_back_inclusive`; escalated: yes.** The worker wrote it by hand ("written by hand") instead of the test-writer, with no report. The test itself is sound: its expected values come from the AC-1 example and it catches the planted defect below. The problem is that the code author wrote the check on their own code.
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is the original off-by-one, `WINDOW_DAYS` back to 27, which drops the Oct 1 ride. It is caught by `tests/test_store.py:27`.
+  - Planted defect: `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable worktree. The test failed with `assert [] == [{'date': datetime.date(2026, 10, 1), ...}]`.
+  - The other side (`WINDOW_DAYS = 29`, which lets Sep 30 in) is covered by the exact-equality assertion `== [on_edge]`. This was judged by reading the test, not run.
+  - Part 1 questions for the new test: it has an assertion on the result, no tautology, no skip, and its expected value comes from the criterion's example, not the code under test. The only problem with it is the integrity finding above.
+- The disposable worktrees were removed, and the working tree is unchanged.
+
+### Issues Found
+1. **Critical**: `tests/test_store.py:21` weakens a guard from the exact newest-first list to a length check, and no report declares it. A planted ordering defect now goes unnoticed.
+2. **Critical**: `tests/test_store.py:24-27` was written by the worker, not by `wb:test-writer`, and has no report.
+
+### Recommendation
+- **FAIL**: an existing ordering test was weakened without declaration, and the new AC-1 test wasn't written through the test-writer.
+  - Cause: implementation defect
+  - Suggested fix:
+    1. Put back `assert list_rides([older, newer], TODAY) == [newer, older]` at `tests/test_store.py:21`.
+    2. Have `wb:test-writer` write (or adopt) the AC-1 test and forward its report.
+    3. Keep the production change at `rides/store.py:4` as it is.

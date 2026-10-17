@@ -1,0 +1,62 @@
+## Verification Report: TRIAL-r05
+
+### Status: FAIL
+
+The code meets AC-1, AC-2 and AC-3, but the AC-3 test does not protect its criterion. It builds its expected total by calling the code it is checking. If the date window breaks, the page shows `Total: 13.3 km` and that test still passes.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` going from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance` using `Decimal` and `ROUND_HALF_UP`.
+- `rides/views.py`: expected (AC-3). Adds the total line.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+- Nothing has been committed. HEAD is still `fb1ea1e`.
+
+### Scope Verification
+- `list_rides` takes its cutoff from `WINDOW_DAYS` (`rides/store.py:9`: `today - timedelta(days=WINDOW_DAYS - 1)`), so a ride on the cutoff day (Oct 1) is listed. Done.
+- `format_distance` rounds half up to one decimal (`rides/view_model.py:5-12`). Both pages call it (`rides/views.py:9,12,18`). Done.
+- The total is built from the rides `list_rides` returns (`rides/views.py:7,12`). Done.
+- Non-goal holds: nothing changes how distance is stored. `km` stays a float in storage, and `Decimal` is only used for display.
+- No scope creep. No TODO, FIXME or debug prints in the changed files.
+
+### Test Integrity
+Findings: 3 (2 escalated)
+- **Outer tests**: not checked. The task has none and no red commit was supplied.
+- **Report coverage**: `tests/test_store.py` (the new test plus moving existing tests onto the `ride()` helper) matches report 1. `tests/test_view_model.py` (the new test plus the rename and the change from `5 km` to `5.0 km`) matches report 2. `tests/test_rides_page.py` is named by report 3, but that report lists no per-test entries.
+- `tests/test_rides_page.py:18`: the expected total comes from the code under test. `expected = format_distance(sum(r["km"] for r in list_rides(RIDES, TODAY)))` calls `list_rides` and `format_distance`, then repeats the production formula from `rides/views.py:12`. The criterion gives an independent value, `Total: 19.5 km`, that the test should use. Escalated: yes. Evidence is deterministic: the planted defect D1 below gets past this test.
+- `tests/test_rides_page.py:22-24`: `test_rides_page_shows_each_distance_rounded_half_up` is not named in any test-writer report. Report 3 gives only the total-line red run ("no total line on the page"). The file is declared but this test is not. Escalated: yes, as an undeclared test change. The fix is for report 3 to declare the test (criterion AC-2 at the page, pin `6.25 -> 6.3 km`, and its red run). The test itself is sound: its expected value is a literal, and it fails under D1 and D2.
+- `tests/test_view_model.py:8-9`: an earlier test changed its expected value from `5 km` to `5.0 km`. Escalated: no. AC-2's example explicitly requires `5.0 km`, and report 2 declares the change.
+
+### Criterion Check
+Each defect was planted in its own disposable worktree with `PYTHONDONTWRITEBYTECODE=1`, and every worktree was removed afterwards. My first attempt was thrown out: a cached `.pyc` file was out of date, so those results were wrong.
+
+- **AC-1**: the smallest realistic regression is an off-by-one window. It is caught by `tests/test_store.py:28-31` (`test_lists_a_ride_28_days_back_inclusive`).
+  - D1 (`WINDOW_DAYS = 28` changed to `27` at `rides/store.py:4`): the test failed on `assert [] == [{... 10/1 ...}]`.
+- **AC-2**: the smallest realistic regression is half-even rounding instead of half-up. It is caught by `tests/test_view_model.py:12-13` (`12.25 -> 12.3 km`) and also by `tests/test_rides_page.py:24`.
+  - D2 (`ROUND_HALF_UP` changed to `ROUND_HALF_EVEN` at `rides/view_model.py:8`): the test failed on `'12.2 km' == '12.3 km'`.
+- **AC-3**: one regression is the total summing every ride instead of the listed ones. Another is a window regression that changes which rides are summed. The test is `tests/test_rides_page.py:16-19`.
+  - D3 (`listed` changed to `rides` in the sum at `rides/views.py:12`): the test failed (`Total: 23.5 km`).
+  - D4 (total formatted as `:.2f` instead of using `format_distance`): the test failed (`Total: 19.50 km`).
+  - D1 (the window off by one at `rides/store.py:4`): **the test still passed.** The page rendered `Total: 13.3 km` for AC-3's own example, but the expected value at line 18 is also worked out through `list_rides`, so it also came to 13.3. So this test does not protect AC-3's stated outcome. Other tests do catch D1, but this one would not.
+  - I tried the fix in a disposable copy: with `expected = "19.5 km"`, D1 makes the test fail (`'Total: 19.5 km' in '...Total: 13.3 km...'`).
+
+### Issues Found
+1. **Critical (protection)**: at `tests/test_rides_page.py:18` the expected value is computed by the code under test and repeats the production formula. It misses the planted window defect for AC-3's example.
+2. **Critical (integrity)**: `tests/test_rides_page.py:22` adds a test that no test-writer report declares.
+
+### Recommendation
+- **FAIL**: the AC-3 test works out its expected total through the code under test and misses a planted window defect. One test change is also undeclared.
+  - Cause: implementation defect.
+  - Suggested fix:
+    1. Have `wb:test-writer` change `tests/test_rides_page.py:18-19` to use the criterion's literal, `assert '<p class="total">Total: 19.5 km</p>' in body`. Then remove the imports at lines 3-4, which nothing else will use.
+    2. Have report 3 declare `test_rides_page_shows_each_distance_rounded_half_up` (AC-2 at the page level, `6.25 -> 6.3 km`, with its red run).
+    
+    No production code needs to change.

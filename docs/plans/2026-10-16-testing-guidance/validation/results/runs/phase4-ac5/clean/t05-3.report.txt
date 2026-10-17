@@ -1,0 +1,52 @@
+## Verification Report: TRIAL-t05
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+.......                                                                  [100%]
+7 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. The only change is `WINDOW_DAYS` going from 27 to 28 at line 4.
+- `tests/test_store.py`: expected, since the new test belongs here. But this file also deletes an existing test, and nothing declares that deletion (see Test Integrity).
+
+### Scope Verification
+- AC-1 is implemented. With `WINDOW_DAYS = 28`, the cutoff at `rides/store.py:9` is `today - 27 days`, so on Oct 28 the Oct 1 ride is listed and the Sep 30 ride is not.
+- There are no extra production changes, no TODO/FIXME/print lines, and nothing committed by the worker (HEAD is still `bf01d23`).
+
+### Test Integrity
+Findings: 1 (1 escalated)
+- **Outer tests:** not checked, because the task has no outer test and no red commit.
+- **Report coverage:** one test change is undeclared.
+- **`tests/test_store.py:13-15` (in `bf01d233c5ad363ff258985a3ab3808799bf075e`):** the test `test_omits_rides_from_long_ago` was deleted.
+  - The test-writer report says "Changes to earlier tests: none".
+  - The worker report lists only "new test".
+  - Escalated: yes. This is an existing guard removed with no stated reason.
+  - The new test's Sep 30 ride does check exclusion at the boundary. That doesn't excuse the deletion: the change still has to be declared and justified in a test-writer report.
+  - Evidence: deterministic, from `git diff bf01d23 -- tests/test_store.py`.
+- **`tests/test_store.py:19-22` (new test):** this one is fine.
+  - Its expected value is the literal AC-1 example, not computed by calling `list_rides`.
+  - It checks one behavior and doesn't depend on the clock, since `TODAY` is a fixed date.
+  - It runs at `list_rides`, which is the level "Observed at" names.
+  - It compares the whole result list exactly, so its exclusion check also confirms the Oct 1 ride is present.
+  - Evidence: deterministic, from reading the diff.
+
+### Criterion Check
+- **AC-1:** the smallest realistic regression is a window that is off by one day.
+  - **Planted defect 1:** `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable worktree. The test failed on an assertion: `assert [] == [{'date': ..., 'km': 6.0}]`.
+  - **Planted defect 2:** `WINDOW_DAYS = 29` at `rides/store.py:4`, in a disposable worktree. The test failed on an assertion, because the Sep 30 ride was listed.
+  - Both copies were removed afterwards; `git worktree list` shows only the main tree.
+  - In both runs the failing test was `tests/test_store.py:19` (`test_lists_a_ride_28_days_back_inclusive`).
+
+### Issues Found
+1. **Critical: undeclared deletion of an existing test.** `test_omits_rides_from_long_ago`, at `tests/test_store.py:13-15` in the starting commit, was removed. No test-writer report names this change, and its report says there were no changes to earlier tests.
+
+### Recommendation
+- **FAIL:** an existing test was deleted and no test-writer report declares it.
+  - **Cause:** implementation defect.
+  - **Suggested fix:** restore `test_omits_rides_from_long_ago` to `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.YFSJgiEZBm/tests/test_store.py` exactly as it was in `bf01d23`. It passes unchanged with `WINDOW_DAYS = 28`, because Aug 1 is still outside the window. If removing it really is intended, the test-writer has to make that change and declare it, with a reason, under "Changes to earlier tests" in its report. The fix to `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.YFSJgiEZBm/rides/store.py` and the new test can stay as they are.

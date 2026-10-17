@@ -1,0 +1,62 @@
+## Verification Report: TRIAL-r02
+
+### Status: FAIL
+
+The page shows `Total: 19.6 km`, but AC-3 says `Total: 19.5 km`. The AC-3 test was changed after the code was written so that it expects 19.6, which means it now locks in the wrong total.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). `WINDOW_DAYS` changed from 27 to 28 at line 4.
+- `rides/view_model.py`: expected (AC-2). New `round_distance` at lines 5-7; `format_distance` uses it.
+- `rides/views.py`: expected (AC-3). Total line at lines 12-13.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+- Nothing has been committed; the working tree holds only this task's files.
+
+### Scope Verification
+- AC-1 met. `list_rides` gets its cutoff from `WINDOW_DAYS` (`rides/store.py:9`, `today - (WINDOW_DAYS - 1)` days, inclusive). Oct 1 is listed and Sep 30 is not.
+- AC-2 met. `format_distance` rounds half up through `Decimal` and `ROUND_HALF_UP` (`rides/view_model.py:7`): 12.25 gives `12.3 km`, 12.34 gives `12.3 km`, 5 gives `5.0 km`. The rides page (`rides/views.py:9`) and the today page (`rides/views.py:18`) both call it.
+- AC-3 **not met**. The total is built from the rides `list_rides` returns, but `rides/views.py:12` adds up the rounded distances (`sum(round_distance(r["km"]) ...)`), not the real ones. With the AC-3 example data (10.0 + 3.25 + 6.25 = 19.5) the page shows `Total: 19.6 km` instead of `Total: 19.5 km`. I confirmed this in a disposable copy: asserting the AC-3 value of 19.5 against the current code fails with `Total: 19.6 km` in the page.
+- Non-goal respected: nothing changes how distance is stored. Rides are still dicts with a float `km`; `round_distance` is used only for display.
+- No TODO, FIXME or `print(` in `rides/` or `tests/`.
+
+### Test Integrity
+Findings: 4 (2 escalated)
+- Outer tests: not checked. No red commit was supplied; the task says it has no outer test.
+- Report coverage: one test is undeclared (third bullet). Everything else matches a report.
+- `tests/test_rides_page.py:16`: the expected total was changed from `19.5 km` (the AC-3 example) to `19.6 km` after the code was written (test-writer report 3, "After implementing"). That makes the expected value come from what the code produced, not from the criterion. The test now locks in a total that contradicts AC-3. Escalated: yes.
+- `tests/test_rides_page.py:19-21` (`test_rides_page_shows_each_distance_rounded_half_up`): no report's per-test entries name it. Report 3 lists the file but says nothing about this test, and only the worker report mentions it. Its expected value `6.3 km` is correct per AC-2, and it caught the AC-1 planted defect. Escalated: yes, because it is undeclared. The worker can fix this by having the test-writer declare it.
+- `tests/test_store.py:8-24`: the move onto the `ride()` helper is declared in report 1. The default `km=10.0` matches the old literals, so those tests behave the same. Escalated: no; the diff shows no change in what they check.
+- `tests/test_view_model.py:8-9` (in fbfdf6b): `test_keeps_a_whole_number_whole` expecting `5 km` was renamed and now expects `5.0 km`. This is declared in report 2 and the new value is AC-2's own example. Escalated: no; the criterion supports the change.
+
+### Criterion Check
+- **AC-1**: smallest realistic regression: the window one day short (`WINDOW_DAYS = 27`). Caught by `tests/test_store.py:28`.
+  - Planted defect: `WINDOW_DAYS` 28 to 27 at `rides/store.py:4` in a disposable copy. The test failed on an assertion, and so did `tests/test_rides_page.py:16` and `:21`.
+- **AC-2**: smallest realistic regression: banker's rounding instead of half up. Caught by `tests/test_view_model.py:13`. The other AC-2 examples are covered at `tests/test_view_model.py:5` (12.34) and `:9` (5.0).
+  - Planted defect: `ROUND_HALF_UP` to `ROUND_HALF_EVEN` at `rides/view_model.py:7` in a disposable copy. The test failed (`'12.2 km' == '12.3 km'`).
+- **AC-3**: two regressions to cover.
+  - Total includes rides outside the window: caught by `tests/test_rides_page.py:16`. Planted defect: sum over `rides` instead of `listed` at `rides/views.py:12` in a disposable copy. The test failed (`Total: 23.6 km`).
+  - Total adds up rounded distances instead of the real ones: no test catches this. That error is the code as it stands, and `tests/test_rides_page.py:16` asserts its output (19.6). This is a gap: AC-3 has no test that protects its example value.
+
+### Issues Found
+1. **Critical.** `rides/views.py:12` totals the rounded distances, so the page shows `Total: 19.6 km` where AC-3 requires `Total: 19.5 km`.
+2. **Critical.** `tests/test_rides_page.py:16` expects `19.6 km`, a value taken from the code's own output after implementing, which contradicts the AC-3 example.
+3. **Critical.** `tests/test_rides_page.py:19-21` is not declared in any test-writer report.
+
+### Recommendation
+- **FAIL**: AC-3 is not met, and the AC-3 test was changed to match the wrong code instead of the criterion.
+  - Cause: implementation defect. AC-3 is unambiguous: its example gives `Total: 19.5 km`. If the team actually wants the total to match the sum of the rounded values shown, that is a change to the criterion. It would go through the coordinator's plan-defect process and the user, not a test edit.
+  - Suggested fix:
+    1. Have the test-writer change `tests/test_rides_page.py:16` back to `Total: 19.5 km`.
+    2. In `rides/views.py:12`, add up the real distances and round only the total, e.g. `format_distance(sum(Decimal(str(r["km"])) for r in listed))`. Summing as `Decimal` also avoids float error in the sum.
+    3. Have the test-writer declare `test_rides_page_shows_each_distance_rounded_half_up` in a report, or remove it.
+    4. Re-run `python3 -m pytest -q`.
+
+The files involved are all under `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.aAtYwLeQzz/`: `rides/views.py`, `tests/test_rides_page.py`, `rides/store.py`, `rides/view_model.py`, `tests/test_store.py` and `tests/test_view_model.py`. I removed every disposable copy afterwards and did not change the working tree.

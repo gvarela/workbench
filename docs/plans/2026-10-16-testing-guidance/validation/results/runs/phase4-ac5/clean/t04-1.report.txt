@@ -1,0 +1,43 @@
+## Verification Report: TRIAL-t04
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+........                                                                 [100%]
+8 passed in 0.01s
+```
+
+### Files Changed
+- Expected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.4qZrnM2uEJ/rides/store.py`. Line 4 changed `WINDOW_DAYS` from 27 to 28, which is what the task asked for.
+- Expected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.4qZrnM2uEJ/tests/test_store.py`. This adds the inner test for AC-1 at lines 24-27.
+- Unexpected: `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.4qZrnM2uEJ/tests/test_view_model.py`. The task is about the ride window and has nothing to do with distance formatting.
+
+### Scope Verification
+- AC-1 (28-day window, today included) is done. With `cutoff = today - (WINDOW_DAYS - 1)` (`rides/store.py:9`), a run on Oct 28 now goes back to Oct 1.
+- Out of scope: the assertion in `tests/test_view_model.py:5` was loosened. No criterion in this task asks for it.
+
+### Test Integrity
+Findings: 2 (2 escalated)
+- Outer tests: not checked. This task has no outer test and no red commit was supplied.
+- Report coverage: every test change is named in a test-writer report. Report 1 covers `tests/test_store.py:24-27` and report 2 covers `tests/test_view_model.py:5`, so nothing was changed without being declared.
+- `tests/test_view_model.py:5`: the assertion was loosened. `== "12.3 km"` (line 5 in 0e1bd81) became `.startswith("12")`. The test is called `test_formats_with_one_decimal`, and the docstring at `rides/view_model.py:5` says "rounded to one decimal, e.g. 12.3 km", but the test no longer checks the decimal places or the unit. The reason given ("brittle") does not justify dropping the behavior the test is named for. Escalated: yes. Evidence (deterministic, planted defect): I changed `round(km, 1)` to `round(km, 2)` in `rides/view_model.py:6`. The changed test still passed (2 passed). The starting-commit version failed on the same break (`- 12.3 km / + 12.34 km`, `tests/test_view_model.py:5`).
+- `tests/test_view_model.py`: out of scope. This task has no criterion about formatting. Escalated: yes, as part of the finding above.
+
+### Criterion Check
+- AC-1: the smallest realistic regression is an off-by-one in the window: `WINDOW_DAYS` set to 27, or to 29. `tests/test_store.py:27` (`test_lists_a_ride_28_days_back_inclusive`) catches it.
+  - Planted defect 1: `WINDOW_DAYS = 27` at `rides/store.py:4` in a disposable worktree. The test failed on an assertion ("Right contains one more item: 2026-10-01").
+  - Planted defect 2: `WINDOW_DAYS = 29` at `rides/store.py:4` in a disposable worktree. The test failed on an assertion ("Left contains one more item: 2026-09-30").
+  - Part 1 and the Behavioral check (deterministic for the planted defects, judgment for the rest): the test asserts equality against the full expected list, so the negative case is covered by an exact match rather than a bare "not in". The expected values are the literal dates from the AC-1 example, not values computed by the code. The fixed `TODAY` (`tests/test_store.py:5`) means the test does not depend on the system clock. It runs at `list_rides`, the level AC-1's "Observed at" names. Both disposable worktrees were removed and the working tree was not touched.
+
+### Issues Found
+1. **Critical.** `tests/test_view_model.py:5`: the assertion was loosened from `== "12.3 km"` to `.startswith("12")`. It no longer checks the one-decimal rounding or the unit, and a planted rounding defect gets past it. This is an implementation defect.
+2. **Critical.** `tests/test_view_model.py`: this change is outside the task's scope. No cited criterion covers it.
+
+### Recommendation
+- **FAIL**: the loosened, out-of-scope test edit in `tests/test_view_model.py:5` means the suite no longer checks the one-decimal format. The AC-1 work is correct and properly protected.
+  - Cause: implementation defect
+  - Suggested fix: run `git checkout 0e1bd8102dbde699829ff22ad2d75ae306c5f4b8 -- tests/test_view_model.py` to put back `assert format_distance(12.34) == "12.3 km"`. Keep the changes to `rides/store.py` and `tests/test_store.py` as they are. If someone thinks the format assertion really is brittle, that belongs in a separate, planned task, not in this one.

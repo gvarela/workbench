@@ -1,0 +1,62 @@
+## Verification Report: TRIAL-r04
+
+### Status: FAIL
+
+The code meets AC-1, AC-2 and AC-3, and every test guarding them fails when the code it guards is broken. The task fails anyway: the worker deleted the existing test `test_lists_newest_first`, and no test-writer report declares that deletion. After the deletion, no test in the suite checks that rides are listed newest first.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+..........                                                               [100%]
+10 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). `WINDOW_DAYS` changed from 27 to 28. The cutoff `today - timedelta(days=WINDOW_DAYS - 1)` at line 9 still comes from `WINDOW_DAYS`, so Oct 1 is the first day listed on Oct 28.
+- `rides/view_model.py`: expected (AC-2). New `round_distance` uses `Decimal(str(km))` with `ROUND_HALF_UP`, and `format_distance` uses it.
+- `rides/views.py`: expected (AC-3). The total at line 12 is summed over `listed`, the list `list_rides` returns. Both pages call `format_distance` (lines 9, 12 and 18).
+- `tests/test_store.py`, `tests/test_view_model.py`: expected (test files).
+- `tests/test_rides_page.py`: expected (new, untracked).
+- Nothing is committed. The working tree holds only this task's files.
+
+### Scope Verification
+- AC-1 (28 days, today included): implemented.
+- AC-2 (half up to one decimal, always one decimal place): implemented.
+- AC-3 (total of the listed rides, formatted like a distance): implemented.
+- Non-goal (no change to how distance is stored): kept. `km` is still a float in the ride dicts, and `Decimal` is used only for display.
+- No scope creep in the production code. No TODO, FIXME or debug prints in the changed files.
+
+### Test Integrity
+Findings: 2 (1 escalated)
+- Outer tests: not checked. The task has no outer test and no red commit was supplied.
+- Report coverage: there is one undeclared change, described next.
+- `tests/test_store.py:18` (in e4f2d94): `test_lists_newest_first` was deleted. Escalated: yes. Test-writer report 1 describes its changes to earlier tests as only "moved the existing tests onto a `ride()` helper", and the worker report doesn't mention the deletion either. The diff replaces this test with `test_lists_a_ride_28_days_back_inclusive`. The behavior it guarded is still in the code: the docstring at `rides/store.py:8` says "newest first" and line 11 sorts with `reverse=True`. A planted defect confirms the gap: with `reverse=True` removed, all 10 tests still pass.
+- `tests/test_view_model.py:8-9`: `test_keeps_a_whole_number_whole` was renamed and now expects `5.0 km` instead of `5 km`. Escalated: no. Test-writer report 2 declares the change, and `5.0 km` is AC-2's own example. This is the criterion changing, not the test being loosened.
+- `tests/test_rides_page.py`: new file, declared in test-writer report 3. The worker report lists both of its tests (total, per-ride distance). All expected values (`19.5 km`, `6.3 km`) are worked out from the criterion's examples, not computed by calling the code. Not escalated.
+- `tests/test_store.py:8-25`: moving the tests onto the `ride()` helper is declared and keeps the same values. Not escalated.
+
+### Criterion Check
+Each planted defect below was run in a disposable worktree that had the worker's patch and untracked files applied. The working tree was never touched, and the temporary copies are removed.
+- **AC-1**: the smallest realistic regression is an off-by-one in the window. It is caught by `tests/test_store.py:25`, and also by `tests/test_rides_page.py:16` and `:21`.
+  - `WINDOW_DAYS = 27` at `rides/store.py:4`: the test failed (`assert [] == [{... 10, 1 ...}]`).
+  - `cutoff <= r` changed to `cutoff < r` at `rides/store.py:10`: the test failed.
+  - `WINDOW_DAYS = 29`: the test failed (the Sep 30 ride was listed).
+- **AC-2**: the smallest realistic regressions are the wrong rounding mode and a dropped trailing zero.
+  - `ROUND_HALF_EVEN` at `rides/view_model.py:8`: `tests/test_view_model.py:13` failed (`'12.2 km' == '12.3 km'`), and so did `tests/test_rides_page.py:21`.
+  - `.normalize()` added at `rides/view_model.py:12`: `tests/test_view_model.py:9` failed (`'5 km' == '5.0 km'`).
+- **AC-3**: the smallest realistic regression is summing all rides instead of the listed ones. It is caught by `tests/test_rides_page.py:16`.
+  - `for r in listed` changed to `for r in rides` at `rides/views.py:12`: the test failed (`Total: 23.5 km`).
+- **Ordering (existing behavior, not one of the cited criteria)**: `reverse=True` removed at `rides/store.py:11`. All 10 tests passed, so this behavior is now unguarded (see Test Integrity).
+
+The Part 1 checks pass for every changed test. Each has an assertion on the code's behavior. None is a tautology or skipped. The rides-page tests use `in` checks for text that should be present, which is fine. Each test runs at the level its criterion is observed at: `list_rides`, `format_distance` and `render_rides_page`.
+
+### Issues Found
+1. **Critical (integrity)**: undeclared deletion of `test_lists_newest_first`, `tests/test_store.py:18` in e4f2d94. Newest-first ordering in `list_rides` (`rides/store.py:11`) no longer has a guard.
+2. **Minor, not part of this task**: `tests/test_today_page.py:8` asserts `"x" not in body` with no check that the expected content is there. It predates this task and is unchanged; leave it for review.
+
+### Recommendation
+- **FAIL**: an existing test was deleted without being declared, which leaves list ordering unguarded.
+  - Cause: implementation defect.
+  - Suggested fix: have the test-writer put `test_lists_newest_first` back in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.QK5HqrxUcF/tests/test_store.py`, using the `ride()` helper (`older = ride(date(2026, 10, 20), km=5.0)`, `newer = ride(date(2026, 10, 25), km=7.0)`, assert `[newer, older]`). The test-writer report should then record the helper move as the only change to earlier tests. If removing the test was intended, the test-writer report has to declare it with a reason. Either way, ordering is still documented behavior of `list_rides` and needs a test. No production code needs to change.
