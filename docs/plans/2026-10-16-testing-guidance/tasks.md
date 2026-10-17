@@ -7,10 +7,10 @@ status: in-progress
 last_updated: 2026-10-17
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 3
-total_tasks: 37
-completed_tasks: 13
-git_commit: 500339dac42883ac2df41b54010dca2796954a37
+current_phase: 4
+total_tasks: 40
+completed_tasks: 19
+git_commit: 15a58c7905a7c76cc4e21e5ea18c7d988b2042e7
 git_branch: testing-guidance
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
@@ -45,6 +45,9 @@ beads_tasks:
   phase3_impl_1: prompts-l6oo
   phase3_impl_2: prompts-54aa
   phase3_test_1: prompts-0wy4
+  phase3_followup_1: prompts-idd4  # added in Phase 3: ac1 seam heuristic, ac2 'use as is' and ordering
+  phase3_followup_2: prompts-r0lp  # added in Phase 3: create_project design skeleton headings
+  phase3_followup_3: prompts-hifu  # added in Phase 3: ac2 manual-run and outer-test coverage, ac1 localhost and /api/
   # Phase 4 tasks
   phase4_impl_1: prompts-i50b
   phase4_impl_2: prompts-ah90
@@ -1231,6 +1234,19 @@ bd blocked
 - **Forward references** that are expected until Phase 4: tdd-discipline and the research template name `wb:test-writer` and `wb:test-reviewer`. `.claude/wb/testing.md` is referenced before `/wb:testing-profile` ships in Phase 6.
 - **Static checks at the Phase 2 close**: 1, 3, 5, 7, 8, 9, 10, 14, 16, and 17 pass. 2, 4, 6, 11, 12, 13, and 15 fail; those are owned by Phases 4 to 6.
 - Status updated on 2026-10-17: the Phase 2 milestone is closed in beads (13 of 37 tasks closed). Current phase is 3.
+- **2026-10-17, Phase 3**: both implementation tasks passed on the first verification.
+  - `prompts-l6oo` (create_design): the coordinator replaced a template illustration that copied the fixture's 28-day order window with an unrelated password-reset example.
+  - `prompts-54aa` (create_tasks): its prompt audit applied 2 high findings. Criteria under a "manual" decision go to Manual Verification and get no outer-test step. An older line that made a test depend on the code it tests was reworded. The bd examples moved, so the citations in `docs/beads-guide.md` were refreshed (static check 14).
+- **Follow-ups added in Phase 3** (validation assets plus one mechanical skill edit):
+  - `prompts-idd4`: ac1 seam heuristic, ac2 "use as is" and same-boundary ordering.
+  - `prompts-r0lp`: create_project design skeleton headings.
+  - `prompts-hifu`: ac2 grades the manual run and outer-test coverage; ac1 localhost and /api/. The coordinator narrowed ac2's manual test to the harness UI words and limited it to the Acceptance Criteria section.
+- **Phase 3 validation** (8 runs on Fixture P, about $17.60): AC-1 3/3; AC-2 3/3 plus the manual variant; the bloat check gave 1 criterion.
+  - AC-7 first scored 0/3 because ac7.sh grepped for the literal word "drift". All three research files did record the difference, on the Profile line ("differs"). The check now tests the Profile line for a stated difference; re-graded 3/3, and both negative controls still fail.
+  - Results are in `validation/results/phase3.md`. The chain driver is saved in `results/runs/phase3/chain.sh`, because `run-headless.sh` runs only one stage per scratch copy.
+- **Known check limitations** (recorded in commit cbd1c46): none affect Fixture P.
+- **For later phases**: create_tasks' "split advice" (source change, then test conversion) may need rewording once implement's test-writer rules land in Phase 5 (audit finding 9 in `prompt-audits/phase3_impl_2.md`).
+- Status updated on 2026-10-17: the Phase 3 milestone is closed in beads (19 of 40 tasks closed). Current phase is 4.
 
 ---
 
