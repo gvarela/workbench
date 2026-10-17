@@ -1,0 +1,21 @@
+commit 81bb6b1b336cb92f354010059eebe5a0940c0954
+Author: headless <headless@example.com>
+Date:   Fri Oct 16 19:16:47 2026 -0600
+
+    base
+
+ .gitignore                              |  2 +
+ docs/plans/2026-10-20-rides/README.md   | 45 +++++++++++++++++
+ docs/plans/2026-10-20-rides/research.md | 88 +++++++++++++++++++++++++++++++++
+ pyproject.toml                          | 12 +++++
+ rides/__init__.py                       |  0
+ rides/store.py                          | 21 ++++++++
+ rides/view_model.py                     |  6 +++
+ rides/views.py                          | 17 +++++++
+ tests/test_load_series.py               | 15 ++++++
+ tests/test_store.py                     | 21 ++++++++
+ tests/test_today_page.py                |  8 +++
+ tests/test_view_model.py                |  9 ++++
+ wizard/wizard.html                      | 23 +++++++++
+ wizard/wizard.js                        | 16 ++++++
+ 14 files changed, 283 insertions(+)
