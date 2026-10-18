@@ -1,6 +1,0 @@
-require:
-  - rubocop-rspec
-
-AllCops:
-  NewCops: disable
-  SuggestExtensions: false

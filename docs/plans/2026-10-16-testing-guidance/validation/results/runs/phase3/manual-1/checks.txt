@@ -1,6 +1,0 @@
-PASS [ac2] design.md has a Harness Decisions section
-PASS [ac2] a Harness Decisions table row lists the UI boundary
-PASS [ac2] the UI row's decision is one of: use as is, add harness, manual, lower proxy
-PASS [ac2] a manual or lower-proxy UI decision emits no UI harness task
-PASS [ac2] every non-manual criterion has a line under Outer Test Steps
-RESULT [ac2] PASS

@@ -1,5 +1,0 @@
-PASS [ac7] research.md has a Testing conventions section
-PASS [ac7] research.md cites the profile (.claude/wb/testing.md)
-PASS [ac7] research.md lists drift between profile and code
-PASS [ac7] the drift names the Playwright config the profile contradicts
-RESULT [ac7] PASS

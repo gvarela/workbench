@@ -1,3 +1,0 @@
-?? docs/plans/2026-10-20-rides/design.md
-?? docs/plans/2026-10-20-rides/tasks.md
-efc63b3 base

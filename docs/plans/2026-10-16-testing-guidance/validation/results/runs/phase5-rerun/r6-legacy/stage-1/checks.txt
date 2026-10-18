@@ -1,8 +1,0 @@
-PASS [ac8] the run's design.md has no Acceptance Criteria section (legacy input)
-PASS [ac8] stage output says the plan predates acceptance criteria
-PASS [ac8] the stage proceeded rather than stopping for the missing criteria
-PASS [ac8] no red(AC-n) commit is demanded of a legacy plan
-PASS [ac8] the no-test-edit rule still applies (ac4 coverage clauses pass)
-FAIL [ac8] the verifier integrity step still runs (wb:task-verifier spawned)
-RESULT [ac8] FAIL (1 clause(s) failed)
-[ac8 exit 1]

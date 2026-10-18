@@ -1,3 +1,0 @@
-session_id ab57b25e-96c3-4d98-924b-d156b78c8779 cost 2.1311341000000006 duration_ms 103567 turns 18 is_error False
-session_id ab57b25e-96c3-4d98-924b-d156b78c8779 cost 2.1311341000000006 duration_ms 14333 turns 3 is_error False
-session_id ab57b25e-96c3-4d98-924b-d156b78c8779 cost 2.1311341000000006 duration_ms 306578 turns 13 is_error False

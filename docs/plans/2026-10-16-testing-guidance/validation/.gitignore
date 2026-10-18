@@ -1,0 +1,7 @@
+# Fixture data, blind-trial packages, baselines, and run outputs stay local:
+# they carry session transcripts, local paths, and personal metadata, and are
+# only needed to re-run this plan's validation on the maintainer's machine.
+fixtures/
+blind-trials/
+baselines/
+results/runs/
