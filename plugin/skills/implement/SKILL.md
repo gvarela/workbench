@@ -15,14 +15,14 @@ You coordinate task implementation from `tasks.md` by spawning worker agents seq
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
-- [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim worker/verifier/fix-worker prompts
+- [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim worker, Outer Test, verifier, and fix-worker prompts
 - [templates.md](templates.md) — output templates for aggregation, reports, notes
 - [reference.md](reference.md) — context-package spec, model selection, failure playbook
 - [README.md](README.md) — design rationale (for humans; not needed at runtime)
 
 ## Initial Response
 
-This stage needs from you: the phase to run, a go-ahead at each phase checkpoint, and a decision when a verified failure or a plan defect halts the phase.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, and a decision when a verified failure or a plan defect halts the phase.
 
 When invoked, check for arguments:
 
@@ -160,23 +160,16 @@ beads_tasks:
 
 ### Step 3: Extract Context Package
 
-**Build a minimal context package for workers** from the documentation you've read — only what workers actually need to implement tasks: patterns from research.md, this phase's goal/criteria/constraints from design.md, beads IDs from tasks.md frontmatter, test commands, and the file references relevant to this phase.
+**Build a minimal context package for workers** from the documentation you've read — only what workers actually need to implement tasks: patterns from research.md, this phase's goal/criteria/constraints from design.md, beads IDs from tasks.md frontmatter, test commands, and the file references relevant to this phase. Its `taskTestContext` is the exception: build it per task in Step 5, when the task is about to run, because it holds that task's starting commit, criteria, red commits, and outer test reports.
 
 **Read [reference.md](reference.md) NOW** — its "Context Package Structure" section is the exact structure to build. Do not improvise the shape.
 
 ### Step 4: Find Available Work
 
-Find ready work in beads (a lookup, not a synchronization point).
-
-Query beads to find what's ready to work on:
+Find ready work in beads (a lookup, not a synchronization point). Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 8 test review diffs from it.
 
 ```bash
-# Get ready tasks (no blockers)
-bd ready
-
-# This shows tasks that:
-# - Have no dependencies, OR
-# - All dependencies are closed
+bd ready   # tasks with no open dependencies
 ```
 
 **Start with the first ready task**. After each worker completes, `bd ready` will show newly unblocked tasks.
@@ -187,7 +180,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
 
 **For each ready task in the phase**, spawn a focused worker agent:
 
-1. **Get next task**: Run `bd ready` to find available work
+1. **Get next task**: Run `bd ready` to find available work. An outer test step (a `phaseN_outer_n` key in the tasks.md frontmatter) never goes to a worker, because workers may not edit tests. Take the implementation task it blocks (`bd show` lists it) as the next task once that task's other open blockers are only outer test steps: that task's item 6 writes the outer test and closes the step. A step that blocks no implementation task gets item 6 on its own.
 2. **Check task details**: Run `bd show [task-id]` for requirements
 3. **Project delegation size** (coordinator judgment): estimate the worker's tool-call cost — reads of files it must not break (4-8) + discovery (3-6, or ~0 if the context package names the exact files) + source edits (4-10) + 1-2 calls per test file touched + suite runs (3-5) + lint/verification/close (3-5). Subagents hard-stop when they exhaust their tool-call budget (observed near ~70 calls), and the truncated work is always the finishing tail. **A task projecting past ~50 calls: split it at its natural seam before spawning** — usually source change, then test conversion — as separate beads issues (`bd create` the slices, `bd dep add` to order them, close the original with `--reason "split"`)
 4. **Determine model** (coordinator judgment — read the task content and pick the tier):
@@ -197,9 +190,12 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
    - Fable: never as a first spawn — the escalation target after a verified failure (Step 6)
 
    The spawn sets only the model: the Agent tool has no effort parameter, so every worker runs at the `effort` in `task-worker.md` frontmatter (`medium`), whatever model the spawn picks and whatever effort this session runs at. Escalation raises the model, not the effort. The verify-then-retry loop below is what makes the cheap default safe — fix workers escalate to fable, one attempt.
-5. **Spawn the `task-worker` agent** with the chosen model as a per-spawn override (the agent has the tdd-discipline skill preloaded and carries the TDD contract in its own definition). **Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW** and build the worker prompt from its "Worker Prompt Template" — task ID/title/description, the context package, beads commands (`bd update [id] --claim`, `bd close [id]`), and the expected-output contract. Use the template verbatim with values filled in.
-6. **Collect worker output** when complete
-7. **Proceed to verification** (Step 6)
+5. **Record the starting commit**: `git rev-parse HEAD`, before any outer test or worker work, as `taskTestContext.startingCommit`; the verifier diffs against it. Build the rest of `taskTestContext` for this task as reference.md specifies.
+6. **Write missing outer tests**: for each criterion the task cites that has no `red(AC-n)` commit yet, spawn `wb:test-writer` with the "Outer Test Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md); the target test file is in the criterion's outer test step. When the report arrives, re-run the test yourself and confirm it fails on an assertion. Then commit only the test as `red(AC-n): <criterion title>`, record that commit as the criterion's `redCommit`, keep the report in `outerTestReports`, and run `bd close [outer-step-id]` (with the id: a bare `bd close` closes the last issue touched, which is the task from item 2). A report of blocked, or a failure that is not an assertion (an import or setup error), proves nothing about the behavior: commit nothing and handle it as Case B of the "Worker Failure Playbook" in [reference.md](reference.md).
+7. **Spawn the `task-worker` agent** with the chosen model as a per-spawn override. **Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW** and build the worker prompt from its "Worker Prompt Template": the task ID, title, and description, and the context package with this task's `taskTestContext`. The template defers the claim, the process, the constraints, and the report format to `task-worker.md`, and keeps `bd close` as the worker's last act. Use it verbatim with values filled in.
+8. **Collect worker output** when complete, then verify (Step 6)
+
+**No acceptance criteria: plan predates 5.0.0.** When the phase has no outer test steps and its tasks cite no criteria, skip item 6; `taskTestContext` holds only the starting commit and conventions. Workers still never edit tests and the verifier still checks test integrity against the starting commit, because both protect the tests however the plan was written.
 
 **Loop**: Spawn → Wait → Verify → Next task
 
@@ -215,54 +211,34 @@ After each worker completes:
    bd show ${taskId}  # Should show status: closed
    ```
 
-2. **Collect worker output**:
-   - Files created/modified
-   - Tests added/modified
-   - Test commands to verify
-   - Any issues encountered
+2. **Collect worker output**: files changed, tests added or changed, test commands, issues encountered, and item 7, the Test-writer reports verbatim, which the verifier and any fix worker need.
 
 3. **Verify task completion**:
 
-   Spawn `wb:task-verifier` using the "Verification Agent Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md) — read it before spawning. Pass no `model` parameter: the verifier's definition pins Opus at `high` effort, and a per-spawn model overrides the definition, so passing the worker's model would run the quality gate on the cheaper model. The agent runs tests, checks scope adherence, and returns a structured markdown report with Status: PASS or FAIL.
+   Spawn `wb:task-verifier` using the "Verification Agent Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md) — read it before spawning. Pass no `model` parameter: the verifier's definition pins Opus at `high` effort, and a per-spawn model overrides the definition, so passing the worker's model would run the quality gate on the cheaper model. Besides the task and the worker's report, it gets the task's starting commit, the red commits, the criteria with their examples, and the Test-writer Reports (`outerTestReports`, then the worker's item 7). It runs the tests, checks scope, and checks test integrity and criterion protection. A changed outer test, a test change no report declares, or a test that does not protect its criterion is a FAIL even when every test passes. Keep the report's Test Integrity section, pass or fail, for the Step 8 test review.
 
 4. **Parse verification result autonomously**:
 
-   Extract pass/fail from agent's markdown report:
+   The verdict is the report's status heading: three hashes, `Status:`, then PASS or FAIL.
 
    ```javascript
-   // Agent returns text like: "### Status: PASS" or "### Status: FAIL"
-   // FAIL wins: a report containing both markers, or neither, is a FAIL —
+   // FAIL wins: a FAIL verdict, both verdicts (on two lines or one), or neither is a FAIL —
    // ambiguous verification is failed verification
-   const failed = verificationReport.includes("### Status: FAIL") ||
-                  !verificationReport.includes("### Status: PASS");
-   const passed = !failed;
+   const hasVerdict = (word) => new RegExp(`^#{3} Status: ${word}\\s*$`, "m").test(verificationReport);
+   const passed = hasVerdict("PASS") && !hasVerdict("FAIL");
    ```
 
    **If PASS**:
    - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
-   - Add to success log
-   - Collect modified files for aggregation
-   - Proceed to step 5 (next task)
+   - Add to the success log and the aggregated lists: modified files, test commands, and implementation notes if the worker found issues
+   - Run `bd ready` and spawn the next worker (Step 5)
 
-   **If FAIL** — first judge the failure type from the verifier report:
+   **If FAIL** — the failure type is the `Cause:` line under the report's Recommendation. When it is missing, judge from the evidence with the plan-defect signals in [reference.md](reference.md).
 
-   - **Implementation defect** (task is achievable as specified; the worker got it wrong):
-     - Attempt one automatic fix using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), then re-verify.
+   - **Implementation defect** (task is achievable as specified; the worker got it wrong, including every integrity and protection finding):
+     - Attempt one automatic fix using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), then re-verify. The re-verification's test-writer reports are `outerTestReports`, the first worker's item 7, and the fix worker's item 7; without the fix worker's reports, its test changes read as undeclared.
      - **If re-verification fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
-   - **Plan defect** (task cannot succeed AS SPECIFIED — a design assumption doesn't survive contact with the code): do NOT spawn fix workers; retries cannot fix a task that is wrong as specified. Follow the "Plan-Defect Deviation Protocol" in [reference.md](reference.md) — file a design-revision issue, block dependent tasks, halt the phase for a human checkpoint.
-
-5. **Add to aggregated lists** (after pass):
-   - Modified files (for final reporting)
-   - Test commands (for phase verification)
-   - Implementation notes (if worker found issues)
-
-6. **Check for newly ready tasks**:
-
-   ```bash
-   bd ready  # See what's now unblocked
-   ```
-
-7. **Spawn next worker** (repeat Step 5)
+   - **Plan defect** (task cannot succeed AS SPECIFIED, such as a wrong or ambiguous criterion, or a design assumption that doesn't survive contact with the code): do NOT spawn fix workers; retries cannot fix a task that is wrong as specified. Follow the "Plan-Defect Deviation Protocol" in [reference.md](reference.md) — file a design-revision issue, block dependent tasks, halt the phase for a human checkpoint.
 
 **Handle unfinished workers** (worker left the task `in_progress` without closing it): this is NOT a verification failure, and verification is not run. It is one of two distinct events — **truncation** (worker exhausted its tool-call budget; partial work landed, finish the remainder — never retry whole) or **genuine failure** (crash or reported blocker; little landed). Run `git status` to tell them apart, then follow the "Worker Failure Playbook" in [reference.md](reference.md) for the matching remedy.
 
@@ -314,7 +290,15 @@ make build          # or npm run build, go build
 
 **Requirement**: All automated checks must pass.
 
-#### 3. Request Manual Verification
+#### 3. Review the Phase's Tests
+
+Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section, the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+
+Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these".
+
+The findings inform the user's go-ahead and do not block it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
+
+#### 4. Request Manual Verification
 
 Present manual verification checklist to user:
 
@@ -328,6 +312,11 @@ Present manual verification checklist to user:
 
 **Worker agents completed:**
 ${workerSummaries.map(w => `- ✅ ${w.title}: ${w.summary}`).join('\n')}
+
+**Test review** (proposals; no test was edited):
+- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+- Findings: ${reviewFindings}  (settled candidates marked "n of 3")
+- Review these: ${reviewThese}
 
 **Beads state:**
 - ✅ All Phase ${phase} tasks closed: [list task IDs]
@@ -344,7 +333,7 @@ Reply when manual verification is complete and I'll close the phase milestone.
 
 **Requirement**: Wait for user confirmation before proceeding.
 
-#### 4. Close Phase Milestone
+#### 5. Close Phase Milestone
 
 **ONLY after user confirms manual verification**:
 
@@ -353,7 +342,7 @@ bd close ${phaseMilestoneId} --reason "Phase ${phase} complete: ${summary}. All 
 bd ready  # Check what's now unblocked (next phase tasks)
 ```
 
-#### 5. Report Completion
+#### 6. Report Completion
 
 Report using the "Phase Completion Report" template in [templates.md](templates.md) — read it before writing the report.
 
@@ -371,7 +360,7 @@ After phase completion:
 
 2. **Reconcile tasks.md frontmatter via `/wb:update_status`**: run `/wb:update_status [project-directory]` to update `status`, `current_phase`, and `completed_tasks` from beads state — `update_status` is the sole writer of those fields, so do not hand-edit them here. It's fine to note `execution_mode: coordinated` in the frontmatter while running the reconciliation, since `update_status` doesn't own that field.
 
-3. **Add implementation notes** with worker insights, using the "Implementation Notes Entry" template in [templates.md](templates.md).
+3. **Add implementation notes** with worker insights and the phase's integrity-finding counts (total and escalated) from Step 8, using the "Implementation Notes Entry" template in [templates.md](templates.md).
 
 4. **Record durable learnings.** If this phase established something the next session would otherwise rediscover — a repository convention, a tool quirk, a constraint the plan did not state — record it:
 
@@ -418,6 +407,7 @@ When resuming work (phase = "continue"):
 
 4. **Continue coordination**:
    - Extract context package
+   - Recover the phase's starting commit (Step 4) for the test review: the parent of the phase's first task or `red(AC-n)` commit in `git log`, or HEAD if the phase has none
    - Run `bd ready` to find next task
    - Spawn worker for next available task
    - Repeat until phase complete
