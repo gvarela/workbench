@@ -61,7 +61,7 @@ Generated: [YYYY-MM-DD HH:MM]
 
 ### Test Review
 - Integrity: [N] findings ([M] escalated)
-- Findings: [verdict, rubric item, `file:line`, evidence type; criterion coverage gaps; settled candidates marked "n of 3"]
+- Findings: [verdict, rubric item, `file:line`, evidence type, and the proof in one clause; criterion coverage gaps; settled candidates marked "n of 3"]
 - Review these: [observations that reached no verdict, each with one evidence label]
 - Not run: [checks the reviewer listed under Not Run, with reasons]
 
