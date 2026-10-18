@@ -35,11 +35,49 @@ const contextPackage = {
     phaseMilestoneId: "beads-yyy"
   },
 
-  // Test commands
+  // Test commands, taken from the conventions source the test-quality skill names
+  // (research.md's Testing Conventions section; .claude/wb/testing.md when research
+  // has none), not guessed from the language
   testCommands: {
-    unit: "npm test | pytest | go test ./...",
-    specific: "npm test path/to/file | pytest tests/file.py",
-    coverage: "npm test -- --coverage | pytest --cov"
+    unit: "<unit command from the conventions>",
+    specific: "<command that runs one file or test, from the conventions>",
+    coverage: "<coverage command from the conventions, if it names one>"
+  },
+
+  // Per task, built when the task is about to run. Workers and the verifier
+  // get tests and criteria from here, so each field says where it came from.
+  taskTestContext: {
+    // The commit the task begins from (git rev-parse HEAD, recorded before any
+    // outer test or worker work); the verifier diffs against it
+    startingCommit: "<sha>",
+
+    // One entry per acceptance criterion the task cites (the task's "Serves" line),
+    // from design.md and the phase's Outer Test Steps in tasks.md
+    criteria: [
+      {
+        id: "AC-n",
+        title: "criterion title",
+        text: "the criterion's Given / When / Then lines, verbatim",
+        example: "the criterion's Example lines, verbatim",
+        observedAt: "the boundary where the criterion is observed",
+        seam: "where the behavior can be exercised",
+        redCommit: "<sha of the red(AC-n) commit for its outer test>"
+      }
+    ],
+
+    // The outer-mode test-writer reports written for this task, verbatim (empty when
+    // its outer tests came from an earlier task). The worker passes them on as the
+    // task's earlier reports; the verifier matches the red commits' changes against them
+    outerTestReports: ["<report>"],
+
+    // From the conventions source above, per boundary a criterion is observed at
+    conventions: {
+      "<boundary>": {
+        command: "how to run tests at this boundary",
+        skipMarkers: "the skip markers the project uses",
+        harness: "the harness or fixture setup the boundary needs"
+      }
+    }
   },
 
   // File references relevant to this phase.
@@ -53,6 +91,10 @@ const contextPackage = {
   ]
 };
 ```
+
+### Plans without acceptance criteria
+
+A plan that predates 5.0.0 cites no criteria. Then `taskTestContext` holds only `startingCommit` and `conventions`, and no outer tests, outer reports, or red commits exist. The rule that workers never edit tests still applies, and the verifier still checks test integrity against the starting commit, because both protect the tests regardless of how the plan was written.
 
 ## Worker Model Selection (Step 5)
 
@@ -72,7 +114,7 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 **Remedy**:
 
-1. Inventory the landed work (`git status`, `git diff`) — do NOT skip this; partial changes are sitting in the tree unexamined
+1. Inventory the landed work (`git status`, `git diff`) — do NOT skip this; partial changes are sitting in the tree unexamined. A committed `red(AC-n)` outer test is expected state, not worker damage: the coordinator commits it before the worker is spawned, so a red outer test after a truncated worker means the implementation is unfinished, not that something broke. Keep that commit and finish the work under it
 2. **Finish the remainder directly yourself**, or re-delegate ONLY the remaining slice as a fresh worker with a smaller prompt that names the exact files still to change
 3. Close the bead once the tail is done, then run verification (Step 6) on the completed whole
 4. **Never retry the whole task**: same task + same context = same budget, truncating at the same point
