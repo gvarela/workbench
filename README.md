@@ -178,6 +178,41 @@ claude --plugin-dir /path/to/this/repo/plugin
 /reload-plugins
 ```
 
+### Trying an Unreleased Branch in Real Projects
+
+`--plugin-dir` covers one session. To run a branch in every session, in other repositories, and as an installed plugin (which `--plugin-dir` does not exercise), point the local marketplace at a pinned snapshot worktree of the branch. A snapshot keeps in-progress edits in your working copy out of the sessions that are testing it.
+
+```bash
+# 1. Create a snapshot worktree pinned to a commit on the branch
+git -C /path/to/workbench worktree add --detach /path/to/wb-snapshot <commit>
+
+# 2. Point the marketplace at the snapshot and reinstall the plugin
+claude plugin marketplace remove gvarela-workbench
+claude plugin marketplace add /path/to/wb-snapshot
+claude plugin install wb@gvarela-workbench
+claude plugin list          # wb@gvarela-workbench should read from /path/to/wb-snapshot/plugin
+```
+
+Restart Claude (or `/reload-plugins`) in open sessions. Every new session now uses the snapshot.
+
+To move the snapshot to a newer commit, do it between sessions:
+
+```bash
+git -C /path/to/wb-snapshot checkout --detach <newer-commit>
+claude plugin marketplace update gvarela-workbench
+```
+
+To go back to the released plugin, re-add the original source and reinstall:
+
+```bash
+claude plugin marketplace remove gvarela-workbench
+claude plugin marketplace add gvarela/workbench      # or your local clone's path
+claude plugin install wb@gvarela-workbench
+git -C /path/to/workbench worktree remove /path/to/wb-snapshot
+```
+
+Removing the marketplace also removes the plugin's saved options.
+
 ## License
 
 MIT
