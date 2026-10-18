@@ -195,7 +195,7 @@ The coordinator is operating autonomously within this task loop. Nobody is watch
 7. **Spawn the `task-worker` agent** with the chosen model as a per-spawn override. **Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW** and build the worker prompt from its "Worker Prompt Template": the task ID, title, and description, and the context package with this task's `taskTestContext`. The template defers the claim, the process, the constraints, and the report format to `task-worker.md`, and keeps `bd close` as the worker's last act. Use it verbatim with values filled in.
 8. **Collect worker output** when complete, then verify (Step 6)
 
-**No acceptance criteria: plan predates 5.0.0.** When the phase has no outer test steps and its tasks cite no criteria, skip item 6; `taskTestContext` holds only the starting commit and conventions. Workers still never edit tests and the verifier still checks test integrity against the starting commit, because both protect the tests however the plan was written.
+**No acceptance criteria: plan predates 5.0.0.** When the phase has no outer test steps and its tasks cite no criteria, skip item 6, and say in your output that the plan has no acceptance criteria because it predates 5.0.0, so outer tests are skipped and no red commits will appear (the human needs to know why); `taskTestContext` holds only the starting commit and conventions. Workers still never edit tests and the verifier still checks test integrity against the starting commit, because both protect the tests however the plan was written.
 
 **Loop**: Spawn → Wait → Verify → Next task
 
