@@ -83,7 +83,7 @@ Provide the agent with:
 - Tests Modified: ${workerOutput.testsModified}
 - Worker Report: ${workerOutput.summary}
 - Starting Commit: ${taskTestContext.startingCommit}
-- Red Commits: ${redCommits}  (the red commit of each outer test the task touches)
+- Red Commits: ${redCommits}  (each taskTestContext.criteria[].redCommit: the red commit of each outer test the task touches)
 - Criteria: ${taskTestContext.criteria}  (each with its example)
 - Test-writer Reports: ${taskTestContext.outerTestReports} and ${workerOutput.testWriterReports}  (the outer reports, then the worker's item 7, verbatim)
 
@@ -107,6 +107,6 @@ Provide:
 - Instructions: Fix the specific issues identified. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter.
+**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, adding the fix worker's item 7 to Test-writer Reports (the outer reports, the first worker's item 7, then the fix worker's item 7, verbatim). Without it, the fix's test changes match no report and fail as undeclared.
 
 **If re-verification fails**: add the task to the phase checkpoint's blocking list and continue to the next task. Do not spawn a second fix worker.
