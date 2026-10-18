@@ -82,6 +82,12 @@ beads_tasks:
   phase7_integration_2: prompts-uis9
   phase7_test_1: prompts-33yh
   phase7_integration_3: prompts-0phw
+  phase7_impl_1: prompts-qh2a
+  phase7_impl_2: prompts-e2zi
+  phase7_impl_3: prompts-hm4h
+  phase7_impl_4: prompts-og4b
+  phase7_impl_5: prompts-roha
+  phase7_impl_6: prompts-5yvr
 ---
 
 # Execution Plan: Testing Guidance
@@ -1140,6 +1146,13 @@ Cite the evidence inline: the AC-5 tallies and the AC-6 results.
 
 #### Integration Tasks
 
+- **Pre-release hardening** (added 2026-10-18; design D12 and D13). These land before the docs sweep, which documents them:
+  - D12 item 1, deterministic test-integrity pre-check script run first by task-verifier. → `[beads:phase7_impl_1]`
+  - D12 item 2, phase checkpoints block on deterministic failures in tests the phase changed. → `[beads:phase7_impl_2]`
+  - D12 item 3, rubric FAILs need proof; pattern rules prompt a counterexample. → `[beads:phase7_impl_3]`
+  - D12 item 4, triage-first `/wb:test-audit` with scope and cost estimate. → `[beads:phase7_impl_4]`
+  - D13, `/wb:testing-profile` recommends gaps against the flow. → `[beads:phase7_impl_5]`
+  - D13 follow-up, on refresh point at an adopted gap's beads issue once its tooling is installed. → `[beads:phase7_impl_6]`
 - **Docs sweep** per Changes Required 1. → `[beads:phase7_integration_1]`
 - **CHANGELOG Unreleased entry with Migration** per Changes Required 2. → `[beads:phase7_integration_2]`
   - It consumes the Phase 4 to 6 results files for its evidence.
