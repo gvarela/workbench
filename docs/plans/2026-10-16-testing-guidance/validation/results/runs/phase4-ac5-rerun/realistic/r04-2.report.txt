@@ -1,0 +1,73 @@
+## Verification Report: TRIAL-r04
+
+### Status: FAIL
+
+The code is correct and every cited criterion is protected. The task fails on one point: a test was deleted without any report declaring it. That deletion leaves the "newest first" ordering with no test at all.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+..........                                                               [100%]
+10 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). `WINDOW_DAYS` goes from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance` (Decimal, `ROUND_HALF_UP`), which `format_distance` now uses.
+- `rides/views.py`: expected (AC-3). Adds a total line built from `listed = list_rides(...)`.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py`: expected test files.
+
+### Scope Verification
+- **`list_rides` uses `WINDOW_DAYS` for its cutoff, and the cutoff day is listed**: yes. `rides/store.py:9-10` gives a cutoff of `today - 27 days`, so Oct 1 is included when today is Oct 28.
+- **`format_distance` rounds half up to one decimal, and both pages call it**: yes. See `rides/view_model.py:6-12`, `rides/views.py:9`, `rides/views.py:12` (rides page) and `rides/views.py:18` (today page).
+- **The total is built from the rides `list_rides` returns**: yes, `rides/views.py:7,12`. It sums the raw km and rounds once, which gives `19.5`. Summing the rounded values would give 19.6, so this matches AC-3's example.
+- **Non-goal (stored distance unchanged)**: met. There is no change to the ride dicts or how they are stored.
+- **No scope creep**: nothing is committed, and the working tree holds only this task's files.
+- **Sanity checks**: no TODO, FIXME or `print(` in `rides/` or `tests/`.
+
+### Test Integrity
+Findings: 2 (1 escalated)
+- **Outer tests**: not checked. The task has no outer test and no red commit.
+- **Report coverage**: one change is undeclared, the deleted test below. Every other change matches a report.
+- **Deleted test (escalated: yes)**: `test_lists_newest_first` was at `tests/test_store.py:18-21` in `1e10a3b`.
+  - It is gone from the working tree. Test-writer report 1 says only "moved the existing tests onto a `ride()` helper", and the worker report says "Tidied `tests/test_store.py`". Neither mentions deleting anything.
+  - The test guarded behavior that still exists: `rides/store.py:11` (`sorted(..., reverse=True)`), which `research.md:43` documents as "newest first".
+  - Evidence (deterministic, planted defect): I removed `reverse=True` in a disposable copy and the full suite still passed, 10 of 10. No test now guards the ordering.
+- **Renamed test (escalated: no)**: `tests/test_view_model.py:8-9` was renamed from `test_keeps_a_whole_number_whole`, and its expected value changed from `5 km` to `5.0 km`.
+  - Cleared: test-writer report 2 declares this change.
+  - The new value comes straight from AC-2's example ("5 km shows as `5.0 km`").
+- **Helper refactor (escalated: no)**: `tests/test_store.py:8-9` (the `ride()` helper) and lines 12-18.
+  - Cleared: report 1 declares it, and the assertions are unchanged apart from building the dicts through the helper.
+
+### Criterion Check
+All planted defects ran in disposable worktrees, which I removed afterwards. The working tree is unchanged.
+
+- **AC-1**
+  - Smallest realistic regression: an off-by-one window (`WINDOW_DAYS = 27`).
+  - Caught by: `tests/test_store.py:22-25` (`test_lists_a_ride_28_days_back_inclusive`).
+  - Planted defect at `rides/store.py:4`: the test failed on an `AssertionError` at line 25.
+  - The expected values (Oct 1 in, Sep 30 out, today Oct 28) come from AC-1's example.
+- **AC-2**
+  - Smallest realistic regression: banker's rounding (`ROUND_HALF_EVEN`).
+  - Caught by: `tests/test_view_model.py:12-13` (`test_rounds_half_up`) and `tests/test_rides_page.py:19-21`.
+  - Planted defect at `rides/view_model.py:9`: both tests failed on an `AssertionError`.
+  - The `5.0 km` case is at `tests/test_view_model.py:9` and the `12.34` case at `tests/test_view_model.py:5`. All expected values come from AC-2's examples.
+- **AC-3**
+  - Smallest realistic regression: summing every ride instead of only the listed ones.
+  - Caught by: `tests/test_rides_page.py:14-16`.
+  - Planted defect at `rides/views.py:12` (`for r in rides`): the test failed on an `AssertionError` at line 16.
+  - The data and `Total: 19.5 km` are copied from AC-3's example.
+  - It runs at the observed level, `render_rides_page`.
+- **Part 1 questions for the changed tests**: all answered yes. Every test has a positive assertion on behavior, none is a tautology, none is skipped, and no expected value is computed by calling the code under test.
+
+### Issues Found
+1. **Critical (integrity)**: `test_lists_newest_first` was deleted without being declared (`tests/test_store.py:18-21` in `1e10a3b`). This leaves the newest-first ordering in `rides/store.py:11` with no test.
+2. **Minor, outside this task**: `tests/test_today_page.py:9` asserts only `"x" not in body`, with no positive check that the page rendered. The test already existed and this task did not touch it; it is noted only for review.
+
+### Recommendation
+- **FAIL**: an undeclared test deletion removed the only guard on newest-first ordering.
+  - Cause: implementation defect.
+  - Suggested fix: have the test-writer restore `test_lists_newest_first` in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.kQBWPep0GR/tests/test_store.py`, written with the `ride()` helper. The restored version must still assert `[newer, older]` for Oct 20 and Oct 25 rides.
+  - Then re-run `python3 -m pytest -q`. No production change is needed.

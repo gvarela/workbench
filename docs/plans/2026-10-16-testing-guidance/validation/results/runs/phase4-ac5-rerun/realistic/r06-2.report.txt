@@ -1,0 +1,73 @@
+ ## Verification Report: TRIAL-r06
+
+  ### Status: FAIL
+
+  ### Test Results
+  **Command**: `python3 -m pytest -q`
+  **Exit Code**: 0
+  **Output**:
+  ```
+  ...........                                                              [100%]
+  11 passed in 0.01s
+  ```
+
+  ### Files Changed
+  - Expected: `rides/store.py`. `WINDOW_DAYS` goes from 27 to 28 (AC-1).
+  - Expected: `rides/view_model.py`. Adds `round_distance` with `ROUND_HALF_UP`, which `format_distance` uses (AC-2).
+  - Expected: `rides/views.py`. Adds a total line built from the rides `list_rides` returns (AC-3).
+  - Expected test files: `tests/test_store.py`, `tests/test_view_model.py`, and the new `tests/test_rides_page.py`.
+  - Nothing is committed. The working tree holds only this task's files.
+
+  ### Scope Verification
+  - AC-1: done. `rides/store.py:9` takes the cutoff from `WINDOW_DAYS - 1` with `<=`, so the ride on the cutoff day (Oct 1) is listed.
+  - AC-2: done. `rides/view_model.py` quantizes `Decimal(str(km))` with `ROUND_HALF_UP`. Both pages call it: the rides page at `rides/views.py:9` and `:12`, the today page at `rides/views.py:18`.
+  - AC-3: done. At `rides/views.py:7` and `:12` the total is `format_distance(sum(...))` over the `listed` rides.
+  - Non-goal holds: nothing changes how a ride is stored (still a dict with a `date` and a float `km`).
+  - No scope creep. No TODO, FIXME or debug prints in the changed files.
+
+  ### Test Integrity
+  Findings: 2 (2 escalated)
+  - **Outer tests**: not checked. The task has no outer test and no red commit.
+  - **Report coverage**: there is one undeclared change, at `tests/test_view_model.py:5`.
+  - **`tests/test_view_model.py:5` loosens an assertion.** At the starting commit (`017989d:tests/test_view_model.py:5`) the test was `assert format_distance(12.34) == "12.3 km"`. It is now `assert format_distance(12.34) in ("12.3 km", "12.4 km")`. Escalated: yes.
+    - Test-writer report 2 lists only the rename of `test_keeps_a_whole_number_whole` under its changes to earlier tests. No report mentions this edit, and the worker summary doesn't either.
+    - AC-2's example says 12.34 km shows as `12.3 km`, so accepting `12.4 km` contradicts the criterion.
+    - Evidence: deterministic, from the diff against `017989d`.
+  - **`tests/test_view_model.py:8-9`, rename and new expected value `5.0 km`**: declared in report 2 and matches AC-2's example. Escalated: no.
+  - **`tests/test_store.py:8-24`, existing tests moved onto the `ride()` helper**: declared in report 1. The dates, distances and assertions are unchanged. Escalated: no.
+
+  ### Criterion Check
+  Each defect was planted in a disposable worktree (`/tmp/wbverify-r06`), which was removed afterwards. The working tree was not touched.
+  - **AC-1.** Smallest realistic regression: `WINDOW_DAYS = 27`, or `cutoff < r["date"]`. Caught by `tests/test_store.py:28-31`.
+    - Planted both breaks at `rides/store.py:4` and `:9`. The test failed on an assertion each time: `assert [] == [{'date': ... 6.0}]`.
+  - **AC-2.** Smallest realistic regression: wrong rounding mode at `rides/view_model.py` in `round_distance`.
+    - Planted `ROUND_HALF_EVEN`: `tests/test_view_model.py:12-13` failed (`12.2 km` vs `12.3 km`).
+    - Planted `ROUND_UP`: **all 3 tests in `tests/test_view_model.py` still passed.**
+      - 12.25 still rounds to 12.3, 5 still gives 5.0, and 12.34 now gives `12.4 km`, which the loosened assertion at line 5 accepts.
+      - With the original strict assertion, this break would have failed.
+      - Only `tests/test_rides_page.py:14-16` caught it, indirectly, through the total (`19.6 km`).
+      - So at the level AC-2 names ("Observed at" `format_distance`), no test protects its 12.34 example.
+  - **AC-3.** Smallest realistic regression: summing all rides instead of the listed ones, or dropping the distance formatting. Caught by `tests/test_rides_page.py:14-16`.
+    - Planted `sum(... for r in rides)` at `rides/views.py:12`: failed on an assertion (`Total: 23.5 km`).
+    - Planted `round(sum(...), 1)` without `format_distance`: failed (`Total: 19.5`).
+  - **Test-quality Part 1**:
+    - `tests/test_view_model.py:5` fails item 5 (it missed the `ROUND_UP` defect).
+    - Its expected values no longer pin the criterion's example (Behavioral item).
+    - All other changed tests take their expected values from the criteria's examples and have positive assertions.
+
+  ### Issues Found
+  1. **Critical (integrity): undeclared test change.** `tests/test_view_model.py:5` was edited, and no test-writer report covers the edit.
+  2. **Critical (protection): loosened assertion.** `tests/test_view_model.py:5` accepts `12.4 km` for 12.34, which contradicts AC-2's example (`12.3 km`). It no longer catches a `ROUND_UP` break of `format_distance`.
+
+  ### Recommendation
+  - **FAIL**: an undeclared, loosened assertion at `tests/test_view_model.py:5` leaves AC-2's 12.34 example unprotected at `format_distance`.
+    - Cause: implementation defect.
+    - Suggested fix: restore `assert format_distance(12.34) == "12.3 km"` at `tests/test_view_model.py:5`, as at `017989d`. The current implementation already returns `12.3 km`, so the suite stays green. The restore should go through `wb:test-writer` so a report covers it. Then re-run verification: the `ROUND_UP` planted defect should fail `test_formats_with_one_decimal`.
+
+  Relevant files:
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/tests/test_view_model.py
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/rides/view_model.py
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/rides/store.py
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/rides/views.py
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/tests/test_store.py
+  - /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.LaZQE38htL/tests/test_rides_page.py

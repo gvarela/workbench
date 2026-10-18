@@ -1,0 +1,63 @@
+## Verification Report: TRIAL-r05
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). `WINDOW_DAYS` changed from 27 to 28. The cutoff `today - timedelta(days=WINDOW_DAYS - 1)` at line 9 keeps rides from Oct 1 when today is Oct 28.
+- `rides/view_model.py`: expected (AC-2). `round_distance` uses `Decimal(str(km))` with `ROUND_HALF_UP`, and `format_distance` calls it.
+- `rides/views.py`: expected (AC-3). The total at line 12 adds up `listed`, which is the result of `list_rides`, and is formatted with `format_distance`.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py`: expected test files.
+- Nothing is committed beyond `92c85ee`. The working tree holds only this task's files.
+
+### Scope Verification
+- AC-1 is implemented. `list_rides` takes its cutoff from `WINDOW_DAYS`, and the ride on the cutoff day (Oct 1) is listed (`rides/store.py:4,9`).
+- AC-2 is implemented. `format_distance` rounds half up to one decimal (`rides/view_model.py:6-12`). Both pages call it: `rides/views.py:9,12` (rides page) and `rides/views.py:18` (today page).
+- AC-3 is implemented. The total is built from the rides `list_rides` returns (`rides/views.py:7,12`). The page shows `Total: 19.5 km` for the AC-3 data.
+- Non-goal holds. The stored shape is unchanged: a dict with `date` and `km` as a float. Rounding happens only for display.
+- No scope creep. There are no TODO, FIXME or debug prints in `rides/` or `tests/`.
+
+### Test Integrity
+Findings: 4 (1 escalated)
+- Outer tests: not checked. No red commit was supplied because the task has no outer test.
+- Report coverage: every test change matches a test-writer report.
+  - The `ride()` helper refactor in `tests/test_store.py:8-25` is declared in report 1. It keeps the same values (the default `km=10.0` matches the old literal).
+  - The rename and new expectation at `tests/test_view_model.py:8-9` are declared in report 2. The change from `"5 km"` to `"5.0 km"` is what AC-2 requires.
+  - `tests/test_rides_page.py` is declared in report 3.
+- `tests/test_view_model.py:8` (`test_keeps_a_whole_number_whole` in 92c85ee): the old expectation was replaced. Not escalated: the change is declared, and AC-2's example (`5 km` shows as `5.0 km`) contradicts the old expectation.
+- `tests/test_rides_page.py:18`: **escalated.** The expected value is computed by calling the code under test: `expected = format_distance(sum(r["km"] for r in list_rides(RIDES, TODAY)))`. This mirrors the production formula at `rides/views.py:12` line for line. AC-3 gives an independent expected value, `Total: 19.5 km`, and the test does not use it. The planted defects under Criterion Check confirm the test misses regressions. (Evidence: deterministic, from the diff and planted defects.)
+
+### Criterion Check
+- **AC-1**: the smallest realistic regression is an off-by-one in the window.
+  - Caught by `tests/test_store.py:28-31`, which checks that the Oct 1 ride is listed and the Sep 30 ride is not.
+  - Planted defect 1: `WINDOW_DAYS = 27` at `rides/store.py:4`, in a disposable worktree. The test failed: `assert [] == [{... 'km': 6.0}]`.
+  - Planted defect 2: `WINDOW_DAYS = 29` at the same line. The test failed because the Sep 30 ride was listed.
+  - Also caught by `tests/test_rides_page.py:24` (the 27-day case only).
+- **AC-2**: the smallest realistic regression is a flipped rounding mode.
+  - Caught by `tests/test_view_model.py:12-13`.
+  - Planted defect: `ROUND_HALF_EVEN` at `rides/view_model.py:7`. The test failed with `'12.2 km' == '12.3 km'`. `tests/test_rides_page.py:24` also failed.
+  - A second planted defect dropped the trailing decimal (`.normalize()` at `rides/view_model.py:12`). It was caught by `tests/test_view_model.py:8-9` (`'5 km' == '5.0 km'`).
+- **AC-3**: the total test does not protect the criterion.
+  - The smallest realistic regression is a wrong set of rides in the total (for example, a window off by one), so the page shows the wrong total.
+  - Planted defect: `WINDOW_DAYS = 27` at `rides/store.py:4`. The page rendered `Total: 13.3 km` instead of `19.5 km`, and `test_rides_page_shows_the_total_of_listed_rides` (`tests/test_rides_page.py:16-19`) still passed. Its expected value went through the same broken `list_rides`.
+  - Planted defect: `ROUND_HALF_EVEN` at `rides/view_model.py:7`. The total test still passed. Any break in `format_distance` is copied into the expected value in the same way.
+  - Planted defects it does catch: totalling all rides instead of the listed ones (`rides/views.py:12`), and summing rounded per-ride values. These are the only breaks local to `views.py` that the mirrored formula exposes.
+  - No test asserts the literal `Total: 19.5 km` from AC-3, so AC-3 has a gap.
+
+All worktrees were removed. `git worktree list` shows only the main tree, and the working tree is unchanged.
+
+### Issues Found
+1. **Critical (protection):** `tests/test_rides_page.py:18-19` builds its expected value by calling `list_rides` and `format_distance`, which is the same formula as `rides/views.py:12`. It does not catch a window regression (the page showed 13.3 km and the test passed) or a rounding regression. AC-3 has no test that protects it.
+
+### Recommendation
+- **FAIL**: the AC-3 total test takes its expected value from the code under test, and it misses planted defects in the window and in rounding.
+  - Cause: implementation defect.
+  - Suggested fix: in `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.zBbICe5jzK/tests/test_rides_page.py`, replace lines 18-19 with an assertion on the literal from the criterion, `assert "Total: 19.5 km" in body`. Then remove the now-unused `list_rides` and `format_distance` imports (lines 3-4). Before the fix is accepted, re-run the `WINDOW_DAYS = 27` planted defect to confirm the total test fails. No production change is needed.

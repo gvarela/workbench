@@ -1,0 +1,61 @@
+## Verification Report: TRIAL-r01
+
+### Status: PASS
+
+All three criteria are met, the scope is clean, every test change is covered by a test-writer report, and every planted defect made its guarding test fail on an assertion.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). The only change is `WINDOW_DAYS` going from 27 to 28 (line 4). The cutoff at line 9 is `today - timedelta(days=WINDOW_DAYS - 1)` and the filter at line 10 is `cutoff <= r["date"] <= today`, so the ride on the cutoff day (Oct 1) is listed.
+- `rides/view_model.py`: expected (AC-2). The new `round_distance` (lines 5-7) uses `Decimal(str(km)).quantize(Decimal("0.1"), ROUND_HALF_UP)`, and `format_distance` (line 12) calls it.
+- `rides/views.py`: expected (AC-3). `listed = list_rides(...)` is at line 7, and the total at line 12 sums the `km` of `listed`, not of the raw input.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+- No unexpected files. Nothing is committed yet; HEAD is still `d9d4b9e`.
+
+### Scope Verification
+- AC-1, 28-day inclusive window with the cutoff taken from `WINDOW_DAYS`: implemented.
+- AC-2, half-up rounding to one decimal, used on both pages: implemented. `render_rides_page` calls `format_distance` at lines 9 and 12, and `render_today_page` calls it at line 18.
+- AC-3, total built from the rides `list_rides` returns: implemented.
+- Non-goal (how distance is stored): not touched. The ride dict shape and `km` floats are unchanged, and the only `store.py` edit is the constant.
+- No scope creep. `round_distance` is a small helper inside AC-2's function and adds no new feature.
+
+### Test Integrity
+Findings: 3 (0 escalated)
+- Outer tests: not checked, because the task states it has no outer test or red commit.
+- Report coverage: every test change matches a test-writer report. Report 1 covers `tests/test_store.py` (the `ride()` helper, the new test, and the Sep 30 change). Report 2 covers `tests/test_view_model.py` (the rename to `5.0 km` and the new `test_rounds_half_up`). Report 3 covers `tests/test_rides_page.py`.
+- `tests/test_store.py:18` (was line 14 in `d9d4b9e`): `test_omits_rides_from_long_ago` now uses Sep 30 instead of Aug 1. Not escalated. It is declared in report 1 and it makes the test stricter: the planted cutoff off-by-one below made this test fail, which the Aug 1 version would not have.
+- `tests/test_view_model.py:8-9` (was `test_keeps_a_whole_number_whole` at lines 8-9 in `d9d4b9e`): the expected value changed from `5 km` to `5.0 km`. Not escalated. It is declared in report 2, and the new value comes straight from AC-2's example.
+- `tests/test_store.py:8-9`: the `ride()` helper refactor is declared and only changes how the test data is built. Not escalated.
+- Expected values come from the criteria's examples (Oct 1/Sep 30, 12.25 to `12.3 km`, 5 to `5.0 km`, `Total: 19.5 km`). None is computed by calling the code under test. No skips, and the negative assertion at `tests/test_store.py:19` has a presence anchor in `tests/test_store.py:28-31`.
+
+### Criterion Check
+Each defect was planted in a disposable worktree that included the worker's uncommitted changes and untracked files. The working tree was not touched, and the worktrees were removed afterwards.
+
+- **AC-1**: the smallest realistic regression is an off-by-one at the cutoff. It is caught by `tests/test_store.py:28` (`test_lists_a_ride_28_days_back_inclusive`).
+  - `WINDOW_DAYS = 27` at `rides/store.py:4`: that test failed (`assert [] == [{...'km': 6.0}]`).
+  - `timedelta(days=WINDOW_DAYS)` at `rides/store.py:9`: that test and `test_omits_rides_from_long_ago` both failed.
+  - `cutoff < r["date"]` at `rides/store.py:10`: that test failed.
+- **AC-2**: the smallest realistic regression is the wrong rounding mode or dropping the trailing `.0`. It is caught by `tests/test_view_model.py:12` and `tests/test_view_model.py:8`.
+  - Rounding changed to half even at `rides/view_model.py:7`: `test_rounds_half_up` failed (`'12.2 km' == '12.3 km'`).
+  - `format_distance` reverted to `round(km, 1)` at `rides/view_model.py:12`: both `test_shows_a_whole_number_with_one_decimal` (`'5 km' == '5.0 km'`) and `test_rounds_half_up` failed.
+  - The 12.34 example is covered by the unchanged `tests/test_view_model.py:4`.
+- **AC-3**: the smallest realistic regression is a total over unfiltered rides, or a total of already-rounded values. It is caught by `tests/test_rides_page.py:14` (the total test) and `tests/test_rides_page.py:19` (the per-ride test).
+  - Total summed over `rides` instead of `listed` at `rides/views.py:12`: the total test failed (page showed `Total: 23.5 km`).
+  - Total summed from the per-ride rounded values at `rides/views.py:12`: the total test failed (`Total: 19.6 km`).
+  - Per-ride distance shown with `round(km, 1)` instead of `format_distance` at `rides/views.py:9`: the per-ride test failed (`6.2 km`).
+- No gaps: each criterion has a test at its "Observed at" level that fails on a realistic regression.
+
+### Issues Found
+Minor, does not block:
+- `tests/test_today_page.py:8`: `assert "x" not in body` checks an empty page and has no presence anchor. This test is from before the task and was not changed, so it is outside this task's scope. No test checks how the today page shows distances; AC-2 is observed at `format_distance`, which is covered.
+
+### Recommendation
+- **PASS**: proceed to the next task.

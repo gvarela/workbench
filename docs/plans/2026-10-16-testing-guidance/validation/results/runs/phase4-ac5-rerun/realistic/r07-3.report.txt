@@ -1,0 +1,77 @@
+## Verification Report: TRIAL-r07
+
+### Status: PASS
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). Only `WINDOW_DAYS` changed, from 27 to 28.
+- `rides/view_model.py`: expected (AC-2). Adds `round_distance`, which converts with `Decimal(str(km))` and then quantizes half up. `format_distance` now uses it.
+- `rides/views.py`: expected (AC-3). Adds the total line.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+
+Nothing is committed. HEAD is still the starting commit `0b60450`, and the working tree holds only these six files.
+
+### Scope Verification
+- **AC-1:** `list_rides` gets its cutoff from `WINDOW_DAYS` as `today - timedelta(days=WINDOW_DAYS - 1)` with an inclusive `cutoff <= date` (`rides/store.py:9-10`). On Oct 28 the cutoff is Oct 1, so the ride on the cutoff day is listed.
+- **AC-2:** `format_distance` rounds half up to one decimal (`rides/view_model.py:7`). `Decimal("5")` quantizes to `5.0`. Both pages call it: the rides page at `rides/views.py:9` and `:12`, and the today page at `rides/views.py:18`.
+- **AC-3:** the total is the sum of the raw `km` values from `listed = list_rides(rides, today)` (`rides/views.py:7`, `:12`), then formatted with `format_distance`. For the AC-3 rides that gives 19.52, shown as `19.5 km`.
+- **Non-goal (no change to how distance is stored):** respected. The ride dict shape is unchanged, and rounding happens only for display.
+- No scope creep. `load_series` and `wizard/` are untouched.
+- Sanity checks: no TODO, FIXME or `print(` in `rides/` or `tests/`. All imports resolve, since the suite ran.
+
+### Test Integrity
+Findings: 2 (0 escalated)
+- **Outer tests:** not checked, because the task has no outer test and no red commit was supplied.
+- **Report coverage:** every test change matches a test-writer report.
+  - Report 1 covers `tests/test_store.py`: the new `test_lists_a_ride_28_days_back_inclusive` and the move onto the `ride()` helper.
+  - Report 2 covers `tests/test_view_model.py`: `test_rounds_half_up`, and the rename of the old whole-number test to the one that expects `5.0 km`.
+  - Report 3 covers the new `tests/test_rides_page.py`.
+- **`tests/test_view_model.py:8-9` (was `0b60450:tests/test_view_model.py:8-9`):** the old expectation `5 km` became `5.0 km`. This changes an earlier test's expectation. Not escalated. The change is declared in report 2, and the new value comes straight from AC-2's example ("5 km shows as `5.0 km`"). It makes the test stricter, not looser: the planted defect below that drops the trailing zero is caught here.
+- **`tests/test_store.py:8-25`:** the existing tests now use the `ride()` helper. Not escalated. The change is declared in report 1, and it keeps the meaning: the helper's default `km=10.0` and the explicit `km` values match the old literals exactly, and every assertion is unchanged.
+- **Expected values:** all come from the criterion examples (`12.3 km`, `5.0 km`, `Total: 19.5 km`, Oct 1 listed and Sep 30 not), or from hand-checkable arithmetic (6.25 shown as `6.3 km`). None is computed by calling the code under test.
+- No test was skipped, deleted or loosened.
+
+### Criterion Check
+Every planted defect below was made in a disposable worktree, which was removed afterwards. Each one failed on an assertion, not a load error.
+
+**AC-1**
+- **Smallest realistic regression:** the window is off by one in either direction.
+  - `WINDOW_DAYS = 29` lists Sep 30. Caught by `tests/test_store.py:31` and `tests/test_rides_page.py:16` (total shown as 23.5).
+  - `WINDOW_DAYS = 27` (the old value) drops Oct 1. Caught by `tests/test_store.py:31`, `tests/test_rides_page.py:16` and `tests/test_rides_page.py:21`.
+
+**AC-2**
+- **Regression 1:** `ROUND_HALF_UP` changed to `ROUND_HALF_EVEN` at `rides/view_model.py:7`. Caught by `tests/test_view_model.py:13` (`12.2 km` != `12.3 km`) and `tests/test_rides_page.py:21`.
+- **Regression 2:** the trailing zero is dropped with `.normalize()` at `rides/view_model.py:12`. Caught by `tests/test_view_model.py:9` (`5 km` != `5.0 km`).
+
+**AC-3**
+- **Regression 1:** the total sums all rides instead of the listed rides (`rides/views.py:12`). Caught by `tests/test_rides_page.py:16` (total shown as 23.5).
+- **Regression 2:** the total sums the rounded per-ride values instead of the raw distances. Caught by `tests/test_rides_page.py:16` (total shown as 19.6).
+
+**Part 1 questions for each changed test:** every test has an assertion on behavior, no assertion is a tautology, and nothing is skipped. The two negative-style checks are anchored:
+- `test_store.py:31` uses exact list equality, so it also checks that Oct 1 is present.
+- `test_rides_page.py:16` checks that the total line is present.
+
+### Issues Found
+None that fail the task. Minor points for review:
+- `tests/test_today_page.py:8` (`assert "x" not in body`) is a negative check with no presence check alongside it, and it passes on an empty body. It predates this task and is unchanged, so it is out of scope here.
+- No test covers distance formatting on the today page. The task does not require one.
+- `tests/test_rides_page.py:6-11` builds ride dicts inline instead of using the `ride()` helper from `tests/test_store.py`. This is style only.
+
+### Recommendation
+- **PASS**: proceed to the next task.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/tests/test_view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.OQACmGxnni/tests/test_rides_page.py

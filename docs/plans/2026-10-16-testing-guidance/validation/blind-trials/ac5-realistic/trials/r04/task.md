@@ -18,7 +18,7 @@ AC-2: distances are rounded half up to one decimal, and every distance shows one
 
 AC-3: the rides page shows the total distance of the listed rides, formatted like a distance.
 
-- Given rides on Oct 27 (10.0 km), Oct 15 (3.25 km), Oct 1 (6.25 km) and Sep 30 (4.0 km), 2026
+- Given rides on Oct 27 (10.02 km), Oct 15 (3.25 km), Oct 1 (6.25 km) and Sep 30 (4.0 km), 2026
 - When the rides page renders on Oct 28, 2026
 - Then the page shows `Total: 19.5 km`
 - Observed at: function `render_rides_page` (`rides/views.py`)

@@ -1,0 +1,70 @@
+## Verification Report: TRIAL-r08
+
+### Status: FAIL
+
+The production code is correct. One test was weakened without being declared: `test_lists_newest_first` no longer checks that rides are listed newest first. The reports describe the change as a refactor onto a helper, and the suite passes even when the ordering is broken.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected (AC-1). `WINDOW_DAYS` is now 28; the cutoff is still `today - (WINDOW_DAYS - 1)`, so the window covers 28 days including today.
+- `rides/view_model.py`: expected (AC-2). New `round_distance` uses `Decimal` with `ROUND_HALF_UP` to one decimal.
+- `rides/views.py`: expected (AC-3). The total is summed from the rides `list_rides` returns.
+- `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked): expected test files.
+
+### Scope Verification
+- AC-1: the cutoff comes from `WINDOW_DAYS` (`rides/store.py:9`), and the Oct 1 ride on the cutoff day is listed.
+- AC-2: `format_distance` rounds half up to one decimal (`rides/view_model.py:6-12`). Both pages call it: the rides page at `rides/views.py:9,12` and the today page at `rides/views.py:18`.
+- AC-3: the total comes from `listed`, the rides `list_rides` returned (`rides/views.py:7,12`).
+- Non-goal: the ride dict shape and stored `km` are unchanged. Rounding happens only at display.
+- No scope creep. No TODO, FIXME or debug output. Nothing was committed (HEAD is still `b4d1412`).
+
+### Test Integrity
+Findings: 2 (1 escalated)
+- **Outer tests**: not checked. The task has no outer test and no red commit.
+- **Report coverage**: one change is not declared. Report 1 says only "moved the existing tests onto a `ride()` helper". But `tests/test_store.py:25` also changed the assertion:
+  - At the start (`b4d1412:tests/test_store.py:21`): `assert list_rides([older, newer], TODAY) == [newer, older]`
+  - Now (`tests/test_store.py:25`): `assert sorted(list_rides([older, newer], TODAY), key=lambda r: r["date"]) == [older, newer]`
+
+  Sorting the result before comparing removes the newest-first check, the only thing this test exists to verify.
+- **`tests/test_store.py:25`: loosened assertion and undeclared change. Escalated: yes.** Evidence is deterministic. In a disposable copy, I planted a defect: removed `reverse=True` at `rides/store.py:11`. The current suite still passed (11 passed). The starting-commit version of `tests/test_store.py` caught it (`test_lists_newest_first` failed with an `AssertionError`). No other test checks order; the rides-page tests use substring `in` checks.
+- `tests/test_view_model.py:8-9`: the rename and the new expected value `5.0 km` are declared in report 2 and follow AC-2. Escalated: no. The expected value comes from AC-2's example.
+- `tests/test_store.py:12-19`: the move to the `ride()` helper keeps the same values and assertions. Escalated: no. The diff shows only literal dicts replaced by equivalent `ride(...)` calls.
+
+### Criterion Check
+I planted each defect in a disposable worktree; every copy was removed afterwards, and the working tree was not touched.
+- **AC-1**: the smallest realistic regression is the window back to 27 days. It is caught by `tests/test_store.py:31` and also by `tests/test_rides_page.py:16,21`.
+  - Planted defect: `WINDOW_DAYS = 27` at `rides/store.py:4`. The tests failed: `assert [] == [{... 10/1 ...}]`.
+- **AC-2 (half up)**: the smallest realistic regression is half-even rounding. It is caught by `tests/test_view_model.py:13`, and by `tests/test_rides_page.py:21` at the page level.
+  - Planted defect: `ROUND_HALF_EVEN` at `rides/view_model.py:8`. The tests failed: `'12.2 km' == '12.3 km'`.
+- **AC-2 (always one decimal)**: the smallest realistic regression is dropping the trailing zero. It is caught by `tests/test_view_model.py:9`.
+  - Planted defect: `.normalize()` added at `rides/view_model.py:12`. The test failed: `'5 km' == '5.0 km'`.
+- **AC-3 (total of listed rides only)**: the smallest realistic regression is summing all rides. It is caught by `tests/test_rides_page.py:16`.
+  - Planted defect: `for r in rides` at `rides/views.py:12`. The test failed; the page showed 23.5.
+- **AC-3 (formatted like a distance)**: the smallest realistic regression is summing the already-rounded values. It is caught by `tests/test_rides_page.py:16`.
+  - Planted defect: `sum(round_distance(...))` at `rides/views.py:12`. The test failed; the page showed 19.6.
+- Expected values in the new tests come from the criteria examples, not from calling the code under test.
+
+### Issues Found
+1. **Critical (integrity)**: `tests/test_store.py:25`. The newest-first assertion was weakened into an order-insensitive comparison and not declared in any test-writer report. A planted ordering defect passes the whole suite.
+2. **Minor, not part of this task**: `tests/test_today_page.py` is unchanged from the starting commit. It checks only that `"x"` is absent, with no check that the expected content is present (Part 1 item 4). I'm mentioning it so someone can review it; it plays no part in this verdict.
+
+### Recommendation
+- **FAIL**: an undeclared, loosened assertion in `test_lists_newest_first` means a broken newest-first order would go undetected.
+  - Cause: implementation defect.
+  - Suggested fix: have the test-writer change `tests/test_store.py:25` back to an order-sensitive check using the helper: `assert list_rides([older, newer], TODAY) == [newer, older]`. Then re-run `python3 -m pytest -q`. If a change to that test was intended, it must be listed under "Changes to earlier tests" in a test-writer report, with its reason, and still fail when `reverse=True` is removed from `rides/store.py:11`.
+
+Relevant files:
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/tests/test_store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/rides/store.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/rides/view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/rides/views.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/tests/test_view_model.py
+- /private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.2A3PoJbNMA/tests/test_rides_page.py

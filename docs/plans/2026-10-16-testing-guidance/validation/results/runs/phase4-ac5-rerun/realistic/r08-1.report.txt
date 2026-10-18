@@ -1,0 +1,62 @@
+## Verification Report: TRIAL-r08
+
+### Status: FAIL
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...........                                                              [100%]
+11 passed in 0.01s
+```
+
+### Files Changed
+- `rides/store.py`: expected. Only `WINDOW_DAYS` changed, from 27 to 28 (line 4).
+- `rides/view_model.py`: expected. Adds `round_distance` with `ROUND_HALF_UP`, and `format_distance` now uses it.
+- `rides/views.py`: expected. Adds a total line built from `listed`, which is what `list_rides` returns (lines 7 and 12).
+- `tests/test_store.py`: expected file, but it contains an undeclared change that weakens a test (see below).
+- `tests/test_view_model.py`: expected.
+- `tests/test_rides_page.py` (new): expected.
+
+### Scope Verification
+- AC-1: done. The cutoff comes from `WINDOW_DAYS` (`rides/store.py:9`, `today - (WINDOW_DAYS - 1)`), and the ride on the cutoff day is included because the filter uses `<=` (line 10).
+- AC-2: done. `format_distance` rounds half up to one decimal (`rides/view_model.py:5-12`). Both pages call it: the rides page at `rides/views.py:9` and `:12`, the today page at `:18`.
+- AC-3: done. The total is `format_distance(sum(...))` over the listed rides only (`rides/views.py:12`), and it renders as `Total: 19.5 km` for the AC-3 example.
+- Non-goal is respected. Nothing changes how rides are stored: the dict shape `{date, km}` and the stored `km` floats are untouched.
+- No TODO, FIXME or debug prints in the changed files.
+
+### Test Integrity
+Findings: 2 (2 escalated)
+- **Outer tests:** not checked. This task has no outer test or red commit.
+- **Report coverage:** there is an undeclared change at `tests/test_store.py:25`. Test-writer report 1 says only "moved the existing tests onto a `ride()` helper". The actual change also rewrites the assertion in `test_lists_newest_first`:
+  - Before (`1468c58:tests/test_store.py:21`): `assert list_rides([older, newer], TODAY) == [newer, older]`
+  - After (`tests/test_store.py:25`): `assert sorted(list_rides([older, newer], TODAY), key=lambda r: r["date"]) == [older, newer]`
+
+  Escalated: yes.
+- **`tests/test_store.py:25`, loosened assertion:** the test sorts the function's output itself before comparing, so it no longer checks the order. "Newest first" is the documented behavior (`rides/store.py:8`), and this test now passes whatever order `list_rides` returns. Evidence is deterministic: a planted defect, shown below. Escalated: yes.
+- **`tests/test_view_model.py:8-9`, rename and new expected value (`5 km` to `5.0 km`):** declared in report 2 and required by AC-2's example (`5 km shows as 5.0 km`). Escalated: no, because the expected value comes from the criterion.
+- **Helper refactor elsewhere in `tests/test_store.py` (lines 8-19 and 23-24):** behavior is unchanged and the change is declared. Escalated: no.
+
+### Criterion Check
+Each defect was planted in a disposable worktree. The worktree was removed afterwards, and the working tree is unchanged.
+
+- **AC-1.** Smallest realistic regression: the window is off by one (`WINDOW_DAYS = 27`). Caught by `tests/test_store.py:28-31`.
+  - Planted `WINDOW_DAYS = 28` → `27` at `rides/store.py:4`. `test_lists_a_ride_28_days_back_inclusive` failed with an AssertionError (the Oct 1 ride was missing).
+- **AC-2.** Smallest realistic regression: rounding goes back to half-even or banker's rounding. Caught by `tests/test_view_model.py:12-13` and `tests/test_rides_page.py:19-21`.
+  - Planted `ROUND_HALF_UP` → `ROUND_HALF_EVEN` at `rides/view_model.py:9`. Both `test_rounds_half_up` (`12.2 km`) and `test_rides_page_shows_each_distance_rounded_half_up` (`6.2 km`) failed with AssertionErrors.
+  - The one-decimal display of whole numbers is guarded at `tests/test_view_model.py:9`, with its expected value taken from the AC-2 example. I didn't plant a defect for this; it is judged by reading the test.
+- **AC-3.** Smallest realistic regression: the total sums all rides instead of only the listed ones. Caught by `tests/test_rides_page.py:14-16`.
+  - Planted `sum(... for r in listed)` → `for r in rides` at `rides/views.py:12`. The test failed with an AssertionError (`Total: 23.5 km`).
+  - The fixture also tells "sum the raw values, then round" (19.52 → 19.5) apart from "sum the rounded values" (19.6), so that regression is pinned too.
+- **Existing guard for newest-first order (not a cited criterion, but its test was changed):** regression is that `reverse=True` gets dropped. No test catches it.
+  - Planted removal of `reverse=True` at `rides/store.py:11`. All 4 tests in `tests/test_store.py` still passed, so `tests/test_store.py:25` no longer protects the order. The original assertion at `1468c58:tests/test_store.py:21` would have failed on this break.
+
+### Issues Found
+1. **Critical, implementation defect: loosened assertion at `tests/test_store.py:25`.** `test_lists_newest_first` sorts the output before asserting, so it can't detect a wrong order. The planted defect confirms this.
+2. **Critical, implementation defect: undeclared test change.** No test-writer report names that assertion rewrite. Report 1 describes the edit as a helper refactor only.
+
+### Recommendation
+- **FAIL**: the task's existing ordering guard was weakened, without being declared, so that it no longer fails when the newest-first order breaks.
+  - Cause: implementation defect.
+  - Suggested fix: restore the original assertion at `tests/test_store.py:25` as `assert list_rides([older, newer], TODAY) == [newer, older]`. It still works with the `ride()` helper. Have the test-writer do this so the change is covered by a report. The production code for AC-1, AC-2 and AC-3 needs no change.

@@ -33,4 +33,5 @@ Tests modified: tests/test_store.py, tests/test_view_model.py, tests/test_rides_
   - Changes to earlier tests: `test_keeps_a_whole_number_whole` renamed to `test_shows_a_whole_number_with_one_decimal`, expects `5.0 km` per AC-2
 - test-writer report 3 (AC-3)
   - Files changed: `tests/test_rides_page.py`
-  - Red run: `AssertionError` (no total line on the page)
+  - Pins: AC-3 rides on Oct 28 -> `Total: 19.5 km`; the Oct 1 ride (6.25) -> `2026-10-01 - 6.3 km`
+  - Red run: 2 failed, both `AssertionError` (no total line on the page; no `2026-10-01` ride on the page)

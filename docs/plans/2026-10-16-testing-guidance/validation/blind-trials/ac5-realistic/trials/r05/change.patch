@@ -52,7 +52,7 @@ index 88c4d91..7262caf 100644
  def render_today_page(rides, today):
 diff --git a/tests/test_rides_page.py b/tests/test_rides_page.py
 new file mode 100644
-index 0000000..44a0095
+index 0000000..e30a356
 --- /dev/null
 +++ b/tests/test_rides_page.py
 @@ -0,0 +1,24 @@
@@ -64,7 +64,7 @@ index 0000000..44a0095
 +
 +TODAY = date(2026, 10, 28)
 +RIDES = [
-+    {"date": date(2026, 10, 27), "km": 10.0},
++    {"date": date(2026, 10, 27), "km": 10.02},
 +    {"date": date(2026, 10, 15), "km": 3.25},
 +    {"date": date(2026, 10, 1), "km": 6.25},
 +    {"date": date(2026, 9, 30), "km": 4.0},

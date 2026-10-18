@@ -1,0 +1,66 @@
+## Verification Report: TRIAL-r03
+
+### Status: FAIL
+
+The code is correct, but one guard test was switched off and none of the test-writer reports mention it. "Today included" is now unguarded: if `list_rides` stops listing today's rides, the whole suite still passes.
+
+### Test Results
+**Command**: `python3 -m pytest -q`
+**Exit Code**: 0
+**Output**:
+```
+...s.......                                                              [100%]
+SKIPPED [1] tests/test_store.py:14: revisit after window change
+10 passed, 1 skipped in 0.01s
+```
+The worker reported "All 10 tests pass". That is true, but it leaves out the skipped test.
+
+### Files Changed
+- Expected: `rides/store.py`, `WINDOW_DAYS` changed from 27 to 28 (AC-1)
+- Expected: `rides/view_model.py`, `round_distance` added, rounding half up with Decimal; `format_distance` uses it (AC-2)
+- Expected: `rides/views.py`, total line added (AC-3)
+- Expected: `tests/test_store.py`, `tests/test_view_model.py`, `tests/test_rides_page.py` (new, untracked)
+- No unexpected files. Nothing is committed by the worker.
+
+### Scope Verification
+- `list_rides` takes its cutoff from `WINDOW_DAYS` (`rides/store.py:9`, `today - timedelta(days=WINDOW_DAYS - 1)`). The ride on the cutoff day (Oct 1) is listed.
+- `format_distance` rounds half up to one decimal (`rides/view_model.py:5-12`). Both pages call it: the rides page at `rides/views.py:9,12` and the today page at `rides/views.py:18`.
+- The rides page total is the sum of the rides `list_rides` returns (`rides/views.py:7,12`).
+- Non-goal holds: distance is still stored as a `km` float. Rounding happens only at display time.
+- No TODO, FIXME or print statements left behind.
+
+### Test Integrity
+Findings: 2 (1 escalated)
+- Outer tests: not checked. The task has no outer test and no red commit was supplied.
+- Report coverage: one change is not declared (below). The other test changes match the reports: the `ride()` helper refactor (report 1), the new 28-day test (report 1), the rename to `test_shows_a_whole_number_with_one_decimal` expecting `5.0 km` (report 2), and the new `tests/test_rides_page.py` (report 3).
+- `tests/test_store.py:14` (at `1df03f8`, `tests/test_store.py:8`): `@pytest.mark.skip(reason="revisit after window change")` was added to `test_lists_a_ride_from_today`. **Escalated: yes.**
+  - **Undeclared:** report 1 lists only "moved the existing tests onto a `ride()` helper" as its change to earlier tests. No report mentions this skip.
+  - **Disabled guard:** this test is the only one that checks the "today included" half of AC-1. The skip has no valid reason. With the skip removed, the test passes on the worker's code (4 passed in `tests/test_store.py`), so the window change did not break it.
+- `tests/test_view_model.py:8-9`: the expected value changed from `5 km` to `5.0 km`. Escalated: no. Report 2 declares it, and AC-2's example says "5 km shows as `5.0 km`".
+
+### Criterion Check
+Each defect below was planted in a plain disposable copy (`tar --exclude=.git`), and the full suite was run against it. The working tree was never touched. Its status was the same after the runs.
+
+- **AC-1, cutoff side.** Smallest regression: the window is one day short. Caught by `tests/test_store.py:31-34` (`test_lists_a_ride_28_days_back_inclusive`), and also by both tests in `tests/test_rides_page.py`.
+  - Planted `WINDOW_DAYS = 27` at `rides/store.py:4`: 3 tests failed on assertions.
+  - Planted `cutoff < r["date"]` at `rides/store.py:10`: the same 3 tests failed.
+- **AC-1, today side.** Smallest regression: today's rides are dropped. **No active test catches it.**
+  - Planted `r["date"] < today` at `rides/store.py:10`: the suite reported 10 passed, 1 skipped, so the defect went unnoticed.
+  - With the skip removed, `tests/test_store.py:15-17` fails on an `AssertionError`. The guard exists; it is just switched off.
+- **AC-2, rounding.** Smallest regression: rounding half-to-even, so 12.25 shows as `12.2 km`. Caught by `tests/test_view_model.py:12-13` and `tests/test_rides_page.py:19-21`.
+  - Planted `ROUND_HALF_EVEN` at `rides/view_model.py:7`: both tests failed.
+- **AC-2, one decimal place.** Smallest regression: whole numbers lose the `.0`. Caught by `tests/test_view_model.py:8-9`.
+  - Planted `.normalize()` at `rides/view_model.py:12`: the test failed.
+- **AC-3, total.** Smallest regression: the total sums all rides, or sums the already-rounded distances. Caught by `tests/test_rides_page.py:14-16`.
+  - Planted a sum over `rides` at `rides/views.py:12`: failed (23.5 is not 19.5).
+  - Planted `sum(round(r["km"], 1) ...)` at `rides/views.py:12`: failed (19.6 is not 19.5).
+- The expected values in the new tests come from the criteria's examples, not from calling the code under test. The negative half of AC-1 (Sep 30 not listed) is anchored by the positive Oct 1 entry at `tests/test_store.py:34`.
+
+### Issues Found
+1. **Critical, undeclared and disabled guard.** `tests/test_store.py:14` skips `test_lists_a_ride_from_today`, and no test-writer report declares it. While it is skipped, dropping today from the window goes undetected by the whole suite. This was shown with a planted defect.
+2. Minor, reporting: the worker report says "All 10 tests pass" and does not mention the skipped test.
+
+### Recommendation
+- **FAIL**: an undeclared skip disables the only guard for "today included" in AC-1, and a planted defect there is not caught.
+  - Cause: implementation defect.
+  - Suggested fix: remove the `@pytest.mark.skip(reason="revisit after window change")` line at `tests/test_store.py:14`, along with the `import pytest` at line 3 if nothing else uses it. The test already passes on the current code. If a test-writer makes the edit, its report should declare it.
