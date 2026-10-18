@@ -60,6 +60,7 @@ Generated: [YYYY-MM-DD HH:MM]
 - ⚠️ Inconsistent with logging pattern at `file:line`
 
 ### Test Review
+- Blocking: [the reviewer's Blocking items (deterministic failures in tests the plan changed), each with its kind, `file:line`, and evidence, or none]
 - Integrity: [N] findings ([M] escalated)
 - Findings: [verdict, rubric item, `file:line`, evidence type, and the proof in one clause; criterion coverage gaps; settled candidates marked "n of 3"]
 - Review these: [observations that reached no verdict, each with one evidence label]

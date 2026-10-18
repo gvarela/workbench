@@ -547,6 +547,6 @@ If automated verification fails after implementation:
 
 ## Synchronization Points
 
-1. **⛔ BARRIER 1**: After reading all documentation - full context required
-2. **⛔ BARRIER 2**: After phase completion - all tasks must be done
-3. **⛔ CHECKPOINT**: Between phases - requires human verification
+1. **⛔ BARRIER 1**: research.md, design.md, and tasks.md read in full, because implementing from partial reads produces work that misses the plan
+2. **⛔ BARRIER 2**: every phase task closed, because verification on a partial phase reports work that has not landed
+3. **⛔ CHECKPOINT**: between phases, because the next phase builds on what a human has accepted

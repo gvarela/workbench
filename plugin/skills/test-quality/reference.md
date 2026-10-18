@@ -47,7 +47,7 @@ Each finding from a reviewer or auditor has these fields:
 - **Verdict**: Remove, Rewrite, Consolidate, or Keep (rubric Part 3).
 - **Rubric item**: the Part 1 item, or the Part 2 property and item.
 - **Location**: file:line and a quoted excerpt.
-- **Evidence type**: deterministic (the named detector, planted defect, or diff) or judgment-only.
+- **Evidence type**: deterministic (the named detector, planted defect, diff, or a counterexample or false failure reproduced by an actual run) or judgment-only (SKILL.md Part 4).
 - **Majority**: for a judgment-only Remove or Rewrite, the majority result (for example 3 of 3).
 - **Proof**: for Remove or Rewrite, the detector, diff, planted defect, or counterexample (applied to the whole assertion) that shows the test cannot fail or does not protect its criterion, or, for a Rewrite only, the false failure: the input or condition under which correct code fails the test (SKILL.md Part 3). Proof also states the reason for the verdict, and that reason matches the verdict (SKILL.md Part 3); where a template gives Reason its own field, the reason goes there instead.
 - **Suggested fix**: for a Rewrite, a relation built from test-owned inputs, or a specified literal with its derivation shown (SKILL.md Part 3).

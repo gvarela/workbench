@@ -21,6 +21,7 @@ Your prompt names:
 - **Area**: the paths you audit
 - **Depth and ranked candidates**: `top N` or `full`, and the area's tests ranked by suspicion, each with the detector rules, heuristics, churn, or size that ranked it
 - **Stack and conventions**: the stack, its test commands and harness per boundary, and the source they came from (the plan's research, `.claude/wb/testing.md`, or detection), in the order the test-quality skill gives
+- **Team decisions**: the testing profile's Choices (each with its reason), its Planned entries (not installed, so treat them as absent), and its Open entries, or "no profile"
 - **Detector output**: the output of the project's detectors for your area, with the selections run, rules available but not enabled, and categories with no detector in this stack
 - **Candidates** (optional): majority candidates from an earlier auditor, each as a location, rubric item, and proposed verdict, without that auditor's reasoning
 

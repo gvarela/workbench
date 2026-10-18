@@ -20,7 +20,7 @@ Stages, in order. Each stage reads the previous stage's document and stops if it
   /wb:create_tasks    -> tasks.md: phased plan plus the beads epic, milestones, and task issues; needs design.md approved
   /wb:implement -> the default execution path: outer tests first, one worker per task, verified, one phase at a time with a test review at each checkpoint
   /wb:implement_inline -> the same plan, coded inline by this session, with the same outer tests and checkpoint test review
-  /wb:validate_execution -> pass/fail against design.md and tasks.md after a phase or the plan
+  /wb:validate_execution -> pass/fail against design.md and tasks.md after a phase or the plan, with a review of the plan's tests
   /wb:create_handoff and /wb:resume_handoff -> carry context across sessions, models, and machines
 Conventions:
   Plans live in docs/plans/<date>-<name>/ with three documents: research.md (facts), design.md (decisions), tasks.md (plan).

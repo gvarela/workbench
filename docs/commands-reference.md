@@ -382,7 +382,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 - Workers never edit tests; for inner tests the worker asks `wb:test-writer`.
 - `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail. It fails any test change no test-writer report declares, and any changed outer test.
 - The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports and the verifier's `test integrity:` result. The checkpoint review reads them there.
-- At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
+- At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
 - A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
 
 **Usage**:
@@ -397,7 +397,7 @@ The same plan, coded inline by this session with TDD. Use when the work should r
 
 **TDD Process**:
 
-1. **Red**: Write failing test for next task
+1. **Red**: `wb:test-writer` writes the failing test for the next task
 2. **Green**: Implement minimum code to pass
 3. **Refactor**: Clean up while tests pass
 4. **Verify**: Run phase verification

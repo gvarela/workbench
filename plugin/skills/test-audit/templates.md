@@ -76,7 +76,7 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
 - **Rubric item**: ${part1Item or part2PropertyAndItem}
   - **Location**: `tests/test_pricing.py:88` - `${quotedExcerpt}`
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (${n} of 3)
-  - **Proof**: ${counterexample or planted defect the test does not catch, or a false failure, as test-quality Part 3 describes}
+  - **Proof**: ${counterexample applied to the whole assertion, or a false failure, as test-quality Part 3 describes; no planted defect runs in a cold audit}
   - **Reason**: ${reason, matching the verdict}
   - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, as test-quality Part 3 describes}
 

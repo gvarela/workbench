@@ -30,22 +30,22 @@ This skill includes `nvim-helper.sh` for tmux/nvim operations. Add to your permi
 
 1. Initialize nvim pane:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
-# Returns: NVIM_PANE=%123
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
+   # Returns: NVIM_PANE=%123
+   ```
 
-1. Get the diff:
+2. Get the diff:
 
-```bash
-# Default: last commit
-git show HEAD --stat
+   ```bash
+   # Default: last commit
+   git show HEAD --stat
 
-# Or specific range
-git diff main..HEAD --stat
-```
+   # Or specific range
+   git diff main..HEAD --stat
+   ```
 
-1. Parse changes into logical groups:
+3. Parse changes into logical groups:
    - Group related hunks that solve same problem
    - Keep test files paired with their implementation
 
@@ -67,18 +67,18 @@ If more than 2-3 problems: flag as code smell, suggest splitting.
 
 1. Open file at line:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open src/auth.ts 42
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open src/auth.ts 42
+   ```
 
-1. Focus nvim for user inspection:
+2. Focus nvim for user inspection:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
+   ```
 
-1. Give ONE line context: "Change X/N - [Problem]. [brief description]"
-2. Wait for questions
+3. Give ONE line context: "Change X/N - [Problem]. [brief description]"
+4. Wait for questions
 
 ## TDD Check
 

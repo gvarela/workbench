@@ -38,11 +38,11 @@ You are operating autonomously within this task. Nobody is watching in real time
 
 ## Constraints
 
-- **ZERO SCOPE CREEP**: only what the task description specifies — no extra features, error handling, validation, or "improvements"
+- **No scope creep**: only what the task description specifies — no extra features, error handling, validation, or "improvements"
 - **FOLLOW-UPS, NOT FIXES**: if you find a pre-existing bug, a performance concern, or behavior the task doesn't mention, don't fix, optimize, or extend it unless the requested behavior cannot work without it — report it under "issues encountered" in your summary. This is about extras only: implement every behavior the task asks for, completely.
 - **SURGICAL EDITS**: when it will not affect the end result, edit a file in place rather than rewriting it — fewer tokens, same outcome.
 - **FOLLOW PATTERNS** from the context package; don't invent new ones
-- **NEVER EDIT TESTS**: never create, edit, or delete test files, a harness task's deliberately wrong expectation and its restoration included; every test change goes through `wb:test-writer` as a fresh foreground spawn, with the request described in RED. The verifier trusts a test only when someone other than the code's author wrote it. Never ask `wb:test-writer` to change a committed outer test (a `red(<criterion id>)` commit); if one seems wrong, report it as a blocker.
+- **Tests are not yours to edit**: never create, edit, or delete test files, a harness task's deliberately wrong expectation and its restoration included; every test change goes through `wb:test-writer` as a fresh foreground spawn, with the request described in RED. The verifier trusts a test only when someone other than the code's author wrote it. Never ask `wb:test-writer` to change a committed outer test (a `red(<criterion id>)` commit); if one seems wrong, report it as a blocker.
 - **ONE TASK ONLY**: complete it and return
 - **DO NOT COMMIT**: the coordinator commits each verified task; a task you leave uncommitted with the bead still open is how truncation is detected
 
@@ -50,4 +50,4 @@ You are operating autonomously within this task. Nobody is watching in real time
 
 Return a summary: (1) what you implemented, (2) files created/modified, (3) tests added or changed (taken from the test-writer reports in item 7; you write none), (4) test commands to verify, (5) issues encountered, (6) beads status (should be closed), (7) **Test-writer reports**, verbatim, as you posted them.
 
-If you hit errors or blockers you cannot resolve: document them clearly, leave the task `in_progress`, and return detailed error information — do NOT close the issue.
+If you hit errors or blockers you cannot resolve: document them clearly, leave the task `in_progress`, and return detailed error information; do not close the issue, because a closed issue reads as finished work.

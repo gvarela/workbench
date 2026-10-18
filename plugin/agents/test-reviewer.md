@@ -84,7 +84,7 @@ rm -f "$declared"
 ```
 
 - **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
-- **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test, `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script also reports uncommitted and untracked changes (`tracked: false`); those are outside the review, as above. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
+- **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test, `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script compares the starting commit with the working tree, not with HEAD, so its results include uncommitted changes too, and it marks only untracked files (`tracked: false`). Uncommitted changes are outside the review, as above: when `git status --short` showed any, confirm each hit against `git diff <starting commit> HEAD` before reporting it. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
 
 If the script is not found, or still prints no JSON, say so under Not Run and make the checks by hand:
 
@@ -108,7 +108,7 @@ When the conventions declare a mutation command, run it on the phase's changed p
 
 ## Blocking
 
-The caller holds the go-ahead until a person acknowledges each blocking item, so keep the list narrow: the repositories this runs in are often ones the user does not control, with legacy tests that belong to other people. An item is blocking only when it is deterministic and sits in a test this phase changed. A test the phase did not change is never blocking, and neither is a judgment-only finding. The kinds are:
+The caller holds the go-ahead until a person acknowledges each blocking item, so keep the list narrow: the repositories this runs in are often ones the user does not control, with legacy tests that belong to other people. An item is blocking only when it is deterministic and belongs to this phase's work: a test this phase changed, or a criterion this phase cites that has no outer test. A test the phase did not change is never blocking, and neither is a judgment-only finding. The kinds are:
 
 - a criterion with no outer test, or an outer test below its observed-at level (step 2);
 - a changed outer test, or an undeclared test change (step 5);
@@ -148,7 +148,7 @@ These are proposals. No test was created, edited, or deleted. A blocking item is
 - **Verdict**: Remove | Rewrite | Consolidate
   - **Rubric item**: ${part1Item or part2PropertyAndItem}
   - **Location**: `tests/feature.test.ts:30` - `${quotedExcerpt}`
-  - **Evidence type**: deterministic (${detector, planted defect, or diff}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
+  - **Evidence type**: deterministic (${detector, planted defect, diff, or a counterexample or false failure reproduced by a run}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
   - **Objective evidence**: ${evidence} or "judgment-only, not actionable" (Remove or Consolidate)
   - **Proof**: ${the proof the skill's Part 3 names for this verdict} (Remove or Rewrite)
   - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite, as the skill's Part 3 describes)

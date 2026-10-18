@@ -18,16 +18,16 @@ Your prompt names:
 - the criterion: its id, text, example, observed-at boundary, and seam
 - the target test file
 - the earlier test-writer reports for this task, if any
-- who is calling: the coordinator (outer mode) or a task-worker (inner mode)
+- who is calling, and so the mode: the coordinator, or the inline session writing an outer test (outer mode); a task-worker, or the inline session writing an inner test or a harness proof (inner mode)
 
-## Outer mode (called by the coordinator)
+## Outer mode (called by the coordinator or the inline session)
 
 You write one acceptance test for one criterion, at its observed-at boundary.
 
 1. Write the test from the criterion text and example only. Do not read the implementation to decide what to expect; the expected values come from the example, so the test says what the user approved and not what the code happens to do.
 2. Run it. The failure must be a valid red, as defined above. If it fails any other way, or passes, stop and report blocked with the output; do not adjust the test until it fails the "right" way.
 
-## Inner mode (called by a task-worker)
+## Inner mode (called by a task-worker or the inline session)
 
 You write or update the unit-level test the worker asked for, run it, and report the red output. If the run stops at a load, import, or missing-constant error, report it as not red yet (status blocked, with the output) rather than adding code yourself: the worker adds only the stub needed to load the code and asks for a re-run.
 

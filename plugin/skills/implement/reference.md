@@ -114,7 +114,7 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 **Remedy**:
 
-1. Inventory the landed work (`git status`, `git diff`) — do NOT skip this; partial changes are sitting in the tree unexamined. A committed `red(AC-n)` outer test is expected state, not worker damage: the coordinator commits it before the worker is spawned, so a red outer test after a truncated worker means the implementation is unfinished, not that something broke. Keep that commit and finish the work under it
+1. Inventory the landed work (`git status`, `git diff`) first, because partial changes are sitting in the tree unexamined. A committed `red(AC-n)` outer test is expected state, not worker damage: the coordinator commits it before the worker is spawned, so a red outer test after a truncated worker means the implementation is unfinished, not that something broke. Keep that commit and finish the work under it
 2. **Finish the remainder directly yourself**, or re-delegate ONLY the remaining slice as a fresh worker with a smaller prompt that names the exact files still to change
 3. Close the bead once the tail is done, then run verification (Step 6) on the completed whole
 4. **Never retry the whole task**: same task + same context = same budget, truncating at the same point
@@ -144,7 +144,7 @@ How should I proceed?
 
 ## Plan-Defect Deviation Protocol (Step 6)
 
-For verification FAILs where the task cannot succeed AS SPECIFIED — the design assumption doesn't survive contact with the code. Retrying burns fix workers on a task that is wrong by construction; deviate instead.
+For verification FAILs where the task cannot succeed as specified — the design assumption doesn't survive contact with the code. Retrying burns fix workers on a task that is wrong by construction; deviate instead.
 
 **Signals it's a plan defect, not an implementation defect**:
 
