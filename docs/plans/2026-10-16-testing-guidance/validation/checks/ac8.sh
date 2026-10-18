@@ -66,10 +66,12 @@ if [ -f "$OUT/git-log-names.txt" ] && [ -f "$OUT/transcript.jsonl" ]; then
   fi
 fi
 
-# Applies when the run is an implement run (a task-verifier spawn is expected there).
+# Applies when the run is an implement run (a task-verifier spawn is expected there). A run is an
+# implement run when it spawned a wb:task-worker or invoked the implement skill; a create_tasks
+# run spawns analyzers and no verifier, so any Agent spawn alone does not make it an implement run.
 TOOL_USES=""
 [ -f "$OUT/transcript.jsonl" ] && TOOL_USES="$(tool_uses "$OUT/transcript.jsonl")"
-if grep -Eq '^Agent	' <<<"$TOOL_USES"; then
+if grep -Eiq '^Agent	.*task-worker|^Skill	.*implement([^_]|$)' <<<"$TOOL_USES"; then
   if grep -Eiq '^Agent	.*task-verifier' <<<"$TOOL_USES"; then
     pass "the verifier integrity step still runs (wb:task-verifier spawned)"
   else
