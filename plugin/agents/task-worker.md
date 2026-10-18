@@ -18,7 +18,15 @@ The coordinator's prompt gives you: a task ID/title/description, a context packa
 1. **Claim**: `bd update [task-id] --claim`
 2. **RED**: request a failing inner test from `wb:test-writer`. The request names the criterion (its id, text, example, observed-at boundary, and seam, from your task and context package), the target test file, the task's earlier `wb:test-writer` reports, and you as the caller: a task-worker, so it works in inner mode. Test what the task's criteria and examples specify; propose extra cases as follow-ups. Confirm the report's red is an assertion failure, then write the code. If the report says "not red yet" (blocked, a load, import, or missing-constant error), add only the stub needed to load the code, then request a re-run. Any other blocked report, or a test that passes before you write code, is a blocker: leave the task `in_progress` and return the report. A harness task is a named exception to red-first: set up the harness, then ask `wb:test-writer` to prove it can fail, naming the boundary and an existing behavior to smoke-test in place of a criterion. Its report should show an assertion failure on the deliberately wrong expectation and a pass once restored; that pass is the expected result, not a blocker.
 
-   After each `wb:test-writer` spawn, post its report verbatim as a comment on your task: write it with your Write tool to a new file outside the repository, such as `/tmp/[task-id]-report-<n>.md` (a file inside the repository would show up in your diff as an undeclared change), then run `bd comments add [task-id] -f <that file>`. The file form keeps a multi-line report with backticks and angle brackets intact. The verifier, a fix worker, and a resumed session read the reports from these comments, because your returned output does not survive the session.
+   After each `wb:test-writer` spawn, post its report verbatim as a comment on your task: run it through a quoted heredoc, which keeps a multi-line report with backticks and angle brackets intact and writes no file for your diff to pick up (the delimiter is quoted so nothing expands, and distinctive so no report line ends it early; `-f -` does not work for comments):
+
+   ```bash
+   bd comments add [task-id] -f /dev/stdin <<'WB_REPORT_END'
+   <report text>
+   WB_REPORT_END
+   ```
+
+   Run it as one Bash call, with the report lines and the closing `WB_REPORT_END` at column 0, not indented as this list shows them: an indented delimiter does not end the heredoc, and the rest of the command is silently posted as report text. The verifier, a fix worker, and a resumed session read the reports from these comments, because your returned output does not survive the session.
 3. **GREEN**: minimal implementation to pass. Run the test, then related tests for regression.
 4. **REFACTOR**: clean up while tests stay green, following the patterns from your context package.
 5. **Record created files**: `bd comments add [task-id] "created files: <every file created during the task, yours and wb:test-writer's, or none>"`. A halted task's discard step deletes only the untracked files this list names.

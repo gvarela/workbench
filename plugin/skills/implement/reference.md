@@ -210,16 +210,22 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
 - **Red record**: after committing `red(AC-n)`, close the criterion's outer test step with that commit's short sha and the one assertion-failure line from your own re-run (the line naming the failed assertion, not the whole output):
 
   ```bash
-  bd close [outer-step-id] --reason "red <sha>: <assertion line>"
+  bd close [outer-step-id] --reason-file - <<'WB_REPORT_END'
+  red <sha>: <assertion line>
+  WB_REPORT_END
   ```
 
-- **Test-writer reports**: post each report verbatim as a comment on the task it served. You post the outer reports; the worker posts its inner reports. Reports run to many lines and quote backticks and angle brackets, so write the report with the Write tool to a new file outside the repository (for example `/tmp/<task-id>-report-<n>.md`; a file inside it would show up in the task's diff) and post the file:
+  The heredoc is quoted (`<<'WB_REPORT_END'`) so nothing in the text expands, and the delimiter is distinctive so a line of the text, even a bare `EOF`, cannot end it early. Run the whole heredoc in one Bash call, with every text line and the closing `WB_REPORT_END` starting at column 0: the indentation above belongs to this list, and an indented delimiter does not end the heredoc, so the rest of the command is silently posted as text. The report and test-integrity posts below use the same form. A quoted `--reason "..."` would break on a double quote in the assertion line.
+
+- **Test-writer reports**: post each report verbatim as a comment on the task it served. You post the outer reports; the worker posts its inner reports. Reports run to many lines and quote backticks and angle brackets, so pipe the report in through the quoted heredoc with `-f /dev/stdin` (`-f -` does not work for comments); this writes no file, so nothing lands in the task's diff:
 
   ```bash
-  bd comments add [task-id] -f <report-file>
+  bd comments add [task-id] -f /dev/stdin <<'WB_REPORT_END'
+  <report text>
+  WB_REPORT_END
   ```
 
-- **Test integrity**: when a verifier report arrives, post its Test Integrity section the same way, as a file whose first line is `test integrity:`, so the Step 8 test review can read every verifier's section after the session ends. Post the re-verification's section too; a later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
+- **Test integrity**: when a verifier report arrives, post its Test Integrity section the same way, with `test integrity:` as the first line, so the Step 8 test review can read every verifier's section after the session ends. Post the re-verification's section too; a later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
 - **Created files**: the worker posts one comment beginning `created files:` that lists every file created during the task, its own and `wb:test-writer`'s.
 - **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the two halts apart:
 
