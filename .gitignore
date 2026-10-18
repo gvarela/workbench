@@ -7,3 +7,8 @@ tmp/
 
 # beads issue tracker: local-only (stealth mode); nothing under .beads/ is committed
 .beads/
+
+# Plan validation harnesses (scripts, fixtures, run outputs, prompt-audit
+# reports) stay local: they hold session transcripts, local paths, and
+# personal metadata, and only matter on the maintainer's machine.
+docs/plans/*/validation/
