@@ -25,22 +25,18 @@ Task({
 })
 
 Task({
-  description: "Verify test coverage",
-  prompt: `Verify that all tests specified in the plan were implemented.
+  description: "Review tests",
+  prompt: `Review the tests this plan changed against the test-quality rubric.
 
-  From tasks.md, these tests were required:
-  [List test requirements]
+  Starting commit: [parent of the plan's earliest task or red(AC-n) commit, per Step 2]
+  Criteria with examples, observed-at, and seams: [from tasks.md]
+  Red commits: [this plan's red(AC-n) commits in the range]
+  Test-writer reports: [report fields from the range's commit bodies, or "none recorded"]
+  Conventions source: [research.md Testing Conventions]
+  Mode: inline
 
-  Check:
-  - Do all specified tests exist?
-  - Do they test the right scenarios?
-  - Are there gaps in coverage?
-  - Do all tests pass?
-
-  Run test commands and analyze coverage.
-  DO NOT write any files. Return your findings as a report.`,
-  subagent_type: "general-purpose",
-  model: "sonnet"
+  Do not edit any file in the working tree; planted defects go in a disposable worktree, as your definition says. Return your findings as a report.`,
+  subagent_type: "wb:test-reviewer"
 })
 
 Task({

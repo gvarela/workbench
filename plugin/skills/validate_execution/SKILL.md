@@ -99,9 +99,13 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 Sub-agents gather information and return findings without writing files; the main agent writes the validation report after synthesizing them, so the report has one author and one voice.
 
-Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Verify test coverage, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
+Read [sub-agent-prompts.md](sub-agent-prompts.md) NOW and spawn the four agents defined there (Verify code changes, Review tests, Check for regressions, Analyze patterns and quality) using their verbatim prompts.
 
-**⛔ BARRIER 2**: every validation agent has returned (subagents run in the background, so wait for a completion notification from each one) — the report synthesizes all four sets of findings, and a missing one hides a deviation
+The test review range starts at the parent of the plan's earliest commit in `git log`: a task commit naming one of the beads ids in tasks.md's frontmatter, or a `red(AC-n)` commit whose title matches one of this plan's criteria (criterion ids repeat across plans, so match the title too). Do not use tasks.md's `git_commit`: `/wb:update_status` rewrites it at every reconciliation. If no such commit exists, report the test review as not run, with that reason. The mode is `inline`: per-task verifier reports are not kept across a whole plan, so the reviewer checks test integrity over the range itself. Pass the criteria with their examples, observed-at boundaries, and seams (from tasks.md), this plan's `red(AC-n)` commits, and research.md's Testing Conventions. Pass the test-writer report fields (Files, Per changed test, Changes to earlier tests) from the range's commit bodies only when every commit in the range that changes a test file carries them, as `/wb:implement_inline` records them and `/wb:implement` does not; a partial set would make the unreported commits' test changes read as undeclared. A plan with no acceptance criteria predates 5.0.0: the reviewer still runs, without criteria.
+
+Settle the reviewer's Majority Candidates as implement's phase review does, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples; spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". None of these spawns passes a `model` parameter, because the reviewer's definition pins Opus at `high`.
+
+**⛔ BARRIER 2**: every validation agent, and every test-reviewer judgment on the candidates, has returned (subagents run in the background, so wait for a completion notification from each one) — the report synthesizes all four sets of findings, and a missing one hides a deviation
 
 ### Step 3: Run Automated Verification
 
@@ -224,9 +228,3 @@ Recommended workflow:
 4. `/implement` - Build it (coordinated workers, TDD)
 5. **`/validate_execution`** - Verify it was built correctly ← YOU ARE HERE
 6. `/create_handoff` - Document for next session (if needed)
-
-## Synchronization Points
-
-1. **⛔ BARRIER 1**: Read all documentation first
-2. **⛔ BARRIER 2**: Wait for every validation agent's completion notification
-3. **⛔ BARRIER 3**: Complete all automated checks before writing the report
