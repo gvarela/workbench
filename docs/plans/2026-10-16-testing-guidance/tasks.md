@@ -4,14 +4,14 @@ ticket: null
 created: 2026-10-16
 created_timestamp: 2026-10-16T14:52:56Z
 status: in-progress
-last_updated: 2026-10-17
+last_updated: 2026-10-18
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 6
-total_tasks: 49
-completed_tasks: 40
-git_commit: 967477aed0f5893b70eb5077b4152afaada1b10d
-git_branch: testing-guidance
+current_phase: 7
+total_tasks: 62
+completed_tasks: 58
+git_commit: ce6af2f
+git_branch: testing-guidance-v2
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
 tags: [tasks, tracking, testing-guidance]
@@ -88,6 +88,12 @@ beads_tasks:
   phase7_impl_4: prompts-og4b
   phase7_impl_5: prompts-roha
   phase7_impl_6: prompts-5yvr
+  phase7_prep_1: prompts-6mlx
+  phase7_prep_2: prompts-m6ld
+  phase7_prep_3: prompts-mchp
+  phase7_prep_4: prompts-6hz0
+  phase7_prep_5: prompts-ul2x
+  phase7_prep_6: prompts-sm6l
 ---
 
 # Execution Plan: Testing Guidance
@@ -179,12 +185,12 @@ bd ready                    # See available work
 **Phase status** (milestone IDs are in the frontmatter `beads_phases`):
 
 - Phase 1: milestone `prompts-65k9`, **closed 2026-10-17**; 9 tasks after the split and checkpoint additions
-- Phase 2: milestone `prompts-4h4v`, depends on 3 tasks
-- Phase 3: milestone `prompts-lpqt`, depends on 3 tasks
-- Phase 4: milestone `prompts-m6tv`, depends on 5 tasks
-- Phase 5: milestone `prompts-rgva`, depends on 5 tasks; its validation task also waits on follow-ups `prompts-vwv8` and `prompts-iyqq`
-- Phase 6: milestone `prompts-9urg`, depends on 5 tasks
-- Phase 7: milestone `prompts-ro7i`, depends on 4 tasks
+- Phase 2: milestone `prompts-4h4v`, **closed**; 3 tasks
+- Phase 3: milestone `prompts-lpqt`, **closed**; 3 tasks
+- Phase 4: milestone `prompts-m6tv`, **closed**; 5 tasks
+- Phase 5: milestone `prompts-rgva`, **closed**; 5 tasks; its validation task also waits on follow-ups `prompts-vwv8` and `prompts-iyqq`
+- Phase 6: milestone `prompts-9urg`, **closed 2026-10-18**; 5 tasks
+- Phase 7: milestone `prompts-ro7i`, **open**; 16 tasks: 12 closed (D12, D13 and its follow-up, the docs sweep, CHANGELOG, the full gate, and three polish fixes); open: `prompts-6hz0`, `prompts-ul2x`, `prompts-sm6l` (need live trial runs) and `prompts-0phw` (5.0.0 bump and canary, after the user ends testing)
 
 Use `bd show <milestone-id>` to see which tasks block each phase milestone.
 
@@ -1214,6 +1220,8 @@ bd blocked
 ```
 
 ### Implementation Notes
+
+- Status updated on 2026-10-18: current phase 6 → 7, progress 58/62 (94%). Phase 6 closed on the user's go-ahead. Release-prep items that gate the Phase 7 milestone were added to the frontmatter as `phase7_prep_1`–`6`, per the user's rule that fixes, polish, and optimization of this plan's work gate 5.0.0. The release waits until the user has tested the flow on a handful of real features in two repositories.
 
 - Project initialized 2026-10-16. External research is in `external-research/`; the audit is in [test-audit.md](test-audit.md); the exploration record is in `thoughts/`.
 - The size baseline is the base commit `9020332`, not design.md's figures: implement_inline is 587 lines, not the 601 the design cites.

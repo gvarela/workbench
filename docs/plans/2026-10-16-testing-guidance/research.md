@@ -4,10 +4,10 @@ ticket: null
 created: 2026-10-16
 created_timestamp: 2026-10-16T14:52:56Z
 status: complete
-last_updated: 2026-10-17
+last_updated: 2026-10-18
 researcher: gabevarela
-git_commit: 967477aed0f5893b70eb5077b4152afaada1b10d
-git_branch: testing-guidance
+git_commit: ce6af2f
+git_branch: testing-guidance-v2
 repository: gvarela/workbench
 tags: [research, codebase, testing-guidance]
 ---
