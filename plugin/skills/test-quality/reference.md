@@ -31,7 +31,7 @@ The selections come from the rubocop-rspec, rubocop-factory_bot, rubocop-minites
 
 ## Custom heuristics
 
-No linter in any ecosystem detects mocking volume or a mirrored oracle. Check these with grep or an AST helper, and present each hit as "review these" with line evidence, because each needs judgment to confirm and has no validated threshold:
+No linter in any ecosystem detects mocking volume or a mirrored oracle. Check these with grep or an AST helper, and present each hit as "review these" with line evidence, because each needs judgment to confirm and has no validated threshold. A hit that is a pattern rule is a prompt for the counterexample or planted defect that [SKILL.md](SKILL.md) Part 3 describes, and reaches a verdict only when that confirms it. A `sleep` or wall-clock hit reaches Rewrite only with a false failure, as SKILL.md Part 3 describes:
 
 - stubs of the subject, or of ActiveRecord, outside RSpec;
 - interaction-only assertions (only `have_received` or `toHaveBeenCalled`-style assertions in a test);
@@ -49,5 +49,9 @@ Each finding from a reviewer or auditor has these fields:
 - **Location**: file:line and a quoted excerpt.
 - **Evidence type**: deterministic (the named detector, planted defect, or diff) or judgment-only.
 - **Majority**: for a judgment-only Remove or Rewrite, the majority result (for example 3 of 3).
+- **Proof**: for Remove or Rewrite, the detector, diff, planted defect, or counterexample (applied to the whole assertion) that shows the test cannot fail or does not protect its criterion, or, for a Rewrite only, the false failure: the input or condition under which correct code fails the test (SKILL.md Part 3).
+- **Suggested fix**: for a Rewrite, a relation built from test-owned inputs, or a specified literal with its derivation shown (SKILL.md Part 3).
 - **Objective evidence**: for Remove or Consolidate, the evidence (no unique killed mutants, or no unique coverage, plus a passing run with the test removed in a disposable worktree), or "judgment-only, not actionable".
 - **Criterion**: the criterion id, when the review runs inside a plan.
+
+Each "review these" observation carries a location and exactly one evidence label, deterministic (naming the detector and rule) or judgment-only (naming the heuristic or rubric item). An observation without a label leaves the reader unable to weigh it.

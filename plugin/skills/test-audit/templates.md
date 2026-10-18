@@ -49,14 +49,17 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
   - **Location**: `spec/models/order_spec.rb:42` - `${quotedExcerpt}`
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (${n} of 3)
   - **Objective evidence**: ${no unique coverage or killed mutants, plus a passing run with the test removed} | judgment-only, not actionable
-  - **Reason**: ${reason}
+  - **Proof**: ${detector, diff, or counterexample applied to the whole assertion showing the test cannot fail}
+  - **Reason**: ${reason, matching the verdict}
 
 ### Rewrite
 
 - **Rubric item**: ${part1Item or part2PropertyAndItem}
   - **Location**: `tests/test_pricing.py:88` - `${quotedExcerpt}`
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (${n} of 3)
-  - **Reason**: ${reason}
+  - **Proof**: ${counterexample or planted defect the test does not catch, or a false failure, as test-quality Part 3 describes}
+  - **Reason**: ${reason, matching the verdict}
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, as test-quality Part 3 describes}
 
 ### Consolidate
 
@@ -67,9 +70,9 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
 
 ### Review These
 
-Judgment-only observations that reached no verdict, including heuristic hits no auditor confirmed and candidates that did not reach 2 of 3.
+Observations that reached no verdict, including pattern and heuristic hits no counterexample confirmed and candidates that did not reach 2 of 3. Every bullet carries exactly one evidence label.
 
-- `${file:line}` - ${observation}; judgment-only (${heuristic or rubric item}${, "1 of 3" for an unsettled candidate})
+- `${file:line}` - ${observation}; deterministic (${detector and rule}) | judgment-only (${heuristic or rubric item}${, "1 of 3" for an unsettled candidate})
 
 ## Detectors
 

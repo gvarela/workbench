@@ -12,13 +12,13 @@ Ask first whether a test can fail, then whether it is a good test.
 
 This is the single rubric for writers and reviewers. Writers read each item as a rule to follow; reviewers answer each item as a yes/no question about a file. Keeping both in one text means the rules a test is written to and the checks it is reviewed against cannot drift apart.
 
-When the repository has its own testing conventions, follow them on matters of style, such as how assertions are grouped or how setup is shared. They never excuse a test that cannot fail or does not check behavior. Take them from the first of these that exists:
+When the repository has its own testing conventions, follow them. A convention, or an exception documented in the conventions source or in a comment at the test, also sets aside a pattern rule (Part 3) when it states its rationale. Common ones are code generators, serializers, and migrations, where the emitted text is the behavior, so an assertion on that text checks it; and interaction contracts at an external boundary, where the call made is the observable behavior. Name the exception and its rationale in your report. Neither excuses a test that cannot fail or does not protect what it guards, because no rationale makes such a test check anything. Take conventions from the first of these that exists:
 
 1. The Testing Conventions section of the plan's research. When `.claude/wb/testing.md` exists, it cites that file and records where the code has drifted from it. Where it records drift, follow the code as research describes it and mention the drift in your report, so a person can decide which one is right.
 2. `.claude/wb/testing.md`, when there is no plan or its research has no Testing Conventions section.
 3. The existing tests, when there is neither. Say in your report that you inferred the conventions.
 
-When `.claude/wb/testing.md` exists, read its Choices, Planned, and Open headings whichever source above gives the conventions, since research cites the profile rather than copying them. Choices are decisions the team made: leave out a finding that only repeats an absence a Choice records, such as no browser tests, and name the Choice in your report. A Choice never clears a deterministic failure, such as a test that cannot fail, a criterion with no outer test, an outer test below its observed-at level, or a planted defect the test survives, because the design set each criterion's observed-at boundary and harness with the Choices in view. Planned entries are tooling that is not installed yet, so treat them as absent; Open entries are undecided, so report related findings as usual.
+When `.claude/wb/testing.md` exists, read its Choices, Planned, and Open headings whichever source above gives the conventions, since research cites the profile rather than copying them. Choices are decisions the team made: leave out a finding that only repeats an absence a Choice records, such as no browser tests, and name the Choice in your report. A Choice never clears a deterministic failure, such as a test that cannot fail, a criterion with no outer test, an outer test below its observed-at level, or a planted defect the test survives, because the design set each criterion's observed-at boundary and harness with the Choices in view. A Choice that gives a rationale for setting aside a pattern rule is a documented exception, as above. Planned entries are tooling that is not installed yet, so treat them as absent; Open entries are undecided, so report related findings as usual.
 
 The detector method (with worked examples), custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
 
@@ -65,22 +65,34 @@ These properties come from Kent Beck's [Test Desiderata](https://medium.com/@ken
 
 ## Part 3: Verdicts
 
+A hard FAIL, and a Remove or Rewrite verdict, follows only from proof. A hard FAIL needs proof of one of two things: the test cannot fail (vacuity), or it does not protect the criterion or behavior it guards (non-protection). The proof is a detector or diff that shows a Part 1 item 1 to 3 failure, a planted defect the test survives, or a counterexample: a concrete wrong behavior that the whole assertion still accepts.
+
+A third kind of proof, false failure, supports a Rewrite and nothing else: a concrete input or condition under which correct code fails the test, such as a date, a timezone, a test order, or a slower machine for a timing race. Such a test can fail and does protect something, but it also fails when nothing is wrong, so it is rewritten, never removed. It is neither vacuity nor non-protection, so it is never a hard FAIL.
+
+The pattern rules are not proof. They are presence anchors (Part 1 item 4), assertions on source text, CSS strings, or private names, test doubles outside a declared seam, and the mirrored oracle (an expected value computed by the code under test or by a copy of its formula). Each hit is a prompt: construct the counterexample it suggests, such as an empty result for a missing anchor, or plant the defect it suggests, such as a break in the formula a mirrored oracle shares, and let the verdict follow what that shows. A hit that the counterexample or defect does not confirm is a "Review these" observation, not a FAIL, because a test that matches a pattern can still protect its behavior, and a gate that fails tests written to valid conventions teaches people to ignore it. Part 2 items that are not pattern rules reach "Review these" the same way unless they come with proof. Dependence on the wall clock, sleeps, or test order reaches Rewrite with a false failure and stays an observation without one. Copied setup and bundled assertions are maintainability notes: they stay observations unless they come with proof of vacuity or non-protection.
+
+Apply a counterexample to the whole assertion, not to one operand of it. In `assert a != b or c != d`, an operand that never decides the outcome leaves the other one checking, so the test can still fail: report the dead operand as an observation, not the test as unable to fail.
+
 Every review finding carries exactly one verdict, so the checkpoint reader knows what action is proposed:
 
 | Verdict | Condition |
 | --- | --- |
-| **Remove** | Only when the test cannot fail (one of Part 1 items 1 to 3 fails). |
-| **Rewrite** | The test can fail but does not reliably protect its criterion: it fails a Part 2 item, has a negative assertion with no presence anchor (Part 1 item 4), or misses a planted defect (Part 1 item 5). |
+| **Remove** | Only when the test is shown unable to fail: one of Part 1 items 1 to 3 fails, on a detector, a diff, or a counterexample applied to the whole assertion. |
+| **Rewrite** | The test can fail but is shown not to protect its criterion: it survives a planted defect or a counterexample, whether from Part 1 items 4 and 5 or from a pattern rule. Or correct code is shown to fail it under a concrete input or condition: a false failure. |
 | **Consolidate** | Only with mechanical evidence of overlap, such as no unique killed mutants or no unique coverage. |
 | **Keep** | Reported only when asked. |
 
-A test that cannot fail, or that does not protect the criterion it guards, is never a minor finding: protecting behavior is the reason the test exists.
+A test that is shown unable to fail, or shown not to protect the criterion it guards, is never a minor finding: protecting behavior is the reason the test exists.
+
+A verdict matches its own reason. A reason that keeps the test in another form, such as a rename, a split, or a clearer message, makes the verdict an observation, or a Rewrite only with proof as above, never Remove. A test that guards an invariant named in a docstring or comment, such as a table guard that fails when two tables drift apart, is not a Remove candidate on pattern grounds; only proof that it cannot fail makes it one.
+
+A suggested fix, for a Rewrite or for an observation that offers one, first asserts the behavior the replaced value protects, as a relation built from inputs the test owns: for pagination, that no page holds more than the page size and that the pages together hold every item once. Pin a literal only when the value itself is specified, and then show its derivation from test-owned inputs, such as 3 pages for the test's 25 items at a page size of 10, with a comment naming where that page size is specified. Replacing a mirrored formula with a bare literal hides the same coupling behind a magic number: it breaks on any valid change and does not say what it protects.
 
 Reviewers propose; they do not delete or edit tests. A Remove or Consolidate verdict without objective evidence is labelled judgment-only and is not actionable on its own, because removing tests loses fault detection that a review cannot measure.
 
 ## Part 4: How reviewers judge
 
 - Answer each item as a yes/no question, deciding it only after checking the file:line evidence, and give the evidence and a short reason with the answer. Holistic scores of test quality are noisy; decomposed items with line evidence are the available mitigation.
-- Label every finding's evidence as **deterministic** (a named detector, a planted defect, or a diff) or **judgment-only**, so the reader knows how much weight it carries.
-- Report a judgment-only Remove or Rewrite as a finding only when a majority of three independent judgments agrees, and record the result (for example 3 of 3). Report other judgment-only observations as "review these". No study validates an LLM judge of test value, so a single judgment is not enough to propose removing or rewriting a test.
-- Apply the repository's conventions on matters of style, as stated at the top of this skill.
+- Label the evidence of every finding and of every "Review these" observation, one label each, as **deterministic** (a named detector, a planted defect, a diff, or a counterexample or false failure reproduced by an actual run) or **judgment-only**, so the reader knows how much weight it carries. A detector hit on a pattern rule with no confirming counterexample is a "Review these" observation labelled deterministic, naming the detector and rule: the hit is mechanical even though no verdict follows from it. A counterexample or false failure reasoned from reading rather than run is judgment-only.
+- Report a judgment-only Remove or Rewrite as a finding only when a majority of three independent judgments agrees, each with its own proof written out (for a counterexample, the input or state, the wrong behavior, and why the whole assertion still passes; for a false failure, the input or condition and why correct code fails), and record the result (for example 3 of 3). Report other judgment-only observations as "review these". No study validates an LLM judge of test value, so a single judgment is not enough to propose removing or rewriting a test.
+- Apply the repository's conventions and documented exceptions, as stated at the top of this skill.

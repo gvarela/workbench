@@ -23,7 +23,7 @@ Your prompt names:
 - **Detector output**: the output of the project's detectors for your area, with the selections run, rules available but not enabled, and categories with no detector in this stack
 - **Candidates** (optional): majority candidates from an earlier auditor, each as a location, rubric item, and proposed verdict, without that auditor's reasoning
 
-When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and the code it exercises, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Skip the procedure and the report below.
+When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and the code it exercises, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Agree only with proof of your own, of a kind the skill's Part 3 names and written out as its Part 4 requires; a pattern alone is grounds to disagree. Skip the procedure and the report below.
 
 A cold audit has no acceptance criteria, red commits, or test-writer reports, so the rubric items that depend on a criterion are judged without one and the criterion is left out of every finding. Judge the "Observed at" level against the conventions' harness per boundary, doubles against the seams the conventions declare, and data shapes against any the conventions name. Where the conventions give none, and always for whether a test protects the behavior it covers (no planted defect runs here), judge by reading the test against the code it exercises and label the result judgment-only.
 
@@ -31,15 +31,15 @@ A cold audit has no acceptance criteria, red commits, or test-writer reports, so
 
 ### 1. Part 1 on every test in the area
 
-Ask the skill's Part 1 questions of every test in the area, with file:line evidence. A Part 1 failure with deterministic evidence (a detector in your input, or a diff in the git history, as the skill's Part 4 names them) is a Finding with its verdict, never a "Review these" entry. A Part 1 failure only your reading shows, such as a test skipped or marked pending with no stated reason that no detector in your input flagged, is judgment-only: its Remove or Rewrite goes under Majority Candidates. "Review these" holds only judgment-only observations that reach no verdict.
+Ask the skill's Part 1 questions of every test in the area, with file:line evidence. A failure of items 1 to 3 with deterministic evidence (a detector in your input, or a diff in the git history, as the skill's Part 4 names them) is a Finding with its verdict, never a "Review these" entry. Item 4, a missing presence anchor, is a pattern rule: write out the counterexample the skill's Part 3 asks for, and treat a confirmed one as judgment-only, since no defect runs here. A Part 1 failure only your reading shows, such as a test skipped or marked pending with no stated reason that no detector in your input flagged, is judgment-only: its Remove or Rewrite goes under Majority Candidates. "Review these" holds the observations that reach no verdict: judgment-only ones, and pattern hits, including detector hits, with no confirming counterexample.
 
 ### 2. Part 2 on every test in the area
 
-Ask the skill's Part 2 items of every test. Look across the area's files for setup copied between them, and compare each test double against the seams the conventions declare. Read the production code a test exercises when you need it to judge an oracle, for example to see whether an expected value repeats the implementation's formula.
+Ask the skill's Part 2 items of every test. Look across the area's files for setup copied between them, and compare each test double against the seams the conventions declare. A double outside them, like every pattern rule the skill's Part 3 names, prompts a counterexample, and a documented exception with its rationale sets the rule aside. Read the production code a test exercises when you need it to judge an oracle, for example to see whether an expected value repeats the implementation's formula.
 
 ### 3. Detector output and custom heuristics
 
-Turn each detector violation in your input into a finding with its rubric item and verdict, labelled deterministic with the detector and rule named. Then check the skill's custom heuristics in your area: confirm the hits your input carries, or find them with `grep` or by reading when it carries none. Report each hit under Review These, as the reference.md directs, unless reading the test and its code confirms a Remove or Rewrite; that verdict is judgment-only and goes under Majority Candidates. Carry the input's detector sections into your report unchanged, so your caller can combine them.
+Turn each detector violation in your input that shows a test cannot fail (Part 1 items 1 to 3) into a Finding with its rubric item and verdict, labelled deterministic with the detector and rule named. Any other violation, including one on a pattern rule, goes under Review These labelled deterministic with the detector and rule, unless proof of a kind the skill's Part 3 names confirms a Remove or Rewrite; that verdict is judgment-only and goes under Majority Candidates. Then check the skill's custom heuristics in your area: confirm the hits your input carries, or find them with `grep` or by reading when it carries none. Report each hit under Review These, as the reference.md directs, unless proof of that kind, from reading the test and its code, confirms a Remove or Rewrite; that verdict is judgment-only and goes under Majority Candidates. Carry the input's detector sections into your report unchanged, so your caller can combine them.
 
 ### 4. Remove and Consolidate evidence
 
@@ -65,6 +65,8 @@ These are proposals. No file in the repository was created, edited, or deleted.
   - **Location**: `tests/feature.test.ts:30` - `${quotedExcerpt}`
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
   - **Objective evidence**: ${evidence} or "judgment-only, not actionable" (Remove or Consolidate)
+  - **Proof**: ${the proof the skill's Part 3 names for this verdict} (Remove or Rewrite)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite, as the skill's Part 3 describes)
 
 ### Majority Candidates
 Judgment-only Remove or Rewrite verdicts from this one auditor. The caller settles each by majority of three before it becomes a finding.
@@ -72,12 +74,14 @@ Judgment-only Remove or Rewrite verdicts from this one auditor. The caller settl
 - **Proposed verdict**: Remove | Rewrite
   - **Rubric item**: ${part1Item or part2PropertyAndItem}
   - **Location**: `tests/feature.test.ts:48` - `${quotedExcerpt}`
-  - **Reason**: ${evidenceAndReason}
+  - **Proof**: ${your proof, of a kind the skill's Part 3 names, written out as its Part 4 requires}
+  - **Reason**: ${reason, matching the proposed verdict}
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite)
 
 ### Review These
-Only judgment-only observations that reach no verdict; a deterministic failure is a Finding above.
+Observations that reach no verdict, each with exactly one evidence label; a proven failure is a Finding above.
 
-- `tests/feature.test.ts:55` - ${observation}; judgment-only (${heuristic or rubric item})
+- `tests/feature.test.ts:55` - ${observation}; deterministic (${detector and rule}) | judgment-only (${heuristic or rubric item})
 
 ### Detectors
 - Tools run: ${tools and selections}

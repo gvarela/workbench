@@ -87,7 +87,7 @@ One check needs no run: brittleness from history. List commits whose messages ca
 
 ## Step 6: Write the report
 
-Read the template in [templates.md](templates.md) and fill every section from the auditors' reports, the settled candidates, and Steps 1 to 5. Every finding carries a verdict and an evidence type. The report states that hollow reds and expectations edited after a failing run cannot be checked cold, because commit history does not show the order in which a test and its code were written, and it names the services that were not available.
+Read the template in [templates.md](templates.md) and fill every section from the auditors' reports, the settled candidates, and Steps 1 to 5. Every finding carries a verdict and an evidence type, and every "review these" bullet carries an evidence label. The report states that hollow reds and expectations edited after a failing run cannot be checked cold, because commit history does not show the order in which a test and its code were written, and it names the services that were not available.
 
 Write it to:
 

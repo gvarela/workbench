@@ -28,7 +28,7 @@ Your prompt names:
 
 A phase planned without criteria or red commits has nothing to check some steps against. Skip those steps and list them under Not Run with the reason.
 
-When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and its criterion, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Skip the procedure and the report below.
+When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and its criterion, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Agree only with proof of your own, of a kind the skill's Part 3 names and written out as its Part 4 requires; a pattern alone is grounds to disagree. Skip the procedure and the report below.
 
 Review `<starting commit>..HEAD`. List the changed test files with `git diff --name-status <starting commit> HEAD`, using the conventions' test paths to tell tests from production code. If `git status --short` shows uncommitted changes, say so in the report: they are outside the review.
 
@@ -36,7 +36,7 @@ Review `<starting commit>..HEAD`. List the changed test files with `git diff --n
 
 ### 1. Can each changed test fail
 
-Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector, a planted defect, or a diff, as the skill's Part 4 names them) has its verdict and is reported under Blocking, not Findings or "Review these" (see Blocking). For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds only judgment-only observations that reach no verdict.
+Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector or diff that shows an item 1 to 3 failure, or a planted defect the test survives, as the skill's Part 3 and Part 4 name them) has its verdict and is reported under Blocking, not Findings or "Review these" (see Blocking). For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds the observations that reach no verdict: judgment-only ones, and pattern hits, including detector hits, that no planted defect or counterexample confirms.
 
 For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed. Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
 
@@ -62,7 +62,7 @@ For each criterion, find its outer test: the test committed in the criterion's r
 
 ### 3. Part 2 on changed tests
 
-Ask the skill's Part 2 items of every new or changed test. For the double item, compare each test double against the declared seam of the criterion the test guards; a double anywhere else is a finding. Look across files for setup copied between them, since only a phase-wide view shows it.
+Ask the skill's Part 2 items of every new or changed test. For the double item, compare each test double against the declared seam of the criterion the test guards. A double anywhere else, like every pattern rule the skill's Part 3 names, prompts a planted defect or counterexample, and the verdict follows what it shows; a documented exception with its rationale sets the rule aside. Look across files for setup copied between them, since only a phase-wide view shows it.
 
 ### 4. Detectors
 
@@ -100,7 +100,7 @@ git diff <starting commit> HEAD --stat
 - **Coverage by reports**: match each changed test file, and each change within it, against the test-writer reports' files, per-test entries, and changes to earlier tests. A change no report names is undeclared, however it was made. Without reports, list this check under Not Run.
 - **The test hunks**: read them for skipped or deleted tests, loosened assertions, and expected values computed by calling the code under test.
 
-Every finding cites file:line; a deleted test cites its line in the starting commit (`git show <starting commit>:<path>`). Mark a finding escalated when it is one the per-task gate fails: a changed outer test, an undeclared change, or a test that does not protect its criterion (a loosened assertion, an expected value computed by calling the code under test, a skipped or deleted guard, or a missed planted defect), declared or not. Give the evidence that cleared any finding you do not escalate.
+Every finding cites file:line; a deleted test cites its line in the starting commit (`git show <starting commit>:<path>`). Mark a finding escalated when it is one the per-task gate fails: a changed outer test, an undeclared change, or a test that does not protect its criterion (a loosened assertion, an expected value computed by calling the code under test that a planted defect in that code leaves passing, a skipped or deleted guard, or a missed planted defect), declared or not. Give the evidence that cleared any finding you do not escalate.
 
 ### Mutation (opt-in, advisory)
 
@@ -150,6 +150,8 @@ These are proposals. No test was created, edited, or deleted. A blocking item is
   - **Location**: `tests/feature.test.ts:30` - `${quotedExcerpt}`
   - **Evidence type**: deterministic (${detector, planted defect, or diff}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
   - **Objective evidence**: ${evidence} or "judgment-only, not actionable" (Remove or Consolidate)
+  - **Proof**: ${the proof the skill's Part 3 names for this verdict} (Remove or Rewrite)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite, as the skill's Part 3 describes)
   - **Criterion**: ${criterionId}
 
 ### Majority Candidates
@@ -158,13 +160,15 @@ Judgment-only Remove or Rewrite verdicts from this one review. The caller settle
 - **Proposed verdict**: Remove | Rewrite
   - **Rubric item**: ${part1Item or part2PropertyAndItem}
   - **Location**: `tests/feature.test.ts:48` - `${quotedExcerpt}`
-  - **Reason**: ${evidenceAndReason}
+  - **Proof**: ${your proof, of a kind the skill's Part 3 names, written out as its Part 4 requires}
+  - **Reason**: ${reason, matching the proposed verdict}
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite)
   - **Criterion**: ${criterionId}
 
 ### Review These
-Only judgment-only observations that reach no verdict; a deterministic failure is under Blocking or Findings above.
+Observations that reach no verdict, each with exactly one evidence label; a proven failure is under Blocking or Findings above.
 
-- `tests/feature.test.ts:55` - ${observation}; judgment-only (${heuristic or rubric item})
+- `tests/feature.test.ts:55` - ${observation}; deterministic (${detector and rule}) | judgment-only (${heuristic or rubric item})
 
 ### Detectors
 - Tools run: ${tools and selections}
