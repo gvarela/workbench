@@ -36,7 +36,7 @@ Review `<starting commit>..HEAD`. List the changed test files with `git diff --n
 
 ### 1. Can each changed test fail
 
-Ask the skill's Part 1 questions of every new or changed test, with file:line evidence.
+Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector, a planted defect, or a diff, as the skill's Part 4 names them) is a Finding with its verdict, never a "Review these" entry. For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds only judgment-only observations that reach no verdict.
 
 For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed. Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
 
@@ -129,6 +129,8 @@ Judgment-only Remove or Rewrite verdicts from this one review. The caller settle
   - **Criterion**: ${criterionId}
 
 ### Review These
+Only judgment-only observations that reach no verdict; a deterministic failure is a Finding above.
+
 - `tests/feature.test.ts:55` - ${observation}; judgment-only (${heuristic or rubric item})
 
 ### Detectors
