@@ -85,7 +85,7 @@ Provide the agent with:
 - Starting Commit: ${taskTestContext.startingCommit}
 - Red Commits: ${redCommits}  (each taskTestContext.criteria[].redCommit: the red commit of each outer test the task touches)
 - Criteria: ${taskTestContext.criteria}  (each with its example)
-- Test-writer Reports: ${taskTestContext.outerTestReports} and ${workerOutput.testWriterReports}  (the outer reports, then the worker's item 7, verbatim)
+- Test-writer Reports: ${taskCommentReports}  (the reports in the task's comments, read as reference.md's "Evidence in Beads" says: the outer reports, then the inner ones that no later `discarded:` comment voids, verbatim)
 
 The agent will run tests, check scope adherence, and return a structured
 markdown report with Status: PASS or FAIL.
@@ -103,10 +103,10 @@ Provide:
 - Original Task: ${taskDetails.description}
 - Verification Report: ${verificationReport}
 - Task Test Context: ${formatTaskTestContext(taskTestContext)}  (includes the starting commit)
-- Earlier Test-writer Reports: ${workerOutput.testWriterReports}  (the first worker's item 7, verbatim)
+- Earlier Test-writer Reports: ${taskCommentReports}  (the reports in the task's comments, read as for the verifier, verbatim)
 - Instructions: Fix the specific issues identified. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, adding the fix worker's item 7 to Test-writer Reports (the outer reports, the first worker's item 7, then the fix worker's item 7, verbatim). Without it, the fix's test changes match no report and fail as undeclared.
+**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, reading Test-writer Reports from the task's comments again, which now include the fix worker's. Without them, the fix's test changes match no report and fail as undeclared.
 
 **If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.
