@@ -7,10 +7,10 @@ status: in-progress
 last_updated: 2026-10-17
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 4
-total_tasks: 40
-completed_tasks: 19
-git_commit: 15a58c7905a7c76cc4e21e5ea18c7d988b2042e7
+current_phase: 5
+total_tasks: 41
+completed_tasks: 25
+git_commit: f60d1d362132bee9c526ddf6abf51e90e72c6007
 git_branch: testing-guidance
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
@@ -54,6 +54,7 @@ beads_tasks:
   phase4_impl_3: prompts-jz50
   phase4_impl_4: prompts-9yda
   phase4_test_1: prompts-1xve
+  phase4_followup_1: prompts-k87u  # added in Phase 4: harness can-fail proof through wb:test-writer
   # Phase 5 tasks
   phase5_impl_1: prompts-z127
   phase5_impl_2: prompts-wzoc
@@ -1247,6 +1248,22 @@ bd blocked
 - **Known check limitations** (recorded in commit cbd1c46): none affect Fixture P.
 - **For later phases**: create_tasks' "split advice" (source change, then test conversion) may need rewording once implement's test-writer rules land in Phase 5 (audit finding 9 in `prompt-audits/phase3_impl_2.md`).
 - Status updated on 2026-10-17: the Phase 3 milestone is closed in beads (19 of 40 tasks closed). Current phase is 4.
+- **2026-10-17, Phase 4**: all agent tasks were audited and verified, then committed one at a time.
+  - `prompts-i50b` (test-writer): preloads `test-quality` only, per design D3. The Phase 4 spec line that listed tdd-discipline was corrected, because preloading tdd-discipline would tell the test-writer to delegate to itself.
+  - `prompts-jz50` (task-verifier): the coordinator added `skills: [test-quality]` per D7, which the spec had left out. The prompt audit replaced a planted-defect procedure that could not run (it kept a shell variable across Bash calls) with one self-cleaning call. It also stopped the verifier from using the rubric's reviewer verdicts.
+  - `prompts-9yda` (test-reviewer): failed verification. Its "break did not apply" check compared against the working tree, while its copy was HEAD. One Fable fix, then a coordinator fix for staged files. Both agents' traps now also fire on INT, TERM and HUP. Proven in 24 runs under bash and zsh. Judgment-only Remove and Rewrite go under Majority Candidates for the coordinator to settle; recorded on `prompts-wzoc`.
+- **Follow-up added in Phase 4**: `prompts-k87u` makes the harness can-fail proof work through wb:test-writer. Without it, a harness task could never finish once workers stopped editing tests. The inline-mode gap is noted on `prompts-jbqm`.
+- **AC-5 (M2)**:
+  - The green arm scored realistic 22/24 and clean 24/24, about $18.
+  - The user chose option A: fix the realistic packages' unintended noise (an undeclared per-ride test, and an AC-3 test that missed a skipped format) and re-run, about $10.50. Result: 23/24.
+  - The one miss is a control FAIL on a real float-summation rounding bug in the task's own diff. The user accepted M2 as met on substance. Inputs changed after the first results, and `results/phase4-ac5.md` records why.
+  - The packages still carry that rounding bug in their shared production code.
+- **Phase 4 success criteria vs reality**: checks 2 and 4 cannot pass until Phase 5 (implement/SKILL.md) and Phase 6 (test-auditor.md). Check 3 passes.
+- **Minor notes left for later**:
+  - The verifier covers a missing starting commit only implicitly.
+  - Tracebacks may show the original tree's absolute path when `__pycache__` is untracked.
+  - The AC-5 wording says "Test Integrity section", while the template puts planted-defect results under Criterion Check.
+- Status updated on 2026-10-17: the Phase 4 milestone is closed in beads (25 of 41 tasks closed). Current phase is 5.
 
 ---
 
