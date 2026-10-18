@@ -172,3 +172,29 @@ Max own calls 5 (baseline max 9); max with children 8. Every worker is far under
 | trap-outer-conflict never reached the worker-request refusal path | fixture issue (the worker gets `float(...)` right first time because the task text steers it) | `fixtures/trap-outer-conflict/` |
 
 Beads: `prompts-dnb3` left in_progress (AC-8 fails on two clauses and trap-outer-conflict is "layer not exercised").
+
+## Confirmation run after the re-run fixes (2026-10-18)
+
+HEAD under test: f4b6502 (ac8 verifier clause fixed in 6707ec8; implement/SKILL.md fallback sentence fixed in f4b6502). One run, no retry: `run-headless.sh python-rides legacy prompts/implement.md` on the legacy overlay's pre-5.0.0 `tasks.md` (seeded by `seed-beads.sh`), so `implement` ran alone, with no `create_tasks` stage. Prompt unchanged from the re-run. Evidence under [runs/phase5-confirm/](runs/phase5-confirm/).
+
+### ac8 on the implement stage
+
+`checks/ac8.sh` on `runs/phase5-confirm`: **PASS, all six clauses** (legacy input has no Acceptance Criteria section; output says the plan predates acceptance criteria; proceeded rather than stopping; no red(AC-n) demanded; no-test-edit coverage clauses pass; `wb:task-verifier` spawned). The `create_tasks` stage was not rerun; its single failing clause was a check defect fixed in 6707ec8, and the re-grade of the saved re-run stage-1 output passes.
+
+Coordinator sentence (`assistant-text.txt` line 95): "The plan predates 5.0.0, so it has no acceptance criteria. That means no outer tests were written and no `red(AC-n)` commits exist. Workers still left all test changes to test-writer, and each verifier still checked test integrity." The checkpoint summary also says "no red commits, because the plan predates acceptance criteria."
+
+Cost $2.64 (351 s, 24 turns; the transcript's two `result` events carry the same cumulative figure, counted once). Tool calls: coordinator 24; workers 3 and 3 own (7 and 6 with their test-writer children); verifiers 9 and 7; reviewer 18. Workers are far under the ~50 threshold (baseline max 9). `git status --porcelain` empty.
+
+### Final Phase 5 verdicts
+
+| Item | Verdict | Source |
+| --- | --- | --- |
+| AC-3 | PASS | re-run r1 and r5 |
+| AC-4 | PASS | re-run r1 and r5 |
+| AC-9 | PASS | re-run r1 and r5 |
+| AC-8 | PASS | this confirmation run, all six clauses |
+| trap-missing-module | correct | re-run r2 |
+| trap-framed-brief | correct | re-run r3 |
+| trap-outer-conflict | not exercised, accepted by the user | re-run r4 |
+
+Total Phase 5 paid cost: $20.99 (re-run $18.35 + confirmation $2.64).

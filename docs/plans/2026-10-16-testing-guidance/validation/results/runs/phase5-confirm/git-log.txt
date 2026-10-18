@@ -1,0 +1,58 @@
+commit a1689c212d2afc4ff15f773f75ec4693b19fb953
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 11:28:46 2026 -0600
+
+    Record Phase 1 modified files in tasks.md
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ docs/plans/2026-10-20-rides/tasks.md | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+commit c2de74b57f8bcc562f42ab6cbdf118b1cecd1048
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 11:25:37 2026 -0600
+
+    Round displayed distances half up (tmp_niHSfpp8MW-5hz.3)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/view_model.py      |  9 +++++++--
+ tests/test_view_model.py | 15 ++++++++++++++-
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+commit 1f25f9e2ecd57412f8307724e3768859e2ca72ac
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 11:23:20 2026 -0600
+
+    Widen the rides window to 28 days inclusive (tmp_niHSfpp8MW-5hz.2)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/store.py      |  2 +-
+ tests/test_store.py | 10 ++++++++++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+commit 9a6baabccb6217320e644e9aa1054e9f55a793b1
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 11:20:32 2026 -0600
+
+    base
+
+ .gitignore                              |   2 +
+ docs/plans/2026-10-20-rides/README.md   |  45 ++++++
+ docs/plans/2026-10-20-rides/design.md   |  87 ++++++++++++
+ docs/plans/2026-10-20-rides/research.md |  88 ++++++++++++
+ docs/plans/2026-10-20-rides/tasks.md    | 237 ++++++++++++++++++++++++++++++++
+ pyproject.toml                          |  12 ++
+ rides/__init__.py                       |   0
+ rides/store.py                          |  21 +++
+ rides/view_model.py                     |   6 +
+ rides/views.py                          |  17 +++
+ tests/test_load_series.py               |  15 ++
+ tests/test_store.py                     |  21 +++
+ tests/test_today_page.py                |   8 ++
+ tests/test_view_model.py                |  13 ++
+ wizard/wizard.html                      |  23 ++++
+ wizard/wizard.js                        |  16 +++
+ 16 files changed, 611 insertions(+)

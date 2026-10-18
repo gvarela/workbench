@@ -1,0 +1,16 @@
+coordinator tool calls: 24  {'Bash': 12, 'Read': 6, 'Agent': 5, 'Edit': 1}
+
+subagent_type	calls	bead	tools	parent	total_with_children
+wb:task-worker	3	tmp_niHSfpp8MW-5hz.2	{'Bash': 2, 'Agent': 1}	coordinator	7
+wb:task-verifier	9	tmp_niHSfpp8MW-5hz.2	{'Bash': 7, 'Grep': 1, 'Read': 1}	coordinator	9
+wb:task-worker	3	tmp_niHSfpp8MW-5hz.3	{'Bash': 2, 'Agent': 1}	coordinator	6
+wb:task-verifier	7	tmp_niHSfpp8MW-5hz.3	{'Bash': 7}	coordinator	7
+wb:test-reviewer	18	2026-10	{'Read': 2, 'Bash': 15, 'Grep': 1}	coordinator	18
+wb:test-writer	3	tmp_niHSfpp8MW-5hz.3	{'Read': 1, 'Write': 1, 'Bash': 1}	wb:task-worker#2	3
+wb:test-writer	4	tmp_niHSfpp8MW-5hz.2	{'Read': 1, 'Bash': 2, 'Edit': 1}	wb:task-worker#1	4
+
+type wb:task-worker: spawns=2 total=6 max=3
+type wb:task-verifier: spawns=2 total=16 max=9
+type wb:test-reviewer: spawns=1 total=18 max=18
+type wb:test-writer: spawns=2 total=7 max=4
+
