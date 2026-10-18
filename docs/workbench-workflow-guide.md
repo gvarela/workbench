@@ -69,7 +69,7 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
 | implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
 | implement_inline | Sonnet (Claude Code's default `medium`; `high` for harder phases); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
-| validate_execution | Any (the skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
+| validate_execution, test-audit | Any (each skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
 
 These are defaults, not gates — usage limits and task size legitimately move you down a tier.
 
@@ -116,7 +116,7 @@ Documents codebase objectively using parallel research agents.
 
 **Critical Rule**: "Document what IS, not what SHOULD BE"
 
-**Output**: research.md with file:line references, patterns, architecture documentation
+**Output**: research.md with file:line references, patterns, architecture documentation, and a Testing Conventions section (frameworks and commands, the harness that exists per boundary, seams, skip markers, installed test-quality tooling), which the testing agents read first
 
 ### Stage 3: UI Mockup (Optional)
 
@@ -221,6 +221,8 @@ Creates architectural design decisions (WHAT and WHY).
 - Technical decisions
 - Scope (in/out)
 - Success criteria
+- Acceptance Criteria: Given/When/Then with real examples, where each result is observed, and the success metric it refines
+- Harness Decisions: per boundary, whether to use an existing harness, add one, verify manually, or test at a lower proxy
 - Risk analysis
 - Rejected alternatives
 
@@ -239,7 +241,7 @@ Transforms design into detailed phased execution plan.
    - Dependency analysis
    - Test coverage planning
    - Rollback procedures
-3. Generates phased plan with embedded tasks
+3. Generates phased plan with embedded tasks: an outer-test step per acceptance criterion, a harness task wherever design chose to add a harness, and implementation tasks that cite the criteria they serve
 
 **Beads Integration**:
 
@@ -250,25 +252,18 @@ Creates hierarchical beads issues:
 bd create "[Project Name] Implementation" \
   --type=epic --priority=1
 
-# Phase milestones with dependencies
-bd create "Phase 1 Milestone: [Name]" \
-  --type=milestone --priority=1 \
-  --blocks "[epic-id]"
+# Phase milestones, ordered
+bd create "Phase 1 Milestone: [Name]" --type=task --priority=1
+bd create "Phase 2 Milestone: [Name]" --type=task --priority=2
+bd dep add [phase-2-milestone-id] [phase-1-milestone-id]   # phase 2 waits on phase 1
 
-bd create "Phase 2 Milestone: [Name]" \
-  --type=milestone --priority=2 \
-  --blocks "[epic-id]" \
-  --blocked-by "[phase-1-id]"
+# Tasks within phases; each task blocks its phase milestone
+bd create "Implement [Component]" --type=task --priority=1
+bd dep add [phase-1-milestone-id] [implement-component-id]
 
-# Tasks within phases
-bd create "Implement [Component]" \
-  --type=task --priority=1 \
-  --blocks "[phase-1-milestone-id]"
-
-bd create "Write tests for [Component]" \
-  --type=task --priority=1 \
-  --blocks "[phase-1-milestone-id]" \
-  --blocked-by "[implement-component-id]"
+bd create "Outer test for AC-1: [criterion]" \
+  --type=task --priority=2
+bd dep add [implement-component-id] [outer-test-id]  # the implementation task waits on its outer test
 ```
 
 **Result**: Dependency chain where:
@@ -298,7 +293,7 @@ bd show [task-id]
 bd update [task-id] --claim
 
 # 4. TDD Cycle
-# Red: Write failing test
+# Red: wb:test-writer writes the failing test (outer test committed as red(AC-n))
 # Green: Implement minimum code
 # Refactor: Clean up while tests pass
 
@@ -310,9 +305,17 @@ bd ready
 → Shows newly unblocked tasks
 ```
 
+**Tests**:
+
+- The outer test for each cited criterion is written by `wb:test-writer`, confirmed failing on an assertion, and committed as `red(AC-n)` before the task's code.
+- `task-worker` never edits tests; `task-verifier` fails any test change no test-writer report declares, after running `plugin/scripts/test-integrity` and planting a defect in a disposable copy.
+- The test-writer reports and the verifier's test-integrity result are kept as comments on the task in beads.
+- `/wb:implement_inline` follows the same rules for writing tests: the session codes, `wb:test-writer` writes every test. It has no per-task verifier, so the checkpoint test review checks test integrity across the phase.
+- A plan whose design has no acceptance criteria predates 5.0.0; outer tests are skipped and the output says why.
+
 **Phase Checkpoints**:
 
-After completing all phase tasks:
+After completing all phase tasks, `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. Then:
 
 ```bash
 # Check phase milestone
@@ -351,7 +354,7 @@ Validates implementation matches plan.
 
 - All tasks completed
 - Success criteria met
-- Test coverage adequate
+- Tests reviewed by `wb:test-reviewer` over the plan's whole range
 - Documentation updated
 - No unintended changes
 
@@ -376,6 +379,13 @@ research.md: draft → in-progress → complete
 design.md: draft → ready → implementing → complete
 tasks.md: not-started → in-progress → complete
 ```
+
+### Testing Outside the Chain
+
+Two commands need no plan:
+
+- `/wb:test-audit [scope] [N | full]` audits an existing suite cold. It triages tests by suspicion, states the scope, planned `wb:test-auditor` spawns, and a cost class (confirming first on a large repository), then writes a report of proposed Remove, Rewrite, and Consolidate verdicts with evidence. It never edits tests.
+- `/wb:testing-profile` drafts `.claude/wb/testing.md` (conventions, team Choices, Mutation level), recommends gaps against the tooling the testing agents rely on, and writes only after you confirm. Research cites the file as a baseline.
 
 ### Handoff (Multi-Session)
 
@@ -450,15 +460,12 @@ bd create "UI Assumption: Using 2-column layout" \
 # Creates epic
 bd create "Add Authentication System" --type=epic
 
-# Creates phase milestones with dependencies
-bd create "Phase 1: Core Auth" \
-  --type=milestone \
-  --blocks "[epic-id]"
+# Creates phase milestones
+bd create "Phase 1 Milestone: Core Auth" --type=task
 
-# Creates tasks with dependencies
-bd create "Implement JWT middleware" \
-  --type=task \
-  --blocks "[phase-1-id]"
+# Creates tasks, each blocking its phase milestone
+bd create "Implement JWT middleware" --type=task
+bd dep add [phase-1-milestone-id] [jwt-middleware-id]
 ```
 
 **`/wb:implement`** (and `/wb:implement_inline`):
@@ -808,6 +815,8 @@ Tasks come ONLY from plans.
 - Use `bd ready` to find work
 - Claim with `bd update`
 - Follow TDD cycle strictly
+- Leave test writing to `wb:test-writer`; workers and the inline session do not edit tests
+- Acknowledge each blocking test finding by name at the checkpoint
 - Close with `bd close`
 - Respect phase boundaries
 - Stop at checkpoints

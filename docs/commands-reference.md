@@ -29,6 +29,7 @@ Claude Code slash commands for managing project documentation, research, plannin
 
 /wb:implement_inline runs the same plan inline in this session, as an alternative to /wb:implement.
 /wb:create_mockup is an optional UI side-branch after research (mockups feed design).
+/wb:test-audit and /wb:testing-profile sit outside the chain: neither needs a plan.
 
 For multi-session work:
 [Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [Continue work]
@@ -148,6 +149,7 @@ Pattern Finder Agents → Find similar implementations
 - Research question and summary
 - Detailed findings with `file.ext:line` references
 - Architecture documentation (patterns found)
+- Testing Conventions: frameworks and commands, the harness that exists per boundary, fixtures and factories, seams, skip markers, installed test-quality tooling, and services the suite needs (facts only; when `.claude/wb/testing.md` exists, research cites it and records where the code has drifted from it)
 - Code references quick list
 - Similar implementations
 - Open questions
@@ -293,6 +295,8 @@ Creates architectural design decisions based on validated research. Focuses on W
 - Technical decisions (architecture, data model, integrations)
 - Scope definition (in/out of scope)
 - Success criteria (functional and non-functional)
+- Acceptance Criteria: one per changed behavior, each Given/When/Then with real examples, where the result is observed, and the success metric it refines
+- Harness Decisions: for each boundary the criteria are observed at, whether a harness exists and whether to use it, add one, verify manually, or test at a lower proxy
 - Risk analysis
 - Rejected alternatives
 
@@ -354,6 +358,8 @@ Transforms approved design into detailed phased execution plan with embedded tas
 
 The markdown documents the plan. Live status is tracked in beads: each task becomes a beads issue under a phase milestone, with dependencies, and progress is read from `bd ready` / `bd update <id> --claim` / `bd close <id>`, never from checkboxes.
 
+Each acceptance criterion gets an outer-test step (or a manual check, where design chose manual), each "add harness" decision gets a harness task before the first outer test at that boundary, and implementation tasks cite the criteria they serve. A design with no Acceptance Criteria section is planned as before, and the plan says it has none.
+
 **Features**:
 
 - Dependency-based phase ordering
@@ -370,6 +376,15 @@ The markdown documents the plan. Live status is tracked in beads: each task beco
 
 Implements the plan by coordinating fresh-context worker agents, one per task, each verified; the default execution path. Workers follow Test-Driven Development (Red → Green → Refactor).
 
+**Tests**:
+
+- Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites, confirms it fails on an assertion, and commits it as `red(AC-n): <criterion title>`.
+- Workers never edit tests; for inner tests the worker asks `wb:test-writer`.
+- `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail. It fails any test change no test-writer report declares, and any changed outer test.
+- The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports and the verifier's `test integrity:` result. The checkpoint review reads them there.
+- At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
+- A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
+
 **Usage**:
 
 ```bash
@@ -378,7 +393,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 
 #### `/wb:implement_inline`
 
-The same plan, coded inline by this session with TDD. Use when the work should run on the session model.
+The same plan, coded inline by this session with TDD. Use when the work should run on the session model. The session never edits tests: `wb:test-writer` writes each outer test (committed as `red(AC-n)` before its code) and every inner test. With no per-task verifier, the checkpoint's `wb:test-reviewer` review also checks test integrity across the phase, and the same blocking rule applies.
 
 **TDD Process**:
 
@@ -419,9 +434,47 @@ Validates that execution plan was correctly implemented. Run after implementatio
 
 - Implementation completeness
 - Success criteria verification
-- Test coverage analysis
+- Test review: `wb:test-reviewer` over the plan's whole range (criterion coverage, test integrity, planted defects), with judgment-only proposals settled by three independent readings
 - Deviations from plan
 - Recommendations
+
+---
+
+### `/wb:test-audit` - Audit an Existing Test Suite
+
+Audits the tests a repository already has against the `test-quality` rubric, with no plan and outside the stage chain.
+
+**Usage**:
+
+```bash
+/wb:test-audit [scope] [N | full]
+```
+
+The scope is a plan directory, a path, or nothing for the whole repository; the depth is a number of tests per area (15 by default) or `full`.
+
+**Process**:
+
+1. **Detect the stack**, or take it from a plan's research or `.claude/wb/testing.md`
+2. **Triage**: run the project's own test-quality detectors with explicit rule selections, plus read-only heuristics, to rank tests by suspicion per area
+3. **State the cost**: the scope, the planned `wb:test-auditor` spawns, and a cost class. On a large repository (more than 30 planned spawns, which more than 10 areas always reach) it asks you to confirm, narrow, or widen the scope before spawning
+4. **Audit**: one `wb:test-auditor` per area inspects the top-ranked tests
+5. **Report**: proposed Remove, Rewrite, and Consolidate verdicts, each with evidence for you to spot-check, plus what was triaged out and how to expand
+
+It never edits or deletes tests and leaves the audited repository unchanged. Hollow reds and post-red edits cannot be checked cold, and the report says so.
+
+---
+
+### `/wb:testing-profile` - Draft the Testing Profile
+
+Drafts `.claude/wb/testing.md`: the stack's testing conventions plus the team's Choices and a Mutation level (`off` or `advisory`). Research cites the file as a baseline, and `test-quality` and `/wb:test-audit` read it.
+
+**Usage**:
+
+```bash
+/wb:testing-profile
+```
+
+It compares the stack with the tooling the testing agents rely on and asks, for each gap, whether to adopt it (recorded as Planned, with a beads issue filed after you confirm), record it as a choice, or decide later. If you do not control the repository's tooling, it offers only the last two. It writes only after you confirm and installs nothing. On a refresh it points at an adopted gap's beads issue when the tooling is now installed.
 
 ---
 
@@ -616,7 +669,7 @@ Interactive discussion → Design decisions (WHAT and WHY). Includes UI requirem
 /wb:create_tasks docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
-Generates phased plan with specific tasks (HOW to implement).
+Generates phased plan with specific tasks (HOW to implement), including an outer-test step per acceptance criterion.
 
 #### 7. Implement with TDD
 
@@ -624,7 +677,7 @@ Generates phased plan with specific tasks (HOW to implement).
 /wb:implement docs/projects/2025-10-07-LINEAR-789-add-auth-middleware
 ```
 
-Work through the tasks in tasks.md using the TDD cycle. Status lives in beads: find work with `bd ready`, claim it with `bd update <id> --claim`, and finish it with `bd close <id> --reason "..."`.
+Work through the tasks in tasks.md using the TDD cycle; each criterion's outer test is committed as `red(AC-n)` before its code. Status lives in beads: find work with `bd ready`, claim it with `bd update <id> --claim`, and finish it with `bd close <id> --reason "..."`.
 
 Progress fields are reconciled by `/wb:update_status` (the sole writer) rather than hand-edited during implementation — running it after each phase keeps frontmatter like this in sync:
 

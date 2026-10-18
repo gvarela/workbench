@@ -76,13 +76,15 @@ Slash commands for project documentation and task management:
 - **`/wb:explore_design`** - Explore architecture directions and record the decision (optional)
 - **`/wb:create_design`** - Create architectural design decisions (WHAT and WHY)
 - **`/wb:create_tasks`** - Transform design into phased execution plan (HOW)
-- **`/wb:implement`** - Implement the plan with coordinated worker agents (the default execution path)
-- **`/wb:implement_inline`** - Implement the plan inline in this session with TDD
+- **`/wb:implement`** - Implement the plan with coordinated worker agents (the default execution path); each outer test is committed as `red(AC-n)` first, and each phase checkpoint adds a test review
+- **`/wb:implement_inline`** - Implement the plan inline in this session with TDD, with the same outer tests and checkpoint test review
 - **`/wb:validate_execution`** - Validate implementation matches plan
 - **`/wb:validate_project`** - Validate project documentation structure
 - **`/wb:create_handoff`** - Create session handoff for work continuity
 - **`/wb:resume_handoff`** - Resume from handoff document
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
+- **`/wb:test-audit`** - Audit an existing test suite cold, with no plan, and report proposed Remove, Rewrite, and Consolidate verdicts (outside the stage chain)
+- **`/wb:testing-profile`** - Draft `.claude/wb/testing.md`, the repository's testing conventions and team choices, after you confirm (outside the stage chain)
 - **`/wb:help`** - Quick reference for all commands
 
 ### Agents
@@ -93,8 +95,11 @@ Specialized agents for codebase analysis:
 - **`codebase-analyzer`** - Analyze implementation details with file:line references
 - **`pattern-finder`** - Find similar patterns and implementations
 - **`research-validator`** - Check a research document's paths, snippets, and claims against the code
-- **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`
-- **`task-verifier`** - Verify task completion against requirements
+- **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests
+- **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants a defect to check that changed tests can fail
+- **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
+- **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint; proposes findings, edits nothing
+- **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
 
 ### Skills (auto-activated)
 
@@ -102,7 +107,8 @@ Background capabilities that Claude automatically invokes:
 
 - **`project-structure`** - Enforces document separation (research.md, design.md, tasks.md)
 - **`doc-adherence`** - Requires claims about a plan document to come from a read of that file in the current context
-- **`tdd-discipline`** - Enforces RED-GREEN-REFACTOR cycle before writing production code
+- **`tdd-discipline`** - Enforces RED-GREEN-REFACTOR cycle before writing production code, with a named list of exceptions
+- **`test-quality`** - The shared rubric for whether a test can fail and is worth keeping; preloaded by the testing agents
 - **`verification-before-completion`** - Requires running verification before claiming work is done
 - **`status-sync`** - Monitors for status drift and reminds to sync
 
@@ -128,8 +134,9 @@ workbench/
 │   ├── skills/<name>/SKILL.md   # /wb:* workflow commands + background capabilities
 │   ├── agents/         # Specialized subagents
 │   ├── hooks/          # Event handlers
-│   ├── scripts/        # Utility scripts (lint)
+│   ├── scripts/        # Utility scripts (lint, test-integrity)
 │   └── docs/reference/ # Runtime-referenced shared docs
+├── tests/              # Tests for the shipped scripts (not shipped)
 └── docs/               # Maintainer guides + project plans (not shipped)
 ```
 
