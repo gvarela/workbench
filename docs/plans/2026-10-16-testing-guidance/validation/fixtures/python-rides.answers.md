@@ -37,4 +37,5 @@ Not needed. Skip it and go straight to `/wb:create_design`.
 ## Variants
 
 - `with-profile`: copy over the base; answers as above with the harness answer "manual".
+- `planned` (and any overlay copied over it): copy over the base, then run `seed-beads.sh`; only the `/wb:implement` and `/wb:implement_inline` answers apply (the design and tasks already exist).
 - `legacy`: copy over the base, then run `seed-beads.sh`; only the `/wb:create_tasks` and `/wb:implement` answers apply (the design already exists).

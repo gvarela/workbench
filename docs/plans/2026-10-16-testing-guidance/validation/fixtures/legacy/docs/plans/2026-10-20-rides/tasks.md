@@ -105,7 +105,8 @@ WINDOW_DAYS = 28
 
 **Target State** (from design.md Success Metrics):
 
-- 2.25 km displays as 2.3 km
+- 2.25 km displays as 2.3 km, and 1.15 km as 1.2 km (the float 1.15 is stored just below 1.15, so this pins the conversion through `str`)
+- The existing expectation `format_distance(12.25) == "12.2 km"` (`tests/test_view_model.py:9`) pins half-to-even; under half-up it becomes `"12.3 km"`
 - Everything else displays as today: a whole-number (int) input stays whole (`5` shows `5 km`) and a float keeps its one decimal (`10.0` shows `10.0 km`)
 
 **Implementation**:
@@ -142,6 +143,8 @@ Only the tie-breaking changes. The `int` branch keeps `5` as `5 km` (the existin
 - Add tests at `tests/test_store.py` and `tests/test_view_model.py` → `[beads:phase1_test_1]`
   - A ride on Oct 1 is listed and one on Sep 30 is not, with today = Oct 28
   - `format_distance(2.25)` returns `"2.3 km"`
+  - `format_distance(1.15)` returns `"1.2 km"` (fails if the float is passed to `Decimal` directly)
+  - Update the existing `format_distance(12.25)` expectation at `tests/test_view_model.py:9` from `"12.2 km"` to `"12.3 km"`
   - `format_distance(10.0)` returns `"10.0 km"` (a float keeps its trailing zero)
 
 ### Success Criteria
