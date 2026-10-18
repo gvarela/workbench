@@ -49,7 +49,7 @@ Otherwise ask the user once whether they control this repository's tooling, beca
 
 Rank the gaps by how much of the flow they leave without its input, show at most about five, and ask one question per gap with these options:
 
-- **Adopt**: nothing is installed. Record the gap under Planned, not as present, and file a beads issue after the checkpoint with `bd create "<title>" --type=task --priority=2 -d "<desc>"`.
+- **Adopt**: nothing is installed. Record the gap under Planned, not as present, and file a beads issue after the checkpoint with `bd create "<title>" --type=task --priority=2 -d "<desc>"`, then store the issue's id with the entry, as in `- request-level harness (beads: <id>)`, so a later refresh can find it.
 - **Record as a choice**: record it under Choices with the user's reason. Readers treat Choices as decisions that bound their findings, so the gap stops being flagged.
 - **Decide later**: list it under Open.
 
@@ -57,6 +57,8 @@ Rank the gaps by how much of the flow they leave without its input, show at most
 
 Show the draft, with the gap answers placed under Choices, Planned, and Open, and ask for confirmation or edits. Where the file already exists, show the differences against it rather than the whole draft, and keep its Choices, Planned, Open, and Mutation level unless the user changes them, because they are the parts that cannot be re-detected. A Planned entry that detection now finds installed moves to the heading that describes it; say so in the differences.
 
+For each such entry that records a beads id, run `bd show <id>` and name the entry and its issue in the differences, and, unless `bd show` reports it closed, say the user can close it, for example with `bd close <id>`. Closing is the user's call, so the skill does not close it. If beads is not initialized or `bd show <id>` fails because the id no longer resolves, say so and continue. This is the only beads command that runs before the checkpoint, and it only reads.
+
 ⛔ CHECKPOINT: the user has confirmed the draft. Writing before then would present a guess as a decision the team made.
 
-Write `.claude/wb/testing.md` with the confirmed content, then file one beads issue for each adopted gap. If beads is not initialized here, present the Beads not initialized case from [beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and file the issues once the user has initialized it. Report the path, what changed, and the issue ids. The skill installs nothing.
+Write `.claude/wb/testing.md` with the confirmed content, then file one beads issue for each adopted gap and write its id into that Planned entry in the file, because the id exists only once the issue is filed. If beads is not initialized here, present the Beads not initialized case from [beads-not-initialized.md](../../docs/reference/beads-not-initialized.md) and file the issues and add their ids once the user has initialized it; until then the Planned entries carry no id. Report the path, what changed, and the issue ids. The skill installs nothing.
