@@ -176,7 +176,7 @@ bd ready   # tasks with no open dependencies
 
 ### Step 5: Spawn Worker Agents Sequentially
 
-The coordinator is operating autonomously within this task loop. Nobody is watching in real time, so asking "Want me to…?" blocks the work. For reversible actions that follow from the plan, proceed without asking. Before ending a turn, check the last paragraph: if it is a plan, a question, or a promise about work not yet done ("I'll now run…"), do that work now with tool calls. End the turn only when the phase is complete or blocked on something only a human can decide. This does not apply to phase checkpoints or plan-defect halts — those stop for a human by design.
+The coordinator is operating autonomously within this task loop. Nobody is watching in real time, so asking "Want me to…?" blocks the work. For reversible actions that follow from the plan, proceed without asking. Before ending a turn, check the last paragraph: if it is a plan, a question, or a promise about work not yet done ("I'll now run…"), do that work now with tool calls. End the turn only when the phase is complete or blocked on something only a human can decide. This does not apply to phase checkpoints, plan-defect halts, or the failed re-verification halt — those stop for a human by design.
 
 **For each ready task in the phase**, spawn a focused worker agent:
 
@@ -237,7 +237,7 @@ After each worker completes:
 
    - **Implementation defect** (task is achievable as specified; the worker got it wrong, including every integrity and protection finding):
      - Attempt one automatic fix using the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), then re-verify. The re-verification's test-writer reports are `outerTestReports`, the first worker's item 7, and the fix worker's item 7; without the fix worker's reports, its test changes read as undeclared.
-     - **If re-verification fails**: add to blocking issues list for phase checkpoint review and continue to the next task (surface issues at the phase boundary — don't block autonomous flow on individual task failures).
+     - **If re-verification fails**: halt the phase. Start no further task, because the failed task's changes are still uncommitted and every later verifier would see them as foreign changes and fail too. Follow the "Failed Re-verification Halt" in [reference.md](reference.md): reopen the task's issue, leave its changes in the working tree, and present the halt message with its three options.
    - **Plan defect** (task cannot succeed AS SPECIFIED, such as a wrong or ambiguous criterion, or a design assumption that doesn't survive contact with the code): do NOT spawn fix workers; retries cannot fix a task that is wrong as specified. Follow the "Plan-Defect Deviation Protocol" in [reference.md](reference.md) — file a design-revision issue, block dependent tasks, halt the phase for a human checkpoint.
 
 **Handle unfinished workers** (worker left the task `in_progress` without closing it): this is NOT a verification failure, and verification is not run. It is one of two distinct events — **truncation** (worker exhausted its tool-call budget; partial work landed, finish the remainder — never retry whole) or **genuine failure** (crash or reported blocker; little landed). Run `git status` to tell them apart, then follow the "Worker Failure Playbook" in [reference.md](reference.md) for the matching remedy.
@@ -400,12 +400,14 @@ When resuming work (phase = "continue"):
    - Read research.md and design.md for context
    - Check current_phase in frontmatter (reference only — beads is authoritative; reconcile via /wb:update_status if it looks stale)
 
-3. **Handle incomplete workers**:
+3. **Check for a failed re-verification halt**: uncommitted changes in `git status` while no task is `in_progress` mean the phase is halted on a reopened task. Handle it before any new task, as the "Failed Re-verification Halt" in [reference.md](reference.md) directs: on `continue`, re-verify the working tree first, with the task's starting commit recovered as the parent of its own `red(AC-n)` commits at the tip of `git log`, or HEAD when the tip has none.
+
+4. **Handle incomplete workers**:
    - If tasks are stuck in `in_progress`, investigate why
    - Review worker outputs for errors
    - Retry failed tasks with adjusted context
 
-4. **Continue coordination**:
+5. **Continue coordination**:
    - Extract context package
    - Recover the phase's starting commit (Step 4) for the test review: the parent of the phase's first task or `red(AC-n)` commit in `git log`, or HEAD if the phase has none
    - Run `bd ready` to find next task
