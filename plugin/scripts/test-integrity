@@ -202,6 +202,18 @@ export GIT_INDEX_FILE="$TMP_INDEX"
 START_SHA="$(g rev-parse --verify --quiet "$START^{commit}")"
 [ -n "$START_SHA" ] || add_error "start commit not found: $START"
 
+# With no index git sees every tracked file as deleted and re-added. Seed the
+# temporary index from HEAD, which is what a real index would hold, so only
+# real changes show (from the start commit when HEAD does not resolve).
+if [ ! -f "$REAL_INDEX" ]; then
+    SEED="$(g rev-parse --verify --quiet HEAD^{commit})"
+    [ -n "$SEED" ] || SEED="$START_SHA"
+    if [ -n "$SEED" ]; then
+        g read-tree "$SEED" 2>/dev/null ||
+            add_error "repository has no index and it could not be rebuilt from HEAD"
+    fi
+fi
+
 DECLARED_LIST=""
 if [ -n "$DECLARED" ]; then
     if [ -r "$DECLARED" ]; then

@@ -149,6 +149,8 @@ git init -q .
 printf 'describe "a" do\nend\n' > spec/a_spec.rb
 git add -A && git commit -q -m start
 START_NOIDX="$(git rev-parse HEAD)"
+printf 'describe "c" do\nend\n' > spec/c_spec.rb
+git add -A && git commit -q -m 'after start'
 printf 'describe "b" do\n  xit "later" do\n  end\nend\n' > spec/b_spec.rb
 rm -f .git/index
 
@@ -157,6 +159,14 @@ check "$OUT_NOIDX" '[c for c in d["changed_tests"] if c["path"]=="spec/b_spec.rb
     "without an index, an untracked test file is still reported"
 check "$OUT_NOIDX" '[m for m in d["added_skip_markers"] if m["path"]=="spec/b_spec.rb" and m["line"]==2]' \
     "without an index, an added skip marker is still reported"
+check "$OUT_NOIDX" 'not [t for t in d["deleted_tests"] if t["path"]=="spec/a_spec.rb"]' \
+    "without an index, an unchanged tracked test is not listed as deleted"
+check "$OUT_NOIDX" 'not [c for c in d["changed_tests"] if c["path"]=="spec/a_spec.rb"]' \
+    "without an index, an unchanged tracked test is not listed as changed"
+check "$OUT_NOIDX" '[c for c in d["changed_tests"] if c["path"]=="spec/c_spec.rb" and c["tracked"] is True]' \
+    "without an index, a test committed after the start is tracked, as with a real index"
+check "$OUT_NOIDX" 'd["errors"] == []' \
+    "without an index, a successful rebuild leaves errors empty (every check was made)"
 [ ! -e .git/index ] && ok "without an index, none is created" || fail "without an index, none is created"
 
 # ------------------------------------------------- same-second (racy) edit

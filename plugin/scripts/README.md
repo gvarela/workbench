@@ -82,7 +82,7 @@ Reports, as JSON, deterministic test-integrity evidence for a task since its sta
 
 **Features:**
 
-- Read-only: never writes in the repository; git works on a temporary copy of the index, so the real index is never refreshed
+- Read-only: never writes in the repository; git works on a temporary copy of the index, so the real index is never refreshed; when the repository has no index, that copy is built from HEAD, or from the starting commit when HEAD does not resolve (`git read-tree`), so unchanged tracked tests are not reported as deleted and re-added, and no index is created; only a failed rebuild is reported in `errors`
 - Requires only bash 3.2 and git, so it runs in repositories you do not control
 - Exit status 0 whenever it prints JSON (a check it could not make goes in `errors`); 2 on a usage error or outside a git work tree
 - Tests: `tests/test-integrity/run.sh`
