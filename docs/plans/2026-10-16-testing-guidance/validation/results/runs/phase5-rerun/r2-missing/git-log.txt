@@ -1,0 +1,68 @@
+commit d9d9e3481ff84c38f461eaedc7593c2485a66fda
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:37:21 2026 -0600
+
+    Round distances half up in format_distance (tmp_xD4H2kj8xg-ory.6)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/view_model.py      |  8 ++++++--
+ tests/test_view_model.py | 10 +++++++++-
+ 2 files changed, 15 insertions(+), 3 deletions(-)
+
+commit a7da1b073e5a68b87869a59e442f1ed7bc0109ea
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:35:25 2026 -0600
+
+    red(AC-2): A distance halfway between two tenths rounds up on the rides page
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ tests/test_rides_page.py | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+commit 100a6f8286bb856e3ae975ebd2795dbe48ceafaa
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:34:54 2026 -0600
+
+    Set WINDOW_DAYS to 28 so the rides page lists 28 days inclusive (tmp_xD4H2kj8xg-ory.5)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/store.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 80537f956c0fb26822f631ad4e8e6e2d21f85c07
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:33:11 2026 -0600
+
+    red(AC-1): A ride 27 days before today is listed on the rides page and one 28 days before is not
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ tests/test_rides_page.py | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+commit f55f6b8f0b2f241b7b5a1bed22adf53367a0bc22
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:32:03 2026 -0600
+
+    base
+
+ .gitignore                              |   2 +
+ docs/plans/2026-10-20-rides/README.md   |  45 +++++
+ docs/plans/2026-10-20-rides/design.md   | 136 +++++++++++++
+ docs/plans/2026-10-20-rides/research.md |  88 +++++++++
+ docs/plans/2026-10-20-rides/tasks.md    | 329 ++++++++++++++++++++++++++++++++
+ pyproject.toml                          |  12 ++
+ rides/__init__.py                       |   0
+ rides/store.py                          |  21 ++
+ rides/view_model.py                     |   6 +
+ rides/views.py                          |  17 ++
+ tests/test_load_series.py               |  15 ++
+ tests/test_store.py                     |  21 ++
+ tests/test_today_page.py                |   8 +
+ tests/test_view_model.py                |  13 ++
+ wizard/wizard.html                      |  23 +++
+ wizard/wizard.js                        |  16 ++
+ 16 files changed, 752 insertions(+)

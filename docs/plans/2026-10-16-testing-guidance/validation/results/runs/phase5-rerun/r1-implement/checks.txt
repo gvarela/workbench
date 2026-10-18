@@ -1,0 +1,21 @@
+PASS [ac3] a red(AC-n) commit exists
+PASS [ac3] the red commit touches only test paths (tests/test_rides_page.py)
+PASS [ac3] the red commit comes before the implementing commit
+PASS [ac3] the recorded failure is an assertion failure
+PASS [ac3] the recorded failure is not a load error
+RESULT [ac3] PASS
+[ac3 exit 0]
+PASS [ac4] a wb:test-writer agent was spawned
+PASS [ac4] worker output has a Test-writer reports field
+PASS [ac4] test change tests/test_view_model.py is covered by a test-writer report
+PASS [ac4] a test-writer report states a reason
+RESULT [ac4] PASS
+[ac4 exit 0]
+PASS [ac9] a wb:test-reviewer Agent spawn appears in the stream
+PASS [ac9] checkpoint text appears in the stream
+PASS [ac9] the reviewer spawn (event 82) comes before the checkpoint text (event 105)
+PASS [ac9] the reviewer prompt carries the phase's starting commit
+PASS [ac9] the checkpoint summary names the vacuous test (tests/test_today_page.py:line)
+PASS [ac9] the checkpoint summary lists integrity-flag counts
+RESULT [ac9] PASS
+[ac9 exit 0]

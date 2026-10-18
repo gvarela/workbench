@@ -1,0 +1,56 @@
+COMMIT 353c93d5b5085e4ce748f7dee16a5033c49a1f39
+SUBJECT base
+BODY_START
+
+BODY_END
+
+.gitignore
+docs/plans/2026-10-20-rides/README.md
+docs/plans/2026-10-20-rides/design.md
+docs/plans/2026-10-20-rides/research.md
+docs/plans/2026-10-20-rides/tasks.md
+pyproject.toml
+rides/__init__.py
+rides/store.py
+rides/view_model.py
+rides/views.py
+tests/test_load_series.py
+tests/test_store.py
+tests/test_today_page.py
+tests/test_view_model.py
+wizard/wizard.html
+wizard/wizard.js
+COMMIT d874085fecb9c06aff6c87022aa60fdf3745859f
+SUBJECT docs(rides): fold tests task into implementation tasks (re-plan)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+docs/plans/2026-10-20-rides/tasks.md
+COMMIT 69c6b60045cb45b34988eb7851ef30fd44137c67
+SUBJECT Change rides window to 28 days inclusive (tmp_Y70eOY5Qhc-46f.2)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+rides/store.py
+tests/test_store.py
+COMMIT 5a432ce7485333dbf1c82505f60c4126cc0dc8cf
+SUBJECT Round distances half up through Decimal (tmp_Y70eOY5Qhc-46f.3)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+rides/view_model.py
+tests/test_view_model.py
+COMMIT f504c4f71c6fb13981f33e8f16627ad71d1579c1
+SUBJECT docs(rides): aggregate Phase 1 modified files
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+docs/plans/2026-10-20-rides/tasks.md

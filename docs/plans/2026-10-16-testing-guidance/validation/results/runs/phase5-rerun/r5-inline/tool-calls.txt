@@ -1,0 +1,12 @@
+coordinator tool calls: 30  {'Bash': 17, 'Read': 3, 'Agent': 5, 'Edit': 4, 'Write': 1}
+
+subagent_type	calls	bead	tools	parent	total_with_children
+wb:test-writer	3	AC-1	{'Read': 1, 'Write': 1, 'Bash': 1}	coordinator	3
+wb:test-writer	3	AC-3	{'Read': 1, 'Edit': 1, 'Bash': 1}	coordinator	3
+wb:test-writer	3	AC-2	{'Read': 1, 'Edit': 1, 'Bash': 1}	coordinator	3
+wb:test-writer	3	tmp_KKYizWtHuO-a0e.6	{'Read': 1, 'Edit': 1, 'Bash': 1}	coordinator	3
+wb:test-reviewer	17	2026-10	{'Read': 1, 'Bash': 15, 'Grep': 1}	coordinator	17
+
+type wb:test-writer: spawns=4 total=12 max=3
+type wb:test-reviewer: spawns=1 total=17 max=17
+

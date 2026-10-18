@@ -1,0 +1,75 @@
+I'll start by reading the plan documents in full.
+
+Plan docs read. Now the skill's supporting files.
+
+Now beads checks and the codebase.
+
+Baseline: 8 tests pass, phase starting commit `46cc827`. Checking task dependencies.
+
+Confirmed red on assertions. Committing `red(AC-1)`, recording evidence, closing the outer step.
+
+Spawning the worker for `.5` on haiku (one-constant change).
+
+Closed. Spawning the verifier.
+
+PASS. Posting the Test Integrity section and committing the task.
+
+**Task 2 (`.6`)** — starting commit `9359691`. Spawning the outer test writer for AC-2.
+
+Red on assertions confirmed. Committing `red(AC-2)` and recording evidence.
+
+Spawning the worker for `.6` on sonnet (rounding logic plus inner tests and a changed expectation).
+
+Worker used only 3 tool calls; checking what actually landed and what's in the comments.
+
+Inner report and `created files:` are posted; suite green (15). Spawning the verifier.
+
+**Task 3 (`.7`)** — starting commit `2a90e54`. Spawning the outer test writer for AC-3.
+
+The worker reported finishing in 2 tool calls, so I'm checking its claims directly.
+
+Claims check out. Spawning the verifier.
+
+All six phase issues closed, none in progress. Running automated verification (no lint, typecheck, or build is configured).
+
+Spawning the phase test reviewer.
+
+The review found no findings and no Majority Candidates, so there's nothing to settle and no issues to file. Now aggregating modified files into tasks.md (Step 7) as a separate plan-doc commit.
+
+## ✅ Phase 1 automated verification complete: stopped at the checkpoint
+
+All three tasks passed verification on the first try, so no fix worker was needed. As instructed, I stopped here: the Phase 1 milestone `tmp_GNnIvrxllI-atg.1` is still open because closing it requires your manual verification.
+
+**Automated checks:**
+- ✅ Phase tests: `python3 -m pytest -q tests/test_rides_page.py tests/test_today_page.py tests/test_view_model.py` → 13 passed
+- ✅ Full suite: `python3 -m pytest -q` → 17 passed (8 at the start)
+- Lint, type check and build: none configured in this project
+
+**Tasks** (each outer test was confirmed failing on an assertion before the work, and each task got its own commit):
+
+| Task | Model | Red commit | Task commit | What changed |
+|---|---|---|---|---|
+| `.5` 28-day window | haiku | `4ede81a` (AC-1) | `9359691` | `WINDOW_DAYS = 28` |
+| `.6` Half-up rounding | sonnet | `75bceca` (AC-2) | `2a90e54` | `format_distance` rounds via `Decimal(str(km))` with `ROUND_HALF_UP`; ints still print whole. The 12.25 test now expects `12.3 km`, and new tests cover 1.15 → 1.2 km and 10.0 → 10.0 km |
+| `.7` Today's total | sonnet | `665da66` (AC-3) | `4129449` | `<p>Total: …</p>` after the list. The sum is converted to a float first so whole-km rides show `12.0 km` |
+
+The plan-doc update (modified files and discoveries in `tasks.md`) is a separate commit, `5add0c3`.
+
+**Test review** (suggestions only; no test was edited):
+- Integrity findings: 1 (0 escalated). It's the planned change of the 12.25 expectation from 12.2 to 12.3 km.
+- Findings: none, and no candidates needed a majority vote, so no issues were filed.
+- Every acceptance criterion's tests failed when the reviewer deliberately broke the code it covers.
+- Items for you to look at:
+  1. **Decision needed:** the today total can round a true halfway value down. The floats are added before the decimal conversion, so rides of 0.01 km and 2.34 km show `Total: 2.3 km`. AC-2 only covers the rides page, so you need to decide whether the half-up rule should apply to the total too. I logged it in `tasks.md` as a follow-up and didn't change any code.
+  2. Some tests overlap: the AC-1 presence checks repeat each other, and the inner rounding tests repeat the outer ones. The plan asked for the inner ones.
+  3. `tests/test_today_page.py` writes the date inline instead of using a module-level `TODAY`, which is just a style difference.
+  4. The older test that checks the page contains no "x" passes trivially. With no rides, the page now ends `<p>Total: 0.0 km</p>`.
+
+**Beads:** all six Phase 1 issues (`.2` to `.7`) are closed, and none is in progress. The milestone `.1` is ready to close.
+
+**Manual checks for you** (from the design):
+- [ ] The rides page lists the expected rides with half-up distances
+- [ ] The today page shows the total under the list
+
+Once you've confirmed those, the remaining steps are to close `tmp_GNnIvrxllI-atg.1`, run `/wb:update_status docs/plans/2026-10-20-rides`, and add the implementation notes.
+

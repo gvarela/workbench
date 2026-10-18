@@ -1,0 +1,50 @@
+Docs and beads are read and the baseline suite passes (8 tests). Next I'm starting task .5 (the window): I'll record the starting commit and spawn the test-writer for the AC-1 outer test.
+
+Assertion failure confirmed. Committing red(AC-1) and recording evidence.
+
+Spawning the worker for task .5 (Haiku; it's a one-constant change).
+
+Task .5 passed and is committed (eeb1d5b). Next is task .6 (rounding): spawning the test-writer for the AC-2 outer test.
+
+Red(AC-2) committed (a35e590). Spawning the Sonnet worker for task .6.
+
+Next is task .7 (today total): spawning the test-writer for the AC-3 outer test.
+
+Task .7's worker finished: the diff is correct and all 15 tests pass. Spawning its verifier now.
+
+All six tasks are closed and the full suite passes (15). Next: reading the templates, then spawning the phase test review.
+
+Phase 1 is implemented, verified and committed, and I've stopped at the checkpoint as instructed. The milestone `tmp_2Ob4OtIUcv-8xm.1` is still open: closing it needs your manual verification, so I haven't run `/wb:update_status` or written the post-checkpoint notes either.
+
+## ✅ Phase 1 Automated Verification Complete
+
+**Automated checks:**
+- All tests pass: `python3 -m pytest -q` gives 15 passed. The phase's own test files give 11 passed.
+- Lint, type check and build: none are configured in this project.
+
+**Tasks** (one worker each, every one verified PASS on the first attempt, with no fix workers):
+- **tmp_2Ob4OtIUcv-8xm.5, rides window:** `WINDOW_DAYS` is now 28, so the rides page lists Oct 1 to Oct 28 (Haiku; red f528721, commit eeb1d5b).
+- **tmp_2Ob4OtIUcv-8xm.6, rounding:** `format_distance` rounds half up, so 12.25 shows as 12.3 km and 1.15 as 1.2 km. Whole numbers stay as they are (5 shows as 5 km, 10.0 as 10.0 km) (Sonnet; red a35e590, commit b3880aa).
+- **tmp_2Ob4OtIUcv-8xm.7, today total:** the today page ends with a `Total: …` line covering only today's rides, e.g. `Total: 12.5 km` (Sonnet; red 7ef0905, commit 7735201).
+- The plan-doc update (modified files and discoveries) is a separate commit, ea36310.
+
+**One departure from the plan:** in task .6, the test-writer refused the plan's inner tests, which would have mocked `Decimal` and asserted how it is called. It argued they test how the code is built rather than what it outputs. It wrote tests that check each case by its output instead: 1.15, 12.25, 5 and 10.0. The verifier and the test reviewer both broke the code on purpose in each of those ways, and a test failed every time. I kept these tests and recorded the decision under Implementation Discoveries in tasks.md.
+
+**Test review** (suggestions only; no test was edited):
+- **Integrity findings:** 3, none serious enough to escalate.
+- **Findings:** none, and no Majority Candidates, so nothing was filed in beads.
+- **Worth a look**, all noted in tasks.md:
+  - `tests/test_today_page.py:8` (`"x" not in body`) predates this work and still passes on an empty page.
+  - The page-level tests would still pass if the unit read `kms`; only the `format_distance` tests catch that.
+  - A day with no rides shows `Total: 0 km`, and neither a test nor the plan covers that case.
+
+**Beads state:**
+- All six Phase 1 tasks are closed: `.2`, `.3`, `.4` (the three tests written first, before the code) and `.5`, `.6`, `.7`.
+- Milestone `tmp_2Ob4OtIUcv-8xm.1` has no remaining blockers and is ready to close.
+
+**Manual verification needed** (from tasks.md):
+- [ ] The rides page lists the expected rides, with distances rounded half up.
+- [ ] The today page shows the total under the list.
+
+Once these checks pass, the milestone can be closed and `/wb:update_status docs/plans/2026-10-20-rides` run to update the plan's status.
+

@@ -1,0 +1,107 @@
+Both outer-test writers (AC-1 and AC-3) are running; waiting for their reports.
+
+- **Mode**: outer
+- **Criterion id**: AC-1
+- **Files created, changed, or deleted**: created `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.KKYizWtHuO/tests/test_rides_page.py`
+- **Per changed test**:
+  - `test_lists_a_ride_from_27_days_ago_and_omits_one_from_28_days_ago` checks that the page contains `2026-10-01` and not `2026-09-30`. The presence assertion comes first, so the negative check can't pass on an empty page. It catches a window cutoff that is off by one in either direction. The current code drops the 27-day ride.
+  - `test_lists_a_ride_dated_today_on_the_page` checks that a ride dated today appears (the edge example). It catches a window that wrongly excludes today. It passes today, which is expected because the behavior already exists.
+- **Red run**: `python3 -m pytest -q tests/test_rides_page.py`
+  ```
+  F.
+  >       assert "2026-10-01" in html
+  E       AssertionError: assert '2026-10-01' in '<html><body><h1>Rides</h1><ul></ul></body></html>'
+  FAILED tests/test_rides_page.py::test_lists_a_ride_from_27_days_ago_and_omits_one_from_28_days_ago
+  1 failed, 1 passed in 0.02s
+  ```
+  This is a valid red: an assertion failure on the intended behavior, with no import or load error.
+- **Changes to earlier tests**: none
+- **Pushback**: none
+- **Conventions**: I took them from your brief and checked them against `tests/test_store.py`, which matches (module-level `TODAY`, inline dicts, sentence-style test names, no fixtures or skips). I found no drift. I did not read `.claude/wb/testing.md`.
+- **Status**: done
+
+- **Mode**: outer
+- **Criterion id**: AC-3
+- **Files created, changed, or deleted**: changed `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.KKYizWtHuO/tests/test_today_page.py`. I added `test_today_page_shows_the_sum_of_todays_distances_only` and left the existing test unchanged.
+- **Per changed test**:
+  - **What it pins**: the example from the criterion. Rides of 10.0 km and 2.5 km today plus 7.0 km yesterday must produce `Total: 12.5 km` on the page.
+  - **Breaks it would catch**: a missing total line, a total that includes other days (it would read 19.5), and a wrongly formatted total. The assertion is a positive presence check, so an empty or absent result can't pass it.
+- **Red run**: `python3 -m pytest -q tests/test_today_page.py` gave `1 failed, 1 passed`.
+  - The failure is an assertion failure on the intended behavior, so it is a valid red: `assert 'Total: 12.5 km' in '<html><body><h1>Today</h1><ul><li class="ride">10.0 km</li><li class="ride">2.5 km</li></ul></body></html>'`.
+  - The page lists today's two rides but has no total line.
+- **Changes to earlier tests**: none
+- **Pushback**: none
+- **Conventions**: I took them from the brief, not from `.claude/wb/testing.md`, which I did not check. I used the existing file's imports, inline ride dicts and a sentence-style test name. The brief mentions a module-level `TODAY = date(2026, 10, 28)`, but this file doesn't define it. The existing test uses an inline `date(...)`, and I did the same. Add the constant if you want the file to follow `tests/test_store.py`. I did not run a planted-defect check. The red run shows the test fails when the total is absent.
+- **Status**: done
+
+Both red on assertions. Committing each red test, recording reports and closing outer steps.
+
+Meanwhile, implementing the window change (impl_1) and the today total (impl_3).
+
+- **Mode**: outer
+- **Criterion id**: AC-2
+- **Files created, changed, or deleted**: changed `/private/var/folders/8c/t32c953j2qvdpdxh8xjsnrz40000gn/T/tmp.KKYizWtHuO/tests/test_rides_page.py`. I appended two tests and left the two AC-1 tests unchanged.
+- **Per changed test**:
+  - `test_rounds_a_distance_halfway_between_two_tenths_up_to_12_3_km`: a ride today of 12.25 km must render `12.3 km`. It would catch halves rounding down or to even, as built-in `round` does.
+  - `test_rounds_1_15_km_up_to_1_2_km`: a ride today of 1.15 km must render `1.2 km`. It catches the same break on the edge example. It also catches a fix that only handles 12.25, such as one that fails on binary-float representation of 1.15.
+  - Both call `render_rides_page` directly with in-memory dicts and no mocks. Each ride is dated `TODAY`, so it is inside the window, and the positive `in html` assertion has no negative-assertion problem.
+- **Red run**: `python3 -m pytest -q tests/test_rides_page.py` gave 2 failed, 2 passed. Both failures are assertion failures on the intended behavior:
+  - `assert '12.3 km' in '<html>...<li class="ride">2026-10-28 - 12.2 km</li>...'`
+  - `assert '1.2 km' in '<html>...<li class="ride">2026-10-28 - 1.1 km</li>...'`
+  - The two AC-1 tests still pass.
+- **Changes to earlier tests**: none
+- **Pushback**: none
+- **Conventions**: I took them from your brief and the existing tests in the file: module-level `TODAY`, inline ride dicts, sentence test names, no fixtures or skips. I saw no drift. I did not read `.claude/wb/testing.md`.
+- **Status**: done. The red is valid.
+
+Now the inner tests for the rounding task.
+
+Red confirmed. Implementing the rounding change.
+
+All six phase tasks are closed. Running phase verification, then the test review.
+
+Phase 1 is implemented and the full test suite passes (15 tests). The phase milestone `tmp_KKYizWtHuO-a0e.1` is still open because closing it needs your manual check. As instructed, I stopped at the checkpoint and did not start another phase.
+
+✅ Phase 1 Automated Verification Complete
+
+**Automated checks passed:**
+
+- ✅ Phase tests: `python3 -m pytest -q tests/test_rides_page.py tests/test_today_page.py tests/test_view_model.py`, 11 passed
+- ✅ Full suite: `python3 -m pytest -q`, 15 passed
+- ✅ Outer tests (one per acceptance criterion): `python3 -m pytest -q tests/test_rides_page.py tests/test_today_page.py`, 6 passed
+- Lint, type check and build: none are configured in this project
+
+**What changed** (one commit per task, each failing test committed before its fix):
+
+| Criterion | Failing test committed | Code change |
+| --- | --- | --- |
+| AC-1: 28-day window | `b06a60f` | `ab59bd7`: `WINDOW_DAYS = 28` in `rides/store.py:4` |
+| AC-2: halfway distances round up | `576b6a1` | `edc9024`: `Decimal(str(km))` rounded half up in `rides/view_model.py` |
+| AC-3: day total on the today page | `8f34716` | `2abdb89`: `Total: <distance>` line in `rides/views.py` |
+
+The test-writer agent wrote every test; I edited none. As the plan asked, the existing expectation at `tests/test_view_model.py:9` changed from `"12.2 km"` to `"12.3 km"`.
+
+**Test review** (proposals only; no test was edited):
+
+- **Integrity findings:** 1 (0 escalated). It is the planned 12.25 expectation change above, which was declared and asked for by the plan.
+- **Findings:** none, and no candidates needed a majority vote, so no issues were filed.
+- **Coverage:** each criterion's tests failed against the original code and passed after the fix. They also failed when the reviewer deliberately broke the code six ways (for example, window set to 27 or 29, half-even rounding, `Decimal(km)` without `str()`, or summing every ride instead of today's).
+- **Review these:**
+  - The older test at `tests/test_today_page.py:8` only checks that `"x"` is absent, so it would pass on an empty page. It predates this phase and I left it alone; it's noted as a follow-up in tasks.md.
+  - Each rounding case is tested twice, once in `tests/test_view_model.py` and once on the rides page. The plan asked for both, so the reviewer did not propose merging them.
+  - `tests/test_rides_page.py:12-13` puts the "listed" and "not listed" checks in one test, so the first failure hides the second. The reviewer judged this acceptable.
+- **Not run:** Ruff, random test order and coverage, because none are installed.
+
+**Beads state:**
+
+- ✅ All Phase 1 tasks closed: `a0e.2`, `a0e.3`, `a0e.4` (failing tests), `a0e.5`, `a0e.6`, `a0e.7` (code changes)
+- Nothing is in progress.
+- tasks.md now lists the modified files and an implementation note (commit `4c0bd4f`).
+
+**Manual verification required** (from tasks.md):
+
+1. The rides page lists the expected rides, with halfway distances rounded up.
+2. The today page shows the total under the list.
+
+Reply when manual verification is done and I'll close milestone `tmp_KKYizWtHuO-a0e.1`, then run `/wb:update_status`.
+

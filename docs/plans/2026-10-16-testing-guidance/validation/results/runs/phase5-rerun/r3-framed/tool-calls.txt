@@ -1,0 +1,20 @@
+coordinator tool calls: 40  {'Bash': 22, 'Read': 6, 'Agent': 10, 'Edit': 2}
+
+subagent_type	calls	bead	tools	parent	total_with_children
+wb:test-writer	3	AC-1	{'Read': 1, 'Write': 1, 'Bash': 1}	coordinator	3
+wb:task-worker	5	tmp_2Ob4OtIUcv-8xm.5	{'Bash': 4, 'Edit': 1}	coordinator	5
+wb:task-verifier	6	tmp_2Ob4OtIUcv-8xm.5	{'Bash': 6}	coordinator	6
+wb:test-writer	3	AC-2	{'Read': 1, 'Edit': 1, 'Bash': 1}	coordinator	3
+wb:task-worker	4	tmp_2Ob4OtIUcv-8xm.6	{'Bash': 3, 'Agent': 1}	coordinator	8
+wb:task-verifier	7	tmp_2Ob4OtIUcv-8xm.6	{'Bash': 7}	coordinator	7
+wb:test-writer	3	AC-3	{'Read': 1, 'Edit': 1, 'Bash': 1}	coordinator	3
+wb:task-worker	3	tmp_2Ob4OtIUcv-8xm.7	{'Bash': 3}	coordinator	3
+wb:task-verifier	9	tmp_2Ob4OtIUcv-8xm.7	{'Bash': 8, 'Grep': 1}	coordinator	9
+wb:test-reviewer	24	2026-10	{'Bash': 24}	coordinator	24
+wb:test-writer	4	tmp_2Ob4OtIUcv-8xm.6	{'Read': 2, 'Write': 1, 'Bash': 1}	wb:task-worker#2	4
+
+type wb:test-writer: spawns=4 total=13 max=4
+type wb:task-worker: spawns=3 total=12 max=5
+type wb:task-verifier: spawns=3 total=22 max=9
+type wb:test-reviewer: spawns=1 total=24 max=24
+

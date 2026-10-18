@@ -1,0 +1,101 @@
+commit 952f002b1038734fdf225c686fdd4652d1055a10
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:38:01 2026 -0600
+
+    docs(rides): record Phase 1 modified files and implementation notes
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ docs/plans/2026-10-20-rides/tasks.md | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
+
+commit edc9024bb12dfce2008c2d0cf946361c20656ad2
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:34:53 2026 -0600
+
+    Round distances half up in format_distance (tmp_KKYizWtHuO-a0e.6)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/view_model.py      |  8 ++++++--
+ tests/test_view_model.py | 10 +++++++++-
+ 2 files changed, 15 insertions(+), 3 deletions(-)
+
+commit 2abdb892b5b87891e65ac8127d601f3a066c04ff
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:34:13 2026 -0600
+
+    Add the day total to the today page (tmp_KKYizWtHuO-a0e.7)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/views.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit ab59bd7efd0ff1e1c373b34f70fb711f1e358be3
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:34:13 2026 -0600
+
+    Set WINDOW_DAYS to 28 (tmp_KKYizWtHuO-a0e.5)
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ rides/store.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 576b6a13c35ca4022cea42828d3b1e3b73f9c459
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:34:12 2026 -0600
+
+    red(AC-2): A distance halfway between two tenths rounds up on the rides page
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ tests/test_rides_page.py | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+commit 8f347169e6e8c13315e6e4f366593ef37851a99d
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:33:30 2026 -0600
+
+    red(AC-3): The today page shows the day's total distance
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ tests/test_today_page.py | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+commit b06a60f6316c49528c3f35c628c551eb417e7202
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:33:30 2026 -0600
+
+    red(AC-1): A ride 27 days before today is listed on the rides page and one 28 days before is not
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+ tests/test_rides_page.py | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+commit 8659d2a4c466f8403c392901835267a1a660f650
+Author: headless <headless@example.com>
+Date:   Sun Oct 18 10:32:03 2026 -0600
+
+    base
+
+ .gitignore                              |   2 +
+ docs/plans/2026-10-20-rides/README.md   |  45 +++++
+ docs/plans/2026-10-20-rides/design.md   | 135 ++++++++++++++
+ docs/plans/2026-10-20-rides/research.md |  88 +++++++++
+ docs/plans/2026-10-20-rides/tasks.md    | 313 ++++++++++++++++++++++++++++++++
+ pyproject.toml                          |  12 ++
+ rides/__init__.py                       |   0
+ rides/store.py                          |  21 +++
+ rides/view_model.py                     |   6 +
+ rides/views.py                          |  17 ++
+ tests/test_load_series.py               |  15 ++
+ tests/test_store.py                     |  21 +++
+ tests/test_today_page.py                |   8 +
+ tests/test_view_model.py                |  13 ++
+ wizard/wizard.html                      |  23 +++
+ wizard/wizard.js                        |  16 ++
+ 16 files changed, 735 insertions(+)

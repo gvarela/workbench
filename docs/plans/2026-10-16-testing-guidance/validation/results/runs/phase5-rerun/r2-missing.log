@@ -1,0 +1,1 @@
+run-headless: python-rides/trap-missing-module stage 1/1 (implement.md) claude exit 0; transcript 597200 bytes
