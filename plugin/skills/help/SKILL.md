@@ -111,6 +111,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `create_mockup` / mockup-iteration | the feature; keep, remove, and change feedback on each version | the open `UI Q:` questions | each version | `UI Q:` issues resolved before finalization; the mockup log records the decisions |
 | `create_product_research` | the product question, or confirmation of the one derived from the Goal | — | — | research.md in product language answering the question with user-visible behaviors and Intent Coverage |
 | `test-audit` | the scope: a plan directory, a path, or nothing for the whole repository | which findings to act on | the findings, by spot-check | a report with the conventions source, a verdict and evidence type on every finding, suite-level checks run or "not run" with a reason, and the statement that hollow reds and post-red edits cannot be checked cold; the audited repository is unchanged |
+| `testing-profile` | edits to the drafted profile | the team's Choices and mutation level | the draft, before anything is written | `.claude/wb/testing.md` exists with the research headings plus Choices and Mutation; nothing else changed |
 
 ## Beads Integration
 
@@ -181,17 +182,7 @@ Use these instead of CLI when working in Claude Code:
 
 ### CLI vs Slash Commands
 
-Both work - use whichever fits your flow:
-
-```bash
-# CLI (in terminal or scripts)
-bd ready
-bd close prompts-abc --reason "Done"
-
-# Slash commands (in Claude Code conversation)
-/beads:ready
-/beads:close prompts-abc
-```
+Both work: the CLI in a terminal or scripts (`bd ready`, `bd close prompts-abc --reason "Done"`), the slash commands in conversation (`/beads:ready`, `/beads:close prompts-abc`).
 
 ### Beads persistence
 
@@ -245,6 +236,10 @@ Verifies implementation matches plan. Run after completing work.
 ### `/wb:test-audit [scope]`
 
 Audits an existing test suite cold, with no plan required, outside the stage chain. Detects the stack (or takes it from a plan's research or `.claude/wb/testing.md`), runs the project's own test-quality detectors with explicit rule selections, and spawns one `wb:test-auditor` per area in parallel. Writes a report of proposed Remove, Rewrite, and Consolidate verdicts with evidence for you to spot-check; it never edits or deletes tests and leaves the audited repository unchanged.
+
+### `/wb:testing-profile`
+
+Drafts `.claude/wb/testing.md` from the detected stack, adding Choices and a Mutation level (`off` or `advisory`), and writes it only after you confirm; installs nothing.
 
 ### `/wb:validate_project [directory]`
 
