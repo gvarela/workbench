@@ -1,0 +1,30 @@
+The plan has a defect, so I'm filing it in beads and halting the phase. `rides/store.py`, which the plan relies on, was deleted in HEAD.
+
+Phase 1 is halted because the plan is wrong about the code. I spawned no workers, made no commits, and changed no files. Every Phase 1 task is still open.
+
+**What's wrong:** the plan assumes `rides/store.py` exists with `WINDOW_DAYS = 27`, `list_rides` and `load_series`, as research.md and design.md describe. But the most recent commit, `c23f7c2` ("trap seed"), deleted that file. `rides/views.py:2` still imports `from rides.store import list_rides`, so the existing test suite already fails at HEAD:
+
+```
+ERROR tests/test_load_series.py
+ERROR tests/test_store.py
+ERROR tests/test_today_page.py
+E   ModuleNotFoundError: No module named 'rides.store'
+```
+
+That breaks four tasks:
+- **`work-db8.6`** (set `WINDOW_DAYS` to 28 at `rides/store.py:4`): the file it edits doesn't exist.
+- **`work-db8.3` and `work-db8.4`** (outer tests for AC-1 and AC-2): they would fail on the import error, not on an assertion, so they wouldn't prove anything about the behavior.
+- **`work-db8.2`** (harness): it is only done when the full `pytest` suite passes, which can't happen while the file is missing.
+
+**What I did in beads (following the plan-defect steps):**
+- Filed **`work-s97`** (P1): "Design revision: rides/store.py … is assumed to exist but is deleted at HEAD". It records the evidence and the affected sections of research.md, design.md and tasks.md.
+- Made `work-s97` block `work-db8.2`, `work-db8.3`, `work-db8.4` and `work-db8.6`. The two wizard tasks, `work-db8.5` and `work-db8.7`, were already waiting on the harness, so the phase is fully stopped.
+
+**Decision needed from you:**
+- **Was the deletion a mistake?** If so, restore `rides/store.py` from `efc63b3` outside this plan, close `work-s97`, and re-run `/wb:implement docs/plans/2026-10-20-rides 1`.
+- **Was it deliberate?** Then the rides side has to be re-researched with `/wb:create_research` and redesigned with `/wb:create_design` before the tasks can run.
+
+Two smaller things:
+- `bd context` reported an error ("BEADS_DIR points to unsafe location: /private/tmp/p5/work/.beads"). `bd show work-db8` still found the plan's epic, so I treated the database as the right one.
+- design.md's frontmatter still says `status: draft`, although its Pending Decisions section says everything was approved.
+

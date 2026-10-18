@@ -1,0 +1,25 @@
+### ac3
+PASS [ac3] a red(AC-n) commit exists
+PASS [ac3] the red commit touches only test paths (tests/test_wizard.py)
+PASS [ac3] the red commit comes before the implementing commit
+FAIL [ac3] the recorded failure is an assertion failure (AssertionError|assert )
+PASS [ac3] the recorded failure is not a load error
+RESULT [ac3] FAIL (1 clause(s) failed)
+exit 1
+### ac4
+FAIL [ac4] a wb:test-writer agent was spawned
+PASS [ac4] worker output has a Test-writer reports field
+PASS [ac4] test change tests/conftest.py is covered by a test-writer report
+PASS [ac4] test change tests/test_wizard.py is covered by a test-writer report
+FAIL [ac4] a test-writer report states a reason
+RESULT [ac4] FAIL (2 clause(s) failed)
+exit 1
+### ac9
+PASS [ac9] a wb:test-reviewer Agent spawn appears in the stream
+PASS [ac9] checkpoint text appears in the stream
+PASS [ac9] the reviewer spawn (event 72) comes before the checkpoint text (event 92)
+PASS [ac9] the reviewer prompt carries the phase's starting commit
+FAIL [ac9] the checkpoint summary names the vacuous test (tests/test_today_page.py:line)
+PASS [ac9] the checkpoint summary lists integrity-flag counts
+RESULT [ac9] FAIL (1 clause(s) failed)
+exit 1

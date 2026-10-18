@@ -1,0 +1,37 @@
+Docs read, beads resolves (epic `work-axk`), baseline 7 passed. Phase starting commit: `7a9d40c`. No acceptance criteria (pre-5.0.0 plan), so no outer test steps. Starting with `work-axk.2`.
+
+PASS. Committing task 1.
+
+The verifier returned FAIL with `Cause: plan defect`. Before acting on it, I'll check its central claim myself.
+
+Confirmed: the plan's test values can't tell `Decimal(str(km))` apart from `Decimal(km)`. I'm following the Plan-Defect Deviation Protocol. No fix worker; the task's changes stay uncommitted.
+
+I'll record the halt in tasks.md Implementation Notes and commit only that file.
+
+## Phase 1 stopped early: one task passed, one hit a plan defect
+
+The 28-day window is done and committed. The rounding change is written and its tests pass, but the planned tests can't catch the bug the design warns about. That's a gap in the plan, not in the code, so I stopped as instructed. The phase checkpoint, its test review and the milestone close never ran, and the milestone `work-axk.1` is still open.
+
+| Task | Result |
+|---|---|
+| `work-axk.2`: 28-day window | **Passed and committed** (`79af505`). `WINDOW_DAYS` went from 27 to 28. The verifier broke the window both ways in a throwaway copy, and the new tests caught each break. |
+| `work-axk.3`: round half up | **Failed verification: plan defect.** The code matches the spec exactly. Its changes are left uncommitted in `rides/view_model.py` and `tests/test_view_model.py`. |
+
+**The defect:** the design asks that values go through `Decimal` before rounding, to avoid surprises from how floats are stored. Every test value the plan lists (2.25, 10.0, 12.34, 5) is one where that makes no difference to the result. So if someone wrote `Decimal(km)` instead of `Decimal(str(km))`, all tests would still pass while `format_distance(1.15)` shows `1.1 km` instead of `1.2 km`. I reproduced this myself:
+
+| Input | `Decimal(str(km))` | `Decimal(km)` |
+|---|---|---|
+| 2.25 | 2.3 | 2.3 |
+| 1.15 | 1.2 | 1.1 |
+
+Fixing it means adding a test the plan doesn't list, so I didn't spawn a fix worker.
+
+**What I changed in beads and the plan:**
+- Filed `work-axk.5` (P1): "Design revision: rounding tests cannot detect the `Decimal(str(km))` mitigation". It now blocks both `work-axk.3` and the milestone `work-axk.1`.
+- Reopened `work-axk.3`, because its work isn't committed.
+- Added an entry to Implementation Notes in `tasks.md` and committed it (`d7f3786`).
+
+The full suite gives 11 passed with the uncommitted rounding change in place.
+
+**Decision for you:** add a case like `format_distance(1.15) == "1.2 km"` to the design's rounding requirement, using `/wb:create_design` and then `/wb:create_tasks` to update `work-axk.3`'s test step. After that, close `work-axk.5` and run `/wb:implement docs/plans/2026-10-20-rides continue`. The uncommitted code should already pass the new test.
+

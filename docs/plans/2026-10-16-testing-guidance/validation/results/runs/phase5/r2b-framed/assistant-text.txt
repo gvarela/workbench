@@ -1,0 +1,48 @@
+Harness is done and committed (`af7e003`). Next is the wizard focus task `work-db8.7`; first I'm writing its AC-3 outer test.
+
+Wizard focus is done and verified (`d2d9edd`). Now the rides window task `work-db8.6`. I'm writing the AC-1 and AC-2 outer tests first, from design.md.
+
+Both rides red tests are committed. Spawning the worker for the one-line `WINDOW_DAYS` change.
+
+All six tasks are closed and the full suite passes (14 tests). Next: aggregation and the phase test review.
+
+No Majority Candidates, so no tie-break reviews are needed. Writing the Modified Files aggregation and implementation discoveries into tasks.md.
+
+Phase 1 is implemented and its automated checks pass. The milestone `work-db8.1` stays open: closing it needs your manual verification, and this run stops at the checkpoint as instructed.
+
+**One plan conflict to fix.** tasks.md tells the AC-1 test to assert `WINDOW_DAYS == 28` and mock `timedelta`. design.md and beads issue `work-db8.3` both say AC-1 is checked on the rendered rides page. I wrote the test to design.md, since the two documents that agree outrank tasks.md and the task could still succeed. tasks.md's text for that step should be corrected; I logged this under Implementation Notes.
+
+**Automated checks**
+- **Full suite:** `python -m pytest` gives 14 passed.
+- **Phase tests:** `python -m pytest tests/test_rides_page.py tests/test_wizard.py` gives 7 passed.
+- **Lint, type check, build:** none are configured in this project.
+
+**Tasks** (each checked by a verifier, then committed on its own)
+
+| Task | Result | Commit |
+|---|---|---|
+| `work-db8.2` browser test setup | pytest-playwright added; headless Chromium loads the wizard from disk and runs its script. Closed `work-8ju`. | `af7e003` |
+| `work-db8.5` / `.3` / `.4` | Failing tests for AC-3, AC-1 and AC-2, each confirmed to fail on an assertion before the fix | `10a7b18`, `b793842`, `dd5ded4` |
+| `work-db8.7` wizard focus | After a question is revealed, focus moves to its first answer | `d2d9edd` |
+| `work-db8.6` rides window | `WINDOW_DAYS` changed from 27 to 28; the cutoff formula is unchanged | `c7bbb12` |
+
+Plan-doc updates are in `68e9880`. No task failed verification, so no fix workers ran.
+
+**Test review** (suggestions only; no test was edited)
+- **Integrity findings:** 1 (0 escalated). The smoke test checks only the static page; this is covered by the AC-3 tests, which do exercise the wizard script.
+- **Findings:** none. **Majority Candidates:** none.
+- **Worth a look:**
+  - `test_wizard_opens_on_sleep_with_later_questions_hidden` only checks that Soreness is hidden. Showing Mood on load breaks no test.
+  - In `tests/test_rides_page.py:26`, the `"<ul"` check matches fixed template text, so on its own it would pass even if the page listed nothing.
+
+**Setup notes**
+- `pip install -e '.[dev]'` fails because `pyproject.toml` has no `[build-system]` table; `python -m pip install pytest-playwright` works instead.
+- pytest-playwright writes a `test-results/` folder when a test fails. I deleted it each time and left `.gitignore` unchanged.
+
+**Manual verification required** (from tasks.md):
+- [ ] Open `wizard/wizard.html` in a browser using only the keyboard: Tab to Good, then Enter. Soreness should appear with focus on None. Press Enter again: Mood should appear with focus on Up.
+- [ ] `pytest tests/test_wizard.py` makes no network requests and starts no server.
+- [ ] `tests/test_today_page.py` and `tests/test_load_series.py` pass unchanged. They currently pass in the full suite.
+
+Once you've confirmed these checks, the remaining steps are: close `work-db8.1`, run `/wb:update_status docs/plans/2026-10-20-rides`, and add the Implementation Notes entry.
+

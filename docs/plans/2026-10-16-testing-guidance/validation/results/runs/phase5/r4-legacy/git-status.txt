@@ -1,0 +1,2 @@
+ M rides/view_model.py
+ M tests/test_view_model.py

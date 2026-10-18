@@ -1,0 +1,87 @@
+COMMIT efc63b3347e1708cef484b3245f8414e4c24e80d
+SUBJECT base
+BODY_START
+
+BODY_END
+
+.gitignore
+docs/plans/2026-10-20-rides/README.md
+docs/plans/2026-10-20-rides/research.md
+pyproject.toml
+rides/__init__.py
+rides/store.py
+rides/view_model.py
+rides/views.py
+tests/test_load_series.py
+tests/test_store.py
+tests/test_today_page.py
+tests/test_view_model.py
+wizard/wizard.html
+wizard/wizard.js
+COMMIT 142eaee399fec8690207c7295cb798e50ba6d630
+SUBJECT docs(rides): add design and tasks plan
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+docs/plans/2026-10-20-rides/design.md
+docs/plans/2026-10-20-rides/tasks.md
+COMMIT 94c2399336d6b83c65ad716963e7deee10da849d
+SUBJECT Add pytest-playwright harness for the wizard browser DOM (work-db8.2)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+pyproject.toml
+tests/conftest.py
+tests/test_wizard.py
+COMMIT 93dafaa1edd4a8ad8eee034bccb7c8dcc84178da
+SUBJECT red(AC-3): Answering a question moves focus to the next question's first answer
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+tests/test_wizard.py
+COMMIT 1b3804c09da30831ae57a0b5863d95015aba388f
+SUBJECT Focus the revealed question's first answer in the wizard (work-db8.7)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+wizard/wizard.js
+COMMIT e426241df674bb333675c5e94ff8675254e93b2e
+SUBJECT red(AC-1): A ride 27 days before today is listed on the rides page
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+tests/test_rides_page.py
+COMMIT 45487a247b4b172bf21c0d909cdea6e5b0e1952c
+SUBJECT red(AC-2): A ride 28 days before today is not listed on the rides page
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+tests/test_rides_page.py
+COMMIT 6aa7d87fcc6d1aea4292b935c0f4e9d0b753374d
+SUBJECT Set WINDOW_DAYS to 28 so the rides page lists 28 days inclusive (work-db8.6)
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+rides/store.py
+COMMIT dbeebcb83e07ee1a44b7acdded538fa349d9238d
+SUBJECT docs(rides): record phase 1 modified files and discoveries
+BODY_START
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+BODY_END
+
+docs/plans/2026-10-20-rides/tasks.md
