@@ -450,7 +450,7 @@ Audits the tests a repository already has against the `test-quality` rubric, wit
 /wb:test-audit [scope] [N | full]
 ```
 
-The scope is a plan directory, a path, or nothing for the whole repository; the depth is a number of tests per area (15 by default) or `full`.
+The scope is a plan directory, a path, or nothing for the whole repository; the depth is a number of tests per area (15 by default) or `full`. A depth alone (`/wb:test-audit full`, `/wb:test-audit 30`) audits the whole repository when no such path exists.
 
 **Process**:
 

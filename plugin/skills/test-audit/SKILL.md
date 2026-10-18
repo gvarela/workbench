@@ -27,14 +27,14 @@ The rubric, verdicts, detector method, custom heuristics, and finding shape are 
 
 This stage needs from you: the scope (a plan directory, a path, or nothing for the whole repository) and optionally a depth (tests per area, or `full`); on a large repository, your confirmation or change of the scope and depth before any auditor is spawned; and your spot-check of the findings.
 
-Read `$1` as the scope:
+Read `$1` as the scope, except when it is a number or `full` and no path of that name exists in the repository: then it is the depth, and the scope is the whole repository.
 
 - **A plan directory** (it holds research.md and tasks.md): audit the whole suite of the repository it belongs to, with the plan's research as the conventions source.
 - **A path inside this repository**: audit the tests under that path.
 - **A path in another repository**: that repository is the audited one. Audit the tests under the path, and write the report in this session's repository so the audited one stays unchanged.
 - **Nothing**: audit the whole suite of this repository.
 
-Read `$2` as the depth: a number N sets how many ranked tests each auditor inspects per area (default 15), and `full` has each auditor read every test in its area. With no `$2`, the audit is triage-first at the default N.
+Read `$2` (or a depth-only `$1`) as the depth: a number N sets how many ranked tests each auditor inspects per area (default 15), and `full` has each auditor read every test in its area. With no depth given, the audit is triage-first at the default N.
 
 State the scope, the depth, and the audited repository in one line, then start.
 
@@ -113,7 +113,7 @@ One check needs no run: brittleness from history. List commits whose messages ca
 
 ## Step 7: Write the report
 
-Read the template in [templates.md](templates.md) and fill every section from the auditors' reports, the settled candidates, and Steps 1 to 6. Every finding carries a verdict and an evidence type, and every "review these" bullet carries an evidence label. Keep the report readable: list every finding, but group "review these" observations by area, show at most 10 per area in rank order, and end each area's group with a count of the rest by evidence label. A report of over a thousand observations, half with no verdict, is one nobody reads. The report states that hollow reds and expectations edited after a failing run cannot be checked cold, because commit history does not show the order in which a test and its code were written, and it names the services that were not available.
+Read the template in [templates.md](templates.md) and fill every section from the auditors' reports, the settled candidates, and Steps 1 to 6. Every finding carries a verdict and an evidence type, and every "review these" bullet carries an evidence label. Keep the report readable: list every finding, but group "review these" observations by area, show at most 10 per area in rank order, and end each area's group with a count of the rest by evidence label. List the location of every deterministic observation past the cap in an appendix at the end of the report, one `file:line`, detector, and rule per line grouped by area, so nothing a detector found loses its place while the body stays short; judgment-only observations past the cap stay counted only. A report of over a thousand observations, half with no verdict, is one nobody reads. The report states that hollow reds and expectations edited after a failing run cannot be checked cold, because commit history does not show the order in which a test and its code were written, and it names the services that were not available.
 
 Write it to:
 

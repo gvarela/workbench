@@ -89,7 +89,7 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
 
 ### Review These
 
-Observations that reached no verdict, including pattern and heuristic hits no counterexample confirmed and candidates that did not reach 2 of 3. Grouped by area, at most 10 per area in rank order. Every observation bullet carries exactly one evidence label; each area's closing line counts the observations not shown, per label.
+Observations that reached no verdict, including pattern and heuristic hits no counterexample confirmed and candidates that did not reach 2 of 3. Grouped by area, at most 10 per area in rank order. Every observation bullet carries exactly one evidence label; each area's closing line counts the observations not shown, per label. Deterministic observations not shown are located in the appendix at the end; judgment-only ones stay counted only.
 
 #### ${areaPath}
 
@@ -130,4 +130,12 @@ To expand: run `/wb:test-audit ${areaPath}` for one area, `/wb:test-audit ${scop
 - **Services not available**: ${services the suite needs that were not reachable, and the checks they blocked, or "none"}
 - **Files not audited**: ${files an auditor listed under Not Run, with the reason, or "none"}
 - ${any other check not run, with the reason}
+
+## Appendix: Locations Past the Review Cap
+
+Deterministic observations that "Review These" counted but did not show, so each keeps its location. One line each, grouped by area, `none` when no area passed the cap.
+
+### ${areaPath}
+
+- `${file:line}` - ${detector and rule}
 ````
