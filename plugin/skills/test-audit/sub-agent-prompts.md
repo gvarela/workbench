@@ -1,8 +1,8 @@
 # test-audit — Sub-Agent Prompts
 
-Read the relevant section in full when Step 4 directs you here; match its structure exactly. Neither prompt passes a `model` parameter, because the auditor's definition pins Opus at `high` effort.
+Read the relevant section in full when Step 5 directs you here; match its structure exactly. Neither prompt passes a `model` parameter, because the auditor's definition pins Opus at `high` effort.
 
-## Area audit (Step 4)
+## Area audit (Step 5)
 
 One spawn per area, all in the same turn.
 
@@ -12,6 +12,9 @@ Task({
   prompt: `Audit the tests in this area against the test-quality rubric, cold.
 
   Area: [the area's paths]
+  Depth: [top N | full]
+  Ranked candidates, most suspicious first (at top N, inspect these and do not sweep the rest of the area; at full, read them first, then every other test):
+  1. [file:line] - [test name] - signals: [the detector rules, heuristics, churn, or size that ranked it]
   Stack and conventions: [stack, test commands, harness per boundary, seams, data shapes, skip markers] (source: [the plan's research | .claude/wb/testing.md | detection, with what was inferred])
   Team decisions (from .claude/wb/testing.md, or "no profile"): Choices: [each with its reason]; Planned, not installed, so treat as absent: [entries]; Open: [entries]
   Detector output for this area:
@@ -26,7 +29,7 @@ Task({
 })
 ```
 
-## Candidates (Step 4)
+## Candidates (Step 5)
 
 The second judgment gets every candidate from one area's report; the third gets only the candidates the first two judgments split on. Give the candidates without the first auditor's reasoning, so each judgment is independent.
 

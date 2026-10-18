@@ -1,8 +1,26 @@
 # test-audit — Templates
 
+## Scope and Estimate Message
+
+Read this before Step 4 and fill it from Step 3. Show it before any auditor is spawned; on a large repository, end with the question and wait for the answer.
+
+```markdown
+**Test audit scope**: ${scope} in ${auditedRepository}, depth ${N tests per area | full}
+
+| Area | Test files | Tests | Inspected at depth ${N} |
+| --- | --- | --- | --- |
+| ${areaPath} | ${n} | ${n} | ${min(N, tests)} |
+
+- Triage-first (depth ${N}): ${inspected} of ${total} tests inspected, ${areas} area spawns plus up to ${2 × areas} candidate judgments = up to ${plannedSpawns} `wb:test-auditor` spawns. Cost class: ${small | medium | large} (${plannedSpawns} spawns × roughly a dollar each at Opus `high` effort; rough).
+- Full (every test read): ${fullAreas} areas, up to ${fullSpawns} spawns. Cost class: ${class} (${basis}; rough).
+- Triage reused the detector output and ran only `grep`, `wc`, and `git --no-optional-locks log`; nothing was installed.
+
+${large repository only:} This is a large repository (${plannedSpawns} planned spawns, cost class large). Confirm this scope, or change it: name the areas to audit, give a smaller N, or say `full` to read every test.
+```
+
 ## Test Audit Report Template
 
-Read this in full before Step 6. Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding and every "review these" entry.
+Read this in full before Step 7. Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding and every "review these" entry.
 
 ````markdown
 ---
@@ -26,6 +44,7 @@ These findings are proposals for a person to spot-check. No test was edited, del
 | Stack | ${frameworks and versions, harness per boundary, services the suite needs} |
 | Conventions source | the plan's research \| `.claude/wb/testing.md` \| detection (inferred from ${files}) |
 | Areas | ${n} areas, one `wb:test-auditor` each: ${area list} |
+| Depth and spawns | ${N tests per area \| full}; ${planned} spawns planned, ${made} made; cost class ${class}; scope ${as proposed \| narrowed by the user to ${what}} |
 | Read-only check | `git --no-optional-locks status --porcelain --ignored`, `git stash list`, `git worktree list` unchanged, the report file excepted \| changed: ${what} |
 | Detector caches | ${how caches were disabled or redirected} |
 | Report location | ${path}${", written in this session's repository so the audited repository stays unchanged" when it is another repository} |
@@ -70,9 +89,22 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
 
 ### Review These
 
-Observations that reached no verdict, including pattern and heuristic hits no counterexample confirmed and candidates that did not reach 2 of 3. Every bullet carries exactly one evidence label.
+Observations that reached no verdict, including pattern and heuristic hits no counterexample confirmed and candidates that did not reach 2 of 3. Grouped by area, at most 10 per area in rank order. Every observation bullet carries exactly one evidence label; each area's closing line counts the observations not shown, per label.
+
+#### ${areaPath}
 
 - `${file:line}` - ${observation}; deterministic (${detector and rule}) | judgment-only (${heuristic or rubric item}${, "1 of 3" for an unsettled candidate})
+- ${n} more in this area: ${n} deterministic, ${n} judgment-only.
+
+## Triage
+
+Detectors and heuristics ranked the tests in each area; auditors inspected the top ${N} per area${, or every test at depth full}. Triaged-out tests were not read; a detector violation on one is reported above like any other, and nothing else about them is.
+
+| Area | Tests | Inspected | Triaged out | Top signals |
+| --- | --- | --- | --- | --- |
+| ${areaPath} | ${n} | ${n} | ${n} | ${for example "3 skip markers, 2 sleeps, high churn"} |
+
+To expand: run `/wb:test-audit ${areaPath}` for one area, `/wb:test-audit ${scope} ${largerN}` for more tests per area, or `/wb:test-audit ${scope} full` to read every test.
 
 ## Detectors
 
