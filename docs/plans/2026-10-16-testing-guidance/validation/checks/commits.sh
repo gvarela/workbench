@@ -32,5 +32,5 @@ PY
 
 # is_test_path <path> : true for paths that hold tests.
 is_test_path() {
-  echo "$1" | grep -Eq '(^|/)(tests?|spec|__tests__|e2e)/|(^|/)test_[^/]*$|_test\.[a-z]+$|_spec\.[a-z]+$|\.(spec|test)\.[a-z]+$'
+  grep -Eq '(^|/)(tests?|spec|__tests__|e2e)/|(^|/)test_[^/]*$|_test\.[a-z]+$|_spec\.[a-z]+$|\.(spec|test)\.[a-z]+$' <<<"$1"
 }

@@ -3,6 +3,11 @@
 # and implement proceed as today and say the plan predates acceptance criteria; the verifier
 # integrity step still runs and no red(AC-n) commit is demanded.
 # usage: ac8.sh <run-out-dir>   (a create_tasks or implement run on the legacy variant)
+# Known limit: the "proceeded rather than stopping" clause matches line by line, so a halt
+# sentence wrapped across two lines ("...has no acceptance criteria section,\nI stopped here.")
+# is not caught. The stage writes such sentences on one line in practice.
+# Known limit: negated phrases are stripped before matching, so a double negative such as
+# "I cannot not stop here: no acceptance criteria" is over-stripped and passes. Contrived English.
 set -o pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib.sh"
@@ -24,8 +29,21 @@ else
   fail "stage output says the plan predates acceptance criteria"
 fi
 
-if grep -Eiq 'stopp?ed|cannot proceed|blocked|plan defect' "$TEXT" && ! grep -Eiq 'proceed' "$TEXT"; then
-  fail "the stage proceeded rather than stopping for the missing criteria"
+# The claim: a pre-5.0.0 plan neither halts for the missing criteria nor demands red(AC-n).
+# A halt for some other reason (a verifier's plan defect, say) does not trip this clause, so a
+# line counts only when it ties a halt word to the missing criteria, or ties red(AC-n) to a demand.
+# A negated halt or demand ("not stop", "no red(AC-n) commit is required") is stripped from the
+# line before matching, so the rest of the line still counts ("I did not stop for the defect,
+# but I stopped because there are no acceptance criteria" is a halt).
+HALT_WORD='stop(p(ed|ing))?|halt(ed)?|cannot (proceed|continue)|can.t (proceed|continue)|blocked|refus|abort'
+MISSING_CRITERIA='(no|missing|without|lacks?|absent|not have)[^.]{0,40}(acceptance criteria|criteria section)|criteria (are|is) (missing|absent)'
+DEMAND_WORD='must|requires?|required|needs?|demand|missing'
+NEGATED_HALT="(not|n't|never|without|rather than|instead of|no need to) (stop|halt|block|abort)|not (stopped|halted|blocked)"
+NEGATED_DEMAND="no red\(AC-[^)]*\)( commits?)? (is |are )?(required|needed|demanded|expected)|(not|n't|never|without|nor) (be )?(require|need|demand|expect)|(is|are) not (required|needed|demanded)"
+STOPPED_FOR_CRITERIA="$(sed -E "s/$NEGATED_HALT//Ig" "$TEXT" | grep -Ei "$HALT_WORD" | grep -Ei "$MISSING_CRITERIA")"
+DEMANDS_RED="$(sed -E "s/$NEGATED_DEMAND//Ig" "$TEXT" | grep -Ei 'red\(AC-' | grep -Ei "$DEMAND_WORD")"
+if [ -n "$STOPPED_FOR_CRITERIA$DEMANDS_RED" ]; then
+  fail "the stage proceeded rather than stopping for the missing criteria" "$(printf '%s\n' "$STOPPED_FOR_CRITERIA" "$DEMANDS_RED" | sed '/^$/d' | head -2)"
 else
   pass "the stage proceeded rather than stopping for the missing criteria"
 fi
@@ -41,16 +59,18 @@ fi
 # Applies when the run is an implement run (git-log-names.txt and transcript.jsonl are present).
 if [ -f "$OUT/git-log-names.txt" ] && [ -f "$OUT/transcript.jsonl" ]; then
   COVERAGE="$("$HERE/ac4.sh" "$OUT" | grep -E 'covered by a test-writer report|no test file was changed outside')"
-  if [ -n "$COVERAGE" ] && ! echo "$COVERAGE" | grep -Eq '^FAIL '; then
+  if [ -n "$COVERAGE" ] && ! grep -Eq '^FAIL ' <<<"$COVERAGE"; then
     pass "the no-test-edit rule still applies (ac4 coverage clauses pass)"
   else
-    fail "the no-test-edit rule still applies (ac4 coverage clauses pass)" "$(echo "$COVERAGE" | grep -E '^FAIL ' | tr '\n' ';')"
+    fail "the no-test-edit rule still applies (ac4 coverage clauses pass)" "$(grep -E '^FAIL ' <<<"$COVERAGE" | tr '\n' ';')"
   fi
 fi
 
 # Applies when the run is an implement run (a task-verifier spawn is expected there).
-if [ -f "$OUT/transcript.jsonl" ] && tool_uses "$OUT/transcript.jsonl" | grep -Eq '^Agent	'; then
-  if tool_uses "$OUT/transcript.jsonl" | grep -Eiq '^Agent	.*task-verifier'; then
+TOOL_USES=""
+[ -f "$OUT/transcript.jsonl" ] && TOOL_USES="$(tool_uses "$OUT/transcript.jsonl")"
+if grep -Eq '^Agent	' <<<"$TOOL_USES"; then
+  if grep -Eiq '^Agent	.*task-verifier' <<<"$TOOL_USES"; then
     pass "the verifier integrity step still runs (wb:task-verifier spawned)"
   else
     fail "the verifier integrity step still runs (wb:task-verifier spawned)"

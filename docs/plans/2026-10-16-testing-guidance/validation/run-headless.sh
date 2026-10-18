@@ -64,6 +64,9 @@ git log --stat > "$OUT/git-log.txt" 2>&1
 git log --reverse --format='COMMIT %H%nSUBJECT %s%nBODY_START%n%b%nBODY_END' --name-only > "$OUT/git-log-names.txt" 2>&1
 git log --reverse -p > "$OUT/git-log.patch" 2>&1
 git status --porcelain > "$OUT/git-status.txt" 2>&1
+# Beads state of the scratch repository (design D11): outer-test steps close with "red <sha>: <assertion line>",
+# and ac3.sh reads that close_reason from here.
+bd list --all --limit 0 --json > "$OUT/beads-all.json" 2>"$OUT/beads-all.err" || echo "[]" > "$OUT/beads-all.json"
 
 # Assistant text only (not tool results), for the checks to grep.
 python3 -I - "$OUT/transcript.jsonl" > "$OUT/assistant-text.txt" <<'PY'

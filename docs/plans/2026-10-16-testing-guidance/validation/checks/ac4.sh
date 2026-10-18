@@ -15,7 +15,10 @@ LOG="$OUT/git-log-names.txt"
 # Test-writer reports live in worker output (agent results), so search the whole transcript.
 TRANSCRIPT="$OUT/transcript.jsonl"
 
-if events "$TRANSCRIPT" | grep -Eiq '^tool	Agent	.*test-writer'; then
+# Capture each stream before grepping it: under pipefail, `producer | grep -q` reports failure
+# when grep exits at the first match and the producer dies of SIGPIPE.
+EV="$(events "$TRANSCRIPT")"
+if grep -Eiq '^tool	Agent	.*test-writer' <<<"$EV"; then
   pass "a wb:test-writer agent was spawned"
 else
   fail "a wb:test-writer agent was spawned"
@@ -25,7 +28,7 @@ if grep -Eiq 'Test-writer reports?' "$TRANSCRIPT"; then pass "worker output has 
 
 CHANGED=""
 while IFS=$'\t' read -r sha subject files body; do
-  echo "$subject" | grep -Eq '^red\(AC-[0-9]+\)' && continue
+  grep -Eq '^red\(AC-[0-9]+\)' <<<"$subject" && continue
   [ "$subject" = base ] && continue
   IFS=',' read -ra FS <<<"$files"
   for f in "${FS[@]}"; do
@@ -46,6 +49,7 @@ else
   done
 fi
 
-if grep -Ei 'test-writer' "$TRANSCRIPT" | grep -Eiq 'reason|because|why'; then pass "a test-writer report states a reason"; else fail "a test-writer report states a reason"; fi
+TW_LINES="$(grep -Ei 'test-writer' "$TRANSCRIPT")"
+if grep -Eiq 'reason|because|why' <<<"$TW_LINES"; then pass "a test-writer report states a reason"; else fail "a test-writer report states a reason"; fi
 
 ac_done

@@ -25,7 +25,9 @@ else
 fi
 
 # The reviewer is given the phase's starting commit (a hex object name in its prompt).
-if printf '%s\n' "$EV" | grep -Ei '^tool	Agent	.*test-reviewer' | grep -Eq '[0-9a-f]{7,40}'; then
+# Streams are captured before `grep -q` (under pipefail, grep -q exiting early fails the pipeline by SIGPIPE).
+SPAWNS="$(grep -Ei '^tool	Agent	.*test-reviewer' <<<"$EV")"
+if grep -Eq '[0-9a-f]{7,40}' <<<"$SPAWNS"; then
   pass "the reviewer prompt carries the phase's starting commit"
 else
   fail "the reviewer prompt carries the phase's starting commit"
@@ -34,12 +36,13 @@ fi
 # The summary after the reviewer names the vacuous test with file:line, and gives integrity-flag counts.
 AFTER=""
 if [ -n "$REVIEWER" ]; then AFTER="$(printf '%s\n' "$EV" | tail -n +"$REVIEWER" | grep -E '^text	')"; fi
-if printf '%s\n' "$AFTER" | grep -Eq 'test_today_page\.py:[0-9]+'; then
+if grep -Eq 'test_today_page\.py:[0-9]+' <<<"$AFTER"; then
   pass "the checkpoint summary names the vacuous test (tests/test_today_page.py:line)"
 else
   fail "the checkpoint summary names the vacuous test (tests/test_today_page.py:line)"
 fi
-if printf '%s\n' "$AFTER" | grep -Ei 'integrity' | grep -Eq '[0-9]'; then
+INTEGRITY_LINES="$(grep -Ei 'integrity' <<<"$AFTER")"
+if grep -Eq '[0-9]' <<<"$INTEGRITY_LINES"; then
   pass "the checkpoint summary lists integrity-flag counts"
 else
   fail "the checkpoint summary lists integrity-flag counts"
