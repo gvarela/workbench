@@ -6,7 +6,7 @@ created_timestamp: 2026-10-16T14:52:56Z
 status: complete
 last_updated: 2026-10-17
 researcher: gabevarela
-git_commit: f60d1d362132bee9c526ddf6abf51e90e72c6007
+git_commit: 967477aed0f5893b70eb5077b4152afaada1b10d
 git_branch: testing-guidance
 repository: gvarela/workbench
 tags: [research, codebase, testing-guidance]
