@@ -31,62 +31,39 @@ ${formatFileReferences(contextPackage.relevantFiles, task)}
 ### Test Commands
 ${formatTestCommands(contextPackage.testCommands)}
 
-## Your Process (TDD Cycle)
+### Task Test Context
+${formatTaskTestContext(contextPackage.taskTestContext)}
 
-Follow this process:
+## Your Process
 
-### 1. Claim the Task
-\`\`\`bash
-bd update ${task.id} --claim
-\`\`\`
+Follow your agent definition: it carries the TDD process, the constraints, and the report format. The coordinator commits after verification, so leave the commit to it and make \`bd close ${task.id}\` your last act.
+`;
+}
+```
 
-### 2. RED Phase - Write Failing Test First
-- Create/update test file following patterns above
-- Write test that captures the requirement EXACTLY as specified
-- NO additional test cases not specified in the task
-- Run test to confirm it fails: ${contextPackage.testCommands.specific}
-- Confirm test fails for the RIGHT reason
+## Outer Test Prompt (Step 5)
 
-### 3. GREEN Phase - Minimal Implementation
-- Write ONLY enough code to make the test pass
-- Focus on making it work, not making it perfect
-- NO extra features, NO "improvements", NO scope additions
-- Run test to confirm it passes
-- Run related tests to ensure no regression
+Spawn with `subagent_type: "wb:test-writer"` once per criterion the task cites that has no outer test yet, before the worker is spawned. The caller is the coordinator, so `wb:test-writer` works in outer mode.
 
-### 4. REFACTOR Phase - Clean Up While Tests Stay Green
-- Improve code quality while keeping tests green
-- Follow patterns from context above
-- Run tests after each change
-- Stop when code is clean and tests pass
+```markdown
+function buildOuterTestPrompt(criterion, testFile, taskTestContext, earlierReports) {
+  return `Write the outer acceptance test for one criterion.
 
-### 5. Close the Task
-\`\`\`bash
-bd close ${task.id} --reason "Implemented ${task.title}, tests passing"
-\`\`\`
+## Inputs
 
-## Constraints
+**Caller**: the coordinator (outer mode)
+**Criterion**: ${criterion.id} - ${criterion.title}
+**Text**: ${criterion.text}
+**Example**: ${criterion.example}
+**Observed at**: ${criterion.observedAt}
+**Seam**: ${criterion.seam}
+**Target test file**: ${testFile}
+**Earlier test-writer reports for this task**: ${earlierReports || "none"}
 
-- Implement only what the task description specifies: no extra features, error handling, or validation
-- Use patterns from context; do not invent new ones
-- Test first: RED → GREEN → REFACTOR
-- One task only: complete it and return
-- Do not commit: the coordinator commits after verification; your last act is \`bd close ${task.id}\`
+### Testing Conventions for this boundary
+${formatConventions(taskTestContext.conventions, criterion.observedAt)}
 
-## Expected Output
-
-Return a summary including:
-1. What you implemented
-2. Files created/modified
-3. Tests added/modified
-4. Test commands to verify
-5. Any issues encountered
-6. Task beads status (should be closed)
-
-If you encounter errors or blockers:
-- Document them clearly
-- Leave task in in_progress state
-- Return detailed error information
+Report as your agent definition specifies. Do not commit: the coordinator commits the test as red(${criterion.id}) once the report shows an assertion failure.
 `;
 }
 ```
@@ -104,7 +81,11 @@ Provide the agent with:
 - Test Command: ${workerOutput.testCommand}
 - Files Changed: ${workerOutput.filesChanged}
 - Tests Modified: ${workerOutput.testsModified}
-- Worker Summary: ${workerOutput.summary}
+- Worker Report: ${workerOutput.summary}
+- Starting Commit: ${taskTestContext.startingCommit}
+- Red Commits: ${redCommits}  (the red commit of each outer test the task touches)
+- Criteria: ${taskTestContext.criteria}  (each with its example)
+- Test-writer Reports: ${taskTestContext.outerTestReports} and ${workerOutput.testWriterReports}  (the outer reports, then the worker's item 7, verbatim)
 
 The agent will run tests, check scope adherence, and return a structured
 markdown report with Status: PASS or FAIL.
@@ -121,6 +102,8 @@ Provide:
 - Task ID: ${taskId}
 - Original Task: ${taskDetails.description}
 - Verification Report: ${verificationReport}
+- Task Test Context: ${formatTaskTestContext(taskTestContext)}  (includes the starting commit)
+- Earlier Test-writer Reports: ${workerOutput.testWriterReports}  (the first worker's item 7, verbatim)
 - Instructions: Fix the specific issues identified. Close beads issue when done.
 ```
 
