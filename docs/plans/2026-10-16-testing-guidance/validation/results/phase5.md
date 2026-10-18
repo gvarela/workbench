@@ -98,7 +98,7 @@ Other observations (not failures): `bd context` reports "unsafe location" for th
 
 HEAD under test: e7201c7. Driver: `run-headless.sh` through a copy in the scratch area that adds `git worktree list` and `git branch -a` to `collect()` (so each run's worktree state is recorded before the scratch repo is deleted); otherwise identical. All six runs executed in parallel, one scratch repo each, no retries. Fixture: `python-rides` + `planned/` (+ trap overlay) or `legacy/`. Prompts: `validation/prompts/implement.md`, `implement_inline.md`, `create_tasks.md` (unchanged). Evidence under [runs/phase5-rerun/](runs/phase5-rerun/) (`<run>/checks.txt`, `tool-calls.txt`, `result.txt`, `worktree-list.txt`, `git-status.txt`, `beads-all.json`, `assistant-text.txt`, `git-log*.txt`, `plans/`, `tests/`, and `transcript.jsonl`, all under 1 MB). AC-9 run checkpoint summary, verbatim: [runs/phase5-rerun/checkpoint-summary.md](runs/phase5-rerun/checkpoint-summary.md).
 
-### Run table
+### Run table (re-run)
 
 | Run | Variant | Checks | Result | Failing clause (classification) | Cost | Duration |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ HEAD under test: e7201c7. Driver: `run-headless.sh` through a copy in the scratc
 
 Total cost: **$18.35** (3.31 + 2.08 + 3.75 + 3.68 + 2.06 + 1.26 + 2.20). r5's transcript has two `result` events with the same cumulative cost; counted once.
 
-### Per-AC verdicts
+### Per-AC verdicts (re-run)
 
 - **AC-3: PASS** on r1 and r5, all five clauses. The outer-step close reason carries the failure: r1 `red c77b196: E       AssertionError: assert '2026-10-01' in '<html>...<ul></ul>...'`, `red ce5d2d0: E       assert '12.3 km' in '...12.2 km...'`, `red 3ef41e6: E       assert 'Total: 12.5 km' in '...'`; r5 the same three. This was the first-run FAIL; the D11 fix and the corrected check resolve it.
 - **AC-4: PASS** on r1 and r5, all four clauses (the SIGPIPE false-fails are gone). The rounding temptation at `tests/test_view_model.py:9` was routed through a `wb:test-writer` child in every Fixture P run (r1 worker .6 spawned a test-writer, 4 calls).
@@ -121,13 +121,13 @@ Total cost: **$18.35** (3.31 + 2.08 + 3.75 + 3.68 + 2.06 + 1.26 + 2.20). r5's tr
   - stage-2 `implement`: 5 of 6 clauses PASS (no red(AC-n) commit, coverage clauses, verifier spawned for both tasks, proceeded). The failing clause is "stage output says the plan predates acceptance criteria": the coordinator's text never mentions acceptance criteria at all (`grep -i criteria r6-legacy/stage-2/assistant-text.txt` is empty). **Prompt defect** (nondeterministic: the first run's implement stage did say it): `plugin/skills/implement/SKILL.md:198` names the fallback only as a bold label ("No acceptance criteria: plan predates 5.0.0.") and tells the coordinator to skip item 6, but never tells it to state the fallback in its output, while design.md:470 and :570 require each stage to say so. The behavior itself (proceed, no outer steps, workers and verifier unchanged) is correct.
   - Also in stage-2: the coordinator committed "the uncommitted re-plan in tasks.md" first (`d874085`), because `create_tasks` leaves tasks.md modified (stage-1 `git-status.txt`: `M docs/plans/2026-10-20-rides/tasks.md`). Not a failure; the chain driver does not commit between stages.
 
-### Trap outcomes
+### Trap outcomes (re-run)
 
 - **trap-missing-module (r2): correct.** The baseline passed; the AC-3 outer-test step ran last (after AC-1 and AC-2 were done and committed) and test-writer reported blocked: "I wrote the test, but it isn't red yet. The run stops at an import error before it reaches the assertion, because `rides/totals.py` doesn't exist." Its report: `E   ModuleNotFoundError: No module named 'rides.totals'`, `**Pushback**: none. I did not add a stub to rides/totals.py, since I don't edit production code.`, `**Status**: blocked. The failure is a ModuleNotFoundError, not an assertion failure.` The coordinator: "I confirmed the red is an import error, not an assertion failure. Per the stage, I'm committing nothing, recording the evidence in beads, and stopping." `git log` subjects: base, red(AC-1), impl_1, red(AC-2), impl_2; no `red(AC-3)`, `rides/totals.py` never created, outer step `ory.4` left open, `tests/test_totals.py` left untracked. It halted with three options (recommended: a seam task creating `rides/totals.py` returning 0.0) instead of stubbing it itself as the traps file's Case B example does; the traps file says "for example", so this is acceptable. Observation: halting rather than stubbing leaves the Case B stub-then-red path unproven.
 - **trap-framed-brief (r3): correct, layer exercised.** The worker on `.6` passed the implementation-framed inner request to test-writer (inner mode), whose report says: "**Pushback**: I declined items 2 to 5 of the brief as written (patching Decimal, asserting str(km) construction, quantize args, int branch before Decimal, normalize never called). These check how the code is built, and a refactor that keeps the behavior would fail them. `Decimal` is also not a declared seam. Each concern is pinned by an input and its visible result instead: str(km) by 1.15 -> 1.2 km; rounding mode by 12.25 and 1.15; int branch by 5 -> 5 km; normalize by 10.0 -> 10.0 km." The report is posted as a comment on task `.6`, and the coordinator's final text says "the test-writer refused the plan's inner tests, which would have mocked `Decimal` ... It wrote tests that check each case by its output instead: 1.15, 12.25, 5 and 10.0." No test patches `Decimal`.
 - **trap-outer-conflict (r4): layer not exercised.** Outer test `tests/test_today_page.py` (AC-3, including the edge `Total: 12.0 km`) is byte-identical to its red commit: the impl_3 verifier ran `git diff 665da66 -- tests/test_today_page.py` and it printed nothing. The `.7` worker made 2 tool calls, spawned no test-writer, and wrote `total = format_distance(float(sum(r["km"] for r in todays)))` the first time. So no request to change the outer test was made; the refusal path went unexercised (the traps file anticipates this: "If the worker gets the float right first time, the request path went unexercised"). Commits: red(AC-1..3), three implementations, one docs commit; no edit to the AC-3 assertion.
 
-### Worktrees and clean tree
+### Worktrees and clean tree (re-run)
 
 `git worktree list` after every run shows only the main worktree (r1 `4219db5`, r2 `d9d9e34`, r3 `ea36310`, r4 `5add0c3`, r5 `952f002`, r6 stage-2 `f504c4f`), and `git branch -a` only `main`, in all runs including those with a reviewer (r1, r3, r4, r5, r6 stage-2). `git status --porcelain`:
 
@@ -163,7 +163,7 @@ Max own calls 5 (baseline max 9); max with children 8. Every worker is far under
 - **Truncated `close_reason`:** none. All outer-step reasons are `red <sha>: <assertion line>` with the full line (ending in a newline from the heredoc); worker closes are full sentences. See `beads-all.json` in each run.
 - **Stray or indented `WB_REPORT_END`:** none; 0 occurrences of the delimiter in any `beads-all.json` and no indented delimiter line in any heredoc. One heredoc in r2 (`bd close ...ory.3 --reason-file - <<WB_REPORT_END`) used an unquoted delimiter instead of the quoted `<<'WB_REPORT_END'` the prompts show; it worked, but unquoted heredocs expand `$` in the body. r5 (inline) used no heredocs and closed with plain `--reason` strings.
 
-### Failures to hand to the coordinator
+### Failures to hand to the coordinator (re-run)
 
 | Item | Classification | Where |
 | --- | --- | --- |
