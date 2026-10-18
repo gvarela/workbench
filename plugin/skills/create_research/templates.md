@@ -96,7 +96,7 @@ Facts about how tests are written and run here; the test-writer, verifier, and t
 - **Test-quality linters and profilers**: [installed tools (for example rubocop-rspec, rubocop-minitest, ruff, eslint test plugins, TestProf) and what each currently enables]
 - **Mutation tool**: [installed tool, or "none installed"]
 - **Services the suite needs**: [for example Postgres or Redis, or "none"]
-- **Profile**: [when `.claude/wb/testing.md` exists in the repository, cite it as the baseline and record where it and the code differ; otherwise "no profile"]
+- **Profile**: [when `.claude/wb/testing.md` exists in the repository, cite it as the baseline and record where it and the code differ, and list its Planned entries as not present; otherwise "no profile"]
 
 ## Code References
 

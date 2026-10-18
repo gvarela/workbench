@@ -18,6 +18,8 @@ When the repository has its own testing conventions, follow them on matters of s
 2. `.claude/wb/testing.md`, when there is no plan or its research has no Testing Conventions section.
 3. The existing tests, when there is neither. Say in your report that you inferred the conventions.
 
+When `.claude/wb/testing.md` exists, read its Choices, Planned, and Open headings whichever source above gives the conventions, since research cites the profile rather than copying them. Choices are decisions the team made: leave out a finding that only repeats an absence a Choice records, such as no browser tests, and name the Choice in your report. A Choice never clears a deterministic failure, such as a test that cannot fail, a criterion with no outer test, an outer test below its observed-at level, or a planted defect the test survives, because the design set each criterion's observed-at boundary and harness with the Choices in view. Planned entries are tooling that is not installed yet, so treat them as absent; Open entries are undecided, so report related findings as usual.
+
 The detector method (with worked examples), custom heuristics, and the review finding shape are in [reference.md](reference.md); read it when you review or audit.
 
 ## Part 1: Can this test fail?

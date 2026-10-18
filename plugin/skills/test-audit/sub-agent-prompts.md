@@ -13,6 +13,7 @@ Task({
 
   Area: [the area's paths]
   Stack and conventions: [stack, test commands, harness per boundary, seams, data shapes, skip markers] (source: [the plan's research | .claude/wb/testing.md | detection, with what was inferred])
+  Team decisions (from .claude/wb/testing.md, or "no profile"): Choices: [each with its reason]; Planned, not installed, so treat as absent: [entries]; Open: [entries]
   Detector output for this area:
   - Tools run: [tools and explicit selections, and how caches were handled]
   - Violations: [each violation in the area's files, with tool, rule, and file:line, or "none"]

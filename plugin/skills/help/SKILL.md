@@ -111,7 +111,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `create_mockup` / mockup-iteration | the feature; keep, remove, and change feedback on each version | the open `UI Q:` questions | each version | `UI Q:` issues resolved before finalization; the mockup log records the decisions |
 | `create_product_research` | the product question, or confirmation of the one derived from the Goal | — | — | research.md in product language answering the question with user-visible behaviors and Intent Coverage |
 | `test-audit` | the scope: a plan directory, a path, or nothing for the whole repository | which findings to act on | the findings, by spot-check | a report with the conventions source, a verdict and evidence type on every finding, suite-level checks run or "not run" with a reason, and the statement that hollow reds and post-red edits cannot be checked cold; the audited repository is unchanged |
-| `testing-profile` | edits to the drafted profile | the team's Choices and mutation level | the draft, before anything is written | `.claude/wb/testing.md` exists with the research headings plus Choices and Mutation; nothing else changed |
+| `testing-profile` | whether you control the repository's tooling, an answer for each gap, and edits to the drafted profile | the team's Choices, Planned and Open items, and mutation level | the draft, before anything is written | `.claude/wb/testing.md` exists with the research headings plus Choices and Mutation, and Planned and Open when gaps produced them; one beads issue per adopted gap; nothing else changed |
 
 ## Beads Integration
 
@@ -239,7 +239,7 @@ Audits an existing test suite cold, with no plan required, outside the stage cha
 
 ### `/wb:testing-profile`
 
-Drafts `.claude/wb/testing.md` from the detected stack, adding Choices and a Mutation level (`off` or `advisory`), and writes it only after you confirm; installs nothing.
+Drafts `.claude/wb/testing.md` from the detected stack, adding Choices and a Mutation level (`off` or `advisory`). Compares the stack with the tooling the testing agents rely on and asks, for each gap, whether to adopt it (recorded as planned, with a beads issue filed after you confirm), record it as a choice, or decide later; if you do not control the repository's tooling, it offers only the last two. Writes only after you confirm; installs nothing.
 
 ### `/wb:validate_project [directory]`
 
