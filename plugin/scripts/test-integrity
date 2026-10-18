@@ -1,0 +1,324 @@
+#!/usr/bin/env bash
+#
+# test-integrity: deterministic test-integrity evidence since a starting commit.
+#
+# Reports, as JSON on stdout, the test files changed since --start (committed,
+# staged, unstaged, and untracked), whether each outer test is byte-identical
+# to its red commit, skip or focus markers added since --start, deleted test
+# files and removed test definitions, and changed test files missing from a
+# declared list. It decides nothing: the caller interprets the result.
+#
+# It is safe in repositories you do not control: bash 3.2 and git only, and
+# read-only (git reads a temporary copy of the index; nothing in the
+# repository is written).
+#
+# Exit status: 0 whenever it produced JSON (problems go in "errors"),
+# 2 on a usage error.
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: test-integrity --start <commit> [options]
+
+  --start <commit>          Commit the task began from (required).
+  --red <commit>:<path>     An outer test file and its red commit (repeatable).
+  --declared <file>         File listing, one per line, the test files the
+                            reports declare. Without it, undeclared_changes is null.
+  --test-paths <spec>       What counts as a test file (repeatable; replaces the
+                            defaults). "dir/" matches a directory anywhere in the
+                            path, a spec with "/" is a glob on the whole path,
+                            anything else is a glob on the file name.
+                            Default: spec/ test/ tests/ __tests__/ *_test.*
+                            *_spec.* test_*.py *.test.* *.spec.*
+  --skip-pattern <regex>    Extended regex for a skip or focus marker (repeatable;
+                            added to the built-in RSpec, pytest, Jest/Vitest, Go,
+                            and Minitest patterns).
+
+Paths in --red, --declared, and the output are relative to the repository root.
+EOF
+    exit 2
+}
+
+# Take no optional locks; the index itself is protected by the temporary copy
+# set up after the cd below.
+export GIT_OPTIONAL_LOCKS=0
+g() { git --no-optional-locks "$@"; }
+gdiff() { g diff --no-ext-diff --no-textconv --no-color "$@"; }
+
+SEP=$'\037'
+
+# ---------------------------------------------------------------- arguments
+START=""
+DECLARED=""
+REDS=()
+TEST_PATHS=()
+SKIP_PATTERNS=()
+ORIG_PWD="$PWD"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --start)        [ $# -ge 2 ] || usage; START="$2"; shift 2 ;;
+        --red)          [ $# -ge 2 ] || usage; case "$2" in *:?*) ;; *) usage ;; esac
+                        REDS[${#REDS[@]}]="$2"; shift 2 ;;
+        --declared)     [ $# -ge 2 ] || usage; DECLARED="$2"; shift 2 ;;
+        --test-paths)   [ $# -ge 2 ] || usage; TEST_PATHS[${#TEST_PATHS[@]}]="$2"; shift 2 ;;
+        --skip-pattern) [ $# -ge 2 ] || usage; SKIP_PATTERNS[${#SKIP_PATTERNS[@]}]="$2"; shift 2 ;;
+        -h|--help)      usage ;;
+        *)              usage ;;
+    esac
+done
+[ -n "$START" ] || usage
+
+if [ ${#TEST_PATHS[@]} -eq 0 ]; then
+    TEST_PATHS=('spec/' 'test/' 'tests/' '__tests__/' '*_test.*' '*_spec.*' 'test_*.py' '*.test.*' '*.spec.*')
+fi
+
+# A word that is not part of a longer identifier.
+W_START='(^|[^[:alnum:]_])'
+W_END='([^[:alnum:]_]|$)'
+SKIP_PATTERNS=(
+    "${W_START}(xit|xtest|xdescribe|xcontext|xspecify|xexample|xscenario|fit|fdescribe|fcontext|fspecify|fexample|fscenario|skip|skipif|pending|xfail)${W_END}"
+    "${W_START}focus:|:focus${W_END}"
+    "\\.only${W_END}"
+    "\\.Skip(Now|f)?[[:space:]]*\\("
+    ${SKIP_PATTERNS[@]+"${SKIP_PATTERNS[@]}"}
+)
+
+# Lines that define a test in common frameworks (used for removed definitions).
+DEF_PATTERNS=(
+    "^[[:space:]]*(it|test|specify|example|scenario|describe|context)[[:space:]]*[(\"']"
+    "^[[:space:]]*(async[[:space:]]+)?def[[:space:]]+test"
+    "^[[:space:]]*func[[:space:]]+Test"
+    "^[[:space:]]*@Test"
+)
+
+# ---------------------------------------------------------------- helpers
+ERRORS=""
+
+# json_str <string>: print the string as a JSON string literal.
+json_str() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    case "$s" in
+        *[$'\001'-$'\037']*)
+            local out="" c i code
+            for ((i = 0; i < ${#s}; i++)); do
+                c="${s:i:1}"
+                case "$c" in
+                    [$'\001'-$'\037'])
+                        printf -v code '%d' "'$c"
+                        out="$out$(printf '\\u%04x' "$code")" ;;
+                    *) out="$out$c" ;;
+                esac
+            done
+            s="$out" ;;
+    esac
+    printf '"%s"' "$s"
+}
+
+# append <var name> <json value>: add an element to a comma-separated list.
+append() {
+    eval "local cur=\"\${$1}\""
+    if [ -n "$cur" ]; then
+        eval "$1=\"\$cur,\$2\""
+    else
+        eval "$1=\"\$2\""
+    fi
+}
+
+add_error() { append ERRORS "$(json_str "$1")"; }
+
+is_test_path() {
+    local p="$1" base="${1##*/}" spec
+    for spec in "${TEST_PATHS[@]}"; do
+        case "$spec" in
+            */)
+                case "$p" in "$spec"*|*/"$spec"*) return 0 ;; esac ;;
+            */*)
+                # shellcheck disable=SC2254
+                case "$p" in $spec) return 0 ;; esac ;;
+            *)
+                # shellcheck disable=SC2254
+                case "$base" in $spec) return 0 ;; esac ;;
+        esac
+    done
+    return 1
+}
+
+matches_any() {
+    local text="$1" re
+    shift
+    for re in "$@"; do
+        [[ $text =~ $re ]] && return 0
+    done
+    return 1
+}
+
+# diff_lines <diff args...>: one record per hunk (H), added line (A, new line
+# number), and removed line (D, old line number), fields separated by SEP.
+diff_lines() {
+    gdiff -U0 "$@" | awk -v sep="$SEP" '
+        /^diff --git / { inhunk = 0; next }
+        /^@@/ {
+            inhunk = 1
+            split($0, f, " ")
+            o = substr(f[2], 2); sub(/,.*/, "", o)
+            n = substr(f[3], 2); sub(/,.*/, "", n)
+            print "H" sep 0 sep ""
+            next
+        }
+        !inhunk { next }
+        /^\+/ { print "A" sep n sep substr($0, 2); n++; next }
+        /^-/  { print "D" sep o sep substr($0, 2); o++; next }
+    '
+}
+
+# ---------------------------------------------------------------- setup
+TOP="$(g rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$TOP" ]; then
+    echo "test-integrity: not inside a git work tree" >&2
+    exit 2
+fi
+case "$DECLARED" in
+    ""|/*) ;;
+    *) DECLARED="$ORIG_PWD/$DECLARED" ;;
+esac
+cd "$TOP" || exit 2
+
+# Diffing a commit against the work tree rewrites the index when a file is
+# stat-dirty, even with optional locks off. Work on a throwaway copy so the
+# repository's index is never written.
+REAL_INDEX="$(g rev-parse --git-path index)"
+TMP_INDEX="$(mktemp)" || exit 2
+trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock"' EXIT
+# Keep the index's mtime (git uses it to spot same-second edits); with no
+# index, remove the empty file so git starts without one.
+if [ -f "$REAL_INDEX" ]; then cp -p "$REAL_INDEX" "$TMP_INDEX"; else rm -f "$TMP_INDEX"; fi
+export GIT_INDEX_FILE="$TMP_INDEX"
+
+START_SHA="$(g rev-parse --verify --quiet "$START^{commit}")"
+[ -n "$START_SHA" ] || add_error "start commit not found: $START"
+
+DECLARED_LIST=""
+if [ -n "$DECLARED" ]; then
+    if [ -r "$DECLARED" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            line="${line#./}"
+            [ -n "$line" ] && DECLARED_LIST="$DECLARED_LIST$line"$'\n'
+        done < "$DECLARED"
+    else
+        add_error "declared list not readable: $DECLARED"
+    fi
+fi
+
+is_declared() {
+    case $'\n'"$DECLARED_LIST" in *$'\n'"$1"$'\n'*) return 0 ;; esac
+    return 1
+}
+
+CHANGED=""
+SKIPS=""
+DELETED=""
+UNDECLARED=""
+OUTER=""
+
+# record_change <status> <tracked true|false> <path> <old path or ""> <diff source>
+# <diff source> is "diff" (git diff from START) or "file" (untracked file).
+record_change() {
+    local status="$1" tracked="$2" path="$3" old="$4" source="$5"
+    local hunks=0 kind no text
+
+    if [ "$source" = file ]; then
+        [ -s "$path" ] && hunks=1
+        while IFS="$SEP" read -r kind no text; do
+            matches_any "$text" "${SKIP_PATTERNS[@]}" &&
+                append SKIPS "{\"path\":$(json_str "$path"),\"line\":$no,\"text\":$(json_str "$text")}"
+        done < <(awk -v sep="$SEP" '{ print "A" sep NR sep $0 }' "$path")
+    else
+        local paths=("$path")
+        [ -n "$old" ] && paths=("$old" "$path")
+        while IFS="$SEP" read -r kind no text; do
+            case "$kind" in
+                H) hunks=$((hunks + 1)) ;;
+                A) matches_any "$text" "${SKIP_PATTERNS[@]}" &&
+                       append SKIPS "{\"path\":$(json_str "$path"),\"line\":$no,\"text\":$(json_str "$text")}" ;;
+                D) [ "$status" != D ] && matches_any "$text" "${DEF_PATTERNS[@]}" &&
+                       append DELETED "{\"path\":$(json_str "${old:-$path}"),\"kind\":\"definition\",\"line\":$no,\"text\":$(json_str "$text")}" ;;
+            esac
+        done < <(diff_lines -M "$START_SHA" -- "${paths[@]}")
+    fi
+
+    local entry="{\"path\":$(json_str "$path"),\"status\":\"$status\",\"tracked\":$tracked,\"hunks\":$hunks"
+    [ -n "$old" ] && entry="$entry,\"old_path\":$(json_str "$old")"
+    append CHANGED "$entry}"
+
+    [ "$status" = D ] &&
+        append DELETED "{\"path\":$(json_str "$path"),\"kind\":\"file\",\"line\":null,\"text\":null}"
+
+    if [ -n "$DECLARED" ] && ! is_declared "$path" && { [ -z "$old" ] || ! is_declared "$old"; }; then
+        append UNDECLARED "$(json_str "$path")"
+    fi
+}
+
+# ---------------------------------------------------------------- changed tests
+if [ -n "$START_SHA" ]; then
+    while IFS= read -r -d '' status; do
+        old=""
+        case "$status" in
+            R*|C*) IFS= read -r -d '' old; IFS= read -r -d '' path ;;
+            *)     IFS= read -r -d '' path ;;
+        esac
+        letter="${status:0:1}"
+        [ "$letter" = T ] && letter=M
+        if is_test_path "$path" || { [ -n "$old" ] && is_test_path "$old"; }; then
+            record_change "$letter" true "$path" "$old" diff
+        fi
+    done < <(gdiff --name-status -M -z "$START_SHA")
+
+    while IFS= read -r -d '' path; do
+        is_test_path "$path" && record_change A false "$path" "" file
+    done < <(g ls-files --others --exclude-standard -z)
+fi
+
+# ---------------------------------------------------------------- outer tests
+for spec in ${REDS[@]+"${REDS[@]}"}; do
+    red="${spec%%:*}"
+    path="${spec#*:}"
+    red_sha="$(g rev-parse --verify --quiet "$red^{commit}")"
+    if [ -z "$red_sha" ]; then
+        add_error "red commit not found: $red"
+        append OUTER "{\"path\":$(json_str "$path"),\"red\":$(json_str "$red"),\"identical\":null,\"diff_stat\":null}"
+        continue
+    fi
+    if ! g cat-file -e "$red_sha:$path" 2>/dev/null; then
+        add_error "outer test not in its red commit: $path at $red"
+        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":null,\"diff_stat\":null}"
+        continue
+    fi
+    if [ -f "$path" ] && g cat-file blob "$red_sha:$path" | cmp -s - "$path"; then
+        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":true,\"diff_stat\":null}"
+    else
+        if [ -f "$path" ]; then
+            stat="$(gdiff --numstat "$red_sha" -- "$path" | awk '{ a += $1; d += $2 } END { printf "+%d -%d", a, d }')"
+        else
+            stat="deleted"
+        fi
+        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":false,\"diff_stat\":$(json_str "$stat")}"
+    fi
+done
+
+# ---------------------------------------------------------------- output
+if [ -n "$DECLARED" ]; then
+    UNDECLARED_JSON="[$UNDECLARED]"
+else
+    UNDECLARED_JSON="null"
+fi
+if [ -n "$START_SHA" ]; then START_JSON="\"$START_SHA\""; else START_JSON="$(json_str "$START")"; fi
+
+printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"errors":[%s]}\n' \
+    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$ERRORS"
+exit 0

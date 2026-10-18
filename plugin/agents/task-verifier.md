@@ -102,21 +102,41 @@ grep -r "console.log" ${modifiedFiles}  # debug statements left behind
 
 ### Step 5: Test Integrity
 
-Tests are written by the test-writer so that the person who writes the code never shapes the check on it. These two checks confirm that held for this task:
+Tests are written by the test-writer so that the person who writes the code never shapes the check on it. These checks confirm that held for this task.
+
+Run the integrity script first. It makes the mechanical checks with git, so they come out the same on every run, and it only reads the repository. Run it as one Bash call, since calls do not share variables:
 
 ```bash
-# Each outer test must be byte-identical to its red commit (no output means identical)
-git diff <red commit> -- <outer test file>
+# The declared list: every file named in the file fields of the test-writer
+# reports, outer and inner, one repository-relative path per line, kept
+# outside the repository
+declared=$(mktemp) || exit 1
+printf '%s\n' <report file> <report file> > "$declared"
+"${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
+  --red <red commit>:<outer test file> --declared "$declared" \
+  --test-paths <test path> --skip-pattern <skip marker regex>
+rm -f "$declared"
+```
 
-# Every test-file change since the task began, committed or not
+- **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. With no reports, leave out `--declared` and the two lines that build the list; `undeclared_changes` is then null.
+- **The JSON is deterministic evidence**: cite each item by the path, and the line where it gives one, and label it as coming from the script.
+  - `changed_tests`: every test file changed since the starting commit, whether committed, staged, unstaged, or untracked (`tracked: false`).
+  - `outer_tests`: `identical: false` is an integrity finding, whatever the reason given. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts. `identical: null` means the check could not be made, and `errors` says why.
+  - `undeclared_changes`: a changed test file that no report names, however it was changed (an editor, `sed`, a script).
+  - `added_skip_markers`: lines added since the starting commit that match a skip or focus pattern. The patterns are generic, so read each hit. A marker on a test is a finding; a match in prose or in a name is cleared with that evidence.
+  - `deleted_tests`: deleted test files, and removed test-definition lines with their line in the starting commit.
+  - `errors`: a check the script could not make, such as an unknown commit. Make that check by hand.
+- **Changes within a file**: the script matches files, not the changes inside them. For each file in `changed_tests` that a report declares, match each change in it against the reports' per-test entries and changes to earlier tests. A change no report names is undeclared.
+
+A usage message with exit status 2 means the command was malformed: fix it and run it again. If the script is not found, or still prints no JSON, make the checks by hand, and say in the Test Integrity section that the script did not run and why:
+
+```bash
+git diff <red commit> -- <outer test file>   # no output means identical
 git diff <starting commit> --stat
 git status --short   # new untracked test files do not appear in git diff
 ```
 
-- **Outer tests**: any difference from the red commit is an integrity finding, whatever the reason given. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts.
-- **Coverage by reports**: match each changed test file, and each change within it, against the test-writer reports' files, per-test entries, and changes to earlier tests. A change no report names is undeclared, however it was made (an editor, `sed`, a script).
-
-Read the test hunks of the diff as you do in Step 3; the findings from that reading go in the Test Integrity section too. A finding is escalated when it fails the task; one you clear carries the evidence that cleared it.
+Then read the test hunks of the diff as you do in Step 3, for what only judgment finds: loosened assertions, expected values computed by calling the code under test, and weak oracles. Leave out what the JSON already answers; when the script did not run, this reading also looks for added skip or focus markers and deleted tests. The findings from that reading go in the Test Integrity section too. A finding is escalated when it fails the task; one you clear carries the evidence that cleared it.
 
 ### Step 6: Criterion Protection
 
@@ -176,6 +196,7 @@ ${testOutput}
 
 ### Test Integrity
 Findings: ${findingCount} (${escalatedCount} escalated)
+- Integrity script: ran, with its errors if any (or: did not run, ${reason}; checks made by hand)
 - Outer tests: `tests/acceptance/x.test.ts` identical to its red commit ${redSha} (or: differs at file:line; or: not checked, no red commits supplied)
 - Report coverage: every test change matches a test-writer report (or: undeclared change at file:line; or: not checked, no reports supplied)
 - `tests/feature.test.ts:42` - ${finding}; escalated: yes, or no with the evidence that cleared it
