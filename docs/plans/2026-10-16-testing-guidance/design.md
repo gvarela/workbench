@@ -448,6 +448,28 @@ Added 2026-10-18 after an external (Codex) review of the branch (`Decide: prompt
   - Blocking still relies on the reviewer's classification of what is deterministic.
   - The pre-check needs test-path conventions, with defaults when none are declared.
 
+#### D13. The testing profile recommends gaps against the flow
+
+Added 2026-10-18 at the user's request (`Decide: prompts-fzid`).
+
+- **Context**: `/wb:testing-profile` records what exists. It never compares that with what the flow's agents rely on, so a missing harness or an unenabled linter rule shows up only later, as proxies and findings.
+- **What**: a step between drafting and confirming.
+  - It asks once whether the user controls the repository's tooling. If not, it offers only "record as a choice" and "decide later", and suggests no tooling.
+  - It compares the detected state with what the flow reads, and names the agent that relies on each item. The items are:
+    - a harness for each boundary the criteria are observed at;
+    - seams for LLM and external APIs;
+    - test-quality linter rules that are installed but not enabled;
+    - a mutation tool;
+    - the existing skip-marker baseline.
+
+    Gaps are ranked, at most about five, one question each.
+  - Each gap has three options:
+    - **Adopt**: nothing is installed; the profile records the gap as planned, not present, and a beads issue is filed after the user confirms.
+    - **Record as a choice**: the choice goes under Choices with the user's reason, which the readers treat as a decision that bounds their findings.
+    - **Decide later**: the gap is listed as open.
+- **Rationale**: the user owns the trade-offs, and a choice on record stops the gate from flagging a convention the team chose. Recommendations arrive at the moment the team is already reviewing its conventions.
+- **Trade-offs**: one more interactive step. Its ranking is judgment, bounded by naming the reading agent for each gap.
+
 ### Data Model
 
 **Acceptance criterion** (design.md):

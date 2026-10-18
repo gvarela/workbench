@@ -1340,3 +1340,4 @@ bash docs/plans/2026-10-16-testing-guidance/validation/run-headless.sh python-ri
 - D10: research Testing Conventions; optional `.claude/wb/testing.md`
 - D11: red/green evidence in beads (outer-step close reason carries the red SHA and assertion line; test-writer reports as task comments; escalated or promoted findings as issues); not a second state machine
 - D12: safe defaults for repositories you do not control (deterministic integrity pre-check, narrow checkpoint blocking, hard FAILs only for proven vacuity or non-protection, triage-first test audit)
+- D13: the testing profile recommends gaps against the flow (adopt, record as a choice, or decide later; nothing installed)
