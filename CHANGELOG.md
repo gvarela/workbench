@@ -4,6 +4,52 @@ All notable changes to the wb plugin. Versions are release cuts — installers r
 
 ## [Unreleased]
 
+Testing guidance: plans state what "done" means as acceptance criteria, a separate agent writes every test, and the verifier and phase checkpoints check that the tests can fail. This ships as 5.0.0. Plan: `docs/plans/2026-10-16-testing-guidance/`.
+
+### ⚠️ Breaking
+
+- **`task-worker` no longer edits tests.** It never creates, edits, or deletes a test file; every test change goes through the new `wb:test-writer`, and the worker's report carries each test-writer report verbatim. `/wb:implement_inline` follows the same rule.
+- **Phase checkpoints can block.** A deterministic failure in a test the phase changed (a missing or wrong-level outer test, a changed outer test, an undeclared test change, a test that cannot fail, a surviving planted defect) blocks the go-ahead until you acknowledge each one by name. Judgment-only findings stay advisory, and tests the phase did not change never block.
+- **Plans carry more.** `create_research` requires a Testing Conventions section in research.md. `create_design` replaces the Functional Requirements checklist with Acceptance Criteria (Given/When/Then, a real example, where it is observed, and the seam where an external service or LLM is involved) and adds a Harness Decisions table. `create_tasks` adds outer-test steps, harness tasks, and criterion citations.
+- **Plans without acceptance criteria still run, with outer tests skipped.** A plan whose design.md has no Acceptance Criteria section (anything created before 5.0.0) is treated as having no criteria: `implement` and `implement_inline` say "plan predates 5.0.0", write no outer tests, and create no `red(AC-n)` commits. What does change for those plans: workers still cannot edit tests, inner tests go through `wb:test-writer`, the verifier still checks test integrity against the starting commit, and checkpoints run the phase test review and block on deterministic failures.
+- **The verifier is stricter.** An undeclared test change, a non-identical outer test, or a test that does not protect its criterion is a FAIL, never "minor".
+
+### Added
+
+- **`wb:test-writer`** writes outer tests (once per criterion, before the first task that cites it, committed as `red(AC-n): ...`) and inner tests (one per implementer request), and reports the assertion failure for each.
+- **`wb:test-reviewer`** (Opus) reviews a phase's tests with plan context: criteria, red commits, integrity findings. It runs at every `implement` and `implement_inline` checkpoint and in `validate_execution`, and plants defects only in a disposable worktree.
+- **`wb:test-auditor`** (Opus) audits one area of a repository cold, read-only.
+- **`test-quality` skill**: the shared rubric the writer, verifier, reviewer, and auditor all read. It asks "can this test fail?" first, then checks behavioral, structure-insensitive, specific, and predictive properties. Each finding gets a Remove, Rewrite, or Consolidate verdict with file:line evidence and a proof.
+- **`/wb:test-audit`**: a cold, read-only audit of a repository or directory. It triages first (the project's own detectors and heuristics rank tests; auditors inspect the top candidates), and before spawning it states the scope, the auditor count, and a cost class, asking you to confirm or narrow on large repositories. It deletes and edits nothing.
+- **`/wb:testing-profile`**: drafts `.claude/wb/testing.md` (stack, commands, levels, seams, choices) and writes only on your confirmation. It recommends gaps against what the flow relies on (a harness per boundary, seams, unenabled lint rules, a mutation tool); you adopt, record as a choice, or decide later. If you do not control the repository's tooling, it suggests no tooling.
+- **`plugin/scripts/test-integrity`**: a stack-neutral git script that reports changed test files, outer tests that differ from their red commit, added skip or focus markers, deleted tests, and test changes no report declares.
+- **`red(AC-n)` commits** preserve each outer test's failing state before implementation starts.
+- **Red/green evidence in beads**: the outer-test step closes with the red commit and its assertion line, test-writer reports become comments on their task, and findings that outlive a checkpoint become linked issues. Resume, the verifier, the reviewer, and `validate_execution` read them from there.
+
+### Changed
+
+- **`task-verifier`** runs `test-integrity` first, plants defects against the tests that guard cited criteria, and names the smallest realistic regression for each criterion. Every FAIL cites file:line and carries proof (a counterexample or a surviving planted defect); pattern rules only prompt that check.
+- **`implement` and `implement_inline`**: the coordinator (or inline session) writes outer tests first, passes the verifier its integrity inputs, runs `wb:test-reviewer` before each go-ahead, and records evidence in beads. A failed re-verification halts the phase.
+- **`create_research`, `create_design`, `create_tasks`** templates as described under Breaking; `create_project`'s design skeleton uses the new headings.
+- **`validate_execution`**: `wb:test-reviewer` replaces the general-purpose test-coverage agent and writes a Test Review section.
+- **`tdd-discipline`**: red means an assertion failure on the intended behavior (a load or import error is not red yet), and the skill holds the single list of named exceptions (harness tasks with a can-fail proof, configuration, documentation, refactors under existing tests, build scripts).
+- **`review-prep`** points to `/wb:test-audit` after the TDD check; `/wb:help` and the session orientation describe the new stages.
+
+### Migration
+
+1. `claude plugin update wb@gvarela-workbench` from your shell, then restart Claude (or `/reload-plugins`).
+2. In-flight plans: keep running them as they are (no outer tests, see Breaking), or add Acceptance Criteria to design.md and re-run `/wb:create_tasks` if you want outer tests and `red(AC-n)` commits. Expect a `red(AC-n)` commit to appear mid-phase, before the task that implements the criterion.
+3. Optional: run `/wb:testing-profile` once per repository to record your conventions and choices; `/wb:test-audit` and the reviewers read it. Without it, research and detection supply the stack.
+4. Expect more Opus spawns at checkpoints (one `wb:test-reviewer` per phase) and a test-writer spawn for each test change. If a checkpoint blocks, name each failure to acknowledge it.
+5. On a large repository, narrow the scope before running `/wb:test-audit`; the skill shows its estimate before it spends anything.
+
+### Evidence
+
+- The `implement` and `implement_inline` flows were run headless on fixture projects, including a plan without acceptance criteria and two trap seeds (a missing module and a protected test that contradicts a criterion), both caught and halted at pre-flight with nothing committed.
+- Cold audits ran on two real repositories, a mid-size Python service and a large Ruby on Rails application. On each, at least 8 of 10 sampled findings were real; a person spot-checked one sample and an AI verification checked the other. Against an earlier hand audit of the same repositories, the cold audits recovered 8 of 11 and 11 of 16 of its findings.
+- An untriaged full audit cost about $28 on the first repository and about $99 on the second, which is why `/wb:test-audit` triages first and states a cost class before spawning.
+- In blind trials on seeded defects, the 4.0.0 verifier already caught nearly all of them (24 of 24 clean diffs, 23 of 24 realistic ones); the one miss graded a defect "minor", which the never-minor boundary and `test-integrity` address.
+
 ## [4.0.0] — 2026-10-13
 
 Prompt audit against current Claude Code and Claude model guidance, with an adversarial review of the findings. The report and evidence are in `docs/audits/2026-09-29-prompt-audit/`.

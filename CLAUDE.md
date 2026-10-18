@@ -46,6 +46,7 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - Line length checking disabled (MD013)
 - Inline HTML allowed (MD033)
 - Emphasis as heading allowed (MD036)
+- Duplicate headings allowed under different parents (MD024 `siblings_only`), so each CHANGELOG version can repeat Added, Changed, and the rest
 - Fenced code blocks without language allowed (MD040)
 
 ### Claude Code Reference
