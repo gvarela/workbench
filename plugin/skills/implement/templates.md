@@ -54,5 +54,6 @@ Ready to proceed to Phase ${phase + 1}.
 - [YYYY-MM-DD] Phase ${phase} complete using coordinated workers:
   - ${workerCount} workers spawned (sequential execution)
   - Main context kept clean, no compaction needed
+  - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
   - Key learnings: ${aggregatedLearnings}
 ```

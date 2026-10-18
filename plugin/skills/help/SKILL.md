@@ -103,7 +103,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
 | `create_design` | the approach, when no decision record exists | the approach; the refined metrics; the acceptance criteria with their harness decisions | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; every acceptance criterion names the metric it refines; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
 | `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; every acceptance criterion has an outer-test step (or a manual check, where design chose manual), and implementation tasks cite the criteria they serve; Target State names the Intent-refining metrics |
-| `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint, with the test review's findings in implement (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; in implement, each cited criterion's outer test is committed as `red(AC-n)` before its code; the milestone closes only on your go-ahead |
+| `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint, with the test review's findings (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; each cited criterion's outer test is committed as `red(AC-n)` before its code; the milestone closes only on your go-ahead |
 | `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
 | `update_status` | — | any backward transition, with a reason | the proposed transitions | frontmatter status, phase, and counts match beads |
 | `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary | the handoff carries decisions, discoveries, and next steps; resume ran the sanity check and `bd ready` shows the next task |
@@ -240,7 +240,7 @@ The default execution path: coordinates fresh-context workers, one per task, eac
 
 ### `/wb:implement_inline [directory] [phase|continue]`
 
-The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model.
+The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model. The session never edits tests: `wb:test-writer` writes the outer test for each cited criterion, committed as `red(AC-n)` before its code, and every inner test. With no per-task verifier, each phase checkpoint's `wb:test-reviewer` review also checks test integrity across the phase.
 
 ### `/wb:validate_execution [directory]`
 
