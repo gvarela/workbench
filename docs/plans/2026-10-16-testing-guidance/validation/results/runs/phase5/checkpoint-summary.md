@@ -7,7 +7,7 @@ Phase 1 is implemented: the rides page now lists 28 days of rides including toda
 **What was built** (each task checked by a separate verifier before committing):
 
 | Task | Change | Commit |
-|---|---|---|
+| --- | --- | --- |
 | `work-db8.2` browser test setup | Added `pytest-playwright` to the dev dependencies, a `wizard_url` fixture, and a smoke test. The smoke test was shown to fail on a deliberately wrong expectation. Headless Chromium works, so assumption `work-8ju` is closed. | 94c2399 |
 | `work-db8.7` wizard focus | One line in `wizard/wizard.js`: focus the first answer button after the next question is unhidden. | 1b3804c |
 | `work-db8.6` rides window | `WINDOW_DAYS` changed from 27 to 28 in `rides/store.py`. The `- 1` in the cutoff is kept. | 6aa7d87 |
@@ -15,6 +15,7 @@ Phase 1 is implemented: the rides page now lists 28 days of rides including toda
 The acceptance tests were written and committed before each fix, and each failed on an assertion first: AC-1 (e426241), AC-2 (45487a2) and AC-3 (93dafaa). No lint, type check or build is configured in this project.
 
 **Test review** (suggestions only; no test was edited):
+
 - **Integrity findings:** 2, none escalated.
 - **Finding 1:** `tests/test_wizard.py:4`, the smoke test's name says "later questions hidden" but it only checks Soreness. With Mood made visible on load, the test still passed. Fix by adding a Mood assertion or renaming the test.
 - **Finding 2:** `tests/test_rides_page.py:19-20`, the "28 days ago is not listed" test only checks that things are absent. A page that renders no rides at all would still pass it. A neighbouring test covers the same boundary positively, so the risk is low.
@@ -22,15 +23,16 @@ The acceptance tests were written and committed before each fix, and each failed
 - **Simulated bugs:** all eight caught, including a 27- or 29-day window, focus set before the question is shown, and focus on the wrong button.
 
 **Things to know:**
+
 - **Dependency install:** `pip install -e '.[dev]'` fails because `pyproject.toml` has no `[build-system]` section. Playwright was installed with `pip install pytest-playwright` instead. I recorded this as a follow-up in `tasks.md`.
 - **Design status:** `design.md` still says `status: draft`, although its Pending Decisions section says it was approved. I went ahead on that basis.
 - **`bd context` failed:** it reported "unsafe location". `bd show work-db8` worked, so the correct database was open.
 - **Separate commits:** I committed the previously untracked `design.md` and `tasks.md` separately (142eaee), and the Modified Files and discoveries updates to `tasks.md` (dbeebcb).
 
 **Manual checks for you:**
+
 1. Open `wizard/wizard.html` in a browser and use only the keyboard: Tab to Good, then Enter. Soreness should appear with focus on None. Press Enter again, and Mood should appear with focus on Up.
 2. Confirm `pytest tests/test_wizard.py` runs headless and offline, with no network requests and no server.
 3. Confirm `tests/test_today_page.py` and `tests/test_load_series.py` still pass unchanged. They do in the full run above.
 
 After you confirm these, the remaining steps are to close milestone `work-db8.1` and run `/wb:update_status docs/plans/2026-10-20-rides`.
-
