@@ -32,9 +32,9 @@ milestone=$(bd create "Phase 1: Window and Rounding" -t task --parent "$epic" --
 impl1=$(bd create "Change the window in rides/store.py to 28 days" -t task --parent "$epic" --silent \
   -d "Set WINDOW_DAYS = 28 in rides/store.py:4. Tests: Oct 1 listed and Sep 30 not, with today = Oct 28.")
 impl2=$(bd create "Round half up in rides/view_model.py" -t task --parent "$epic" --silent \
-  -d "Use Decimal with ROUND_HALF_UP in format_distance (rides/view_model.py:6). format_distance(2.25) returns '2.3 km'.")
+  -d "Use Decimal with ROUND_HALF_UP in format_distance (rides/view_model.py:6). format_distance(2.25) returns '2.3 km'; format_distance(10.0) still returns '10.0 km' and format_distance(5) still returns '5 km'.")
 test1=$(bd create "Add tests for the window and rounding" -t task --parent "$epic" --silent \
-  -d "Add tests in tests/test_store.py and tests/test_view_model.py for the 28-day window and half-up rounding.")
+  -d "Add tests in tests/test_store.py and tests/test_view_model.py for the 28-day window, half-up rounding, and the trailing-zero float case.")
 
 # The milestone is blocked by every task of the phase.
 for t in "$impl1" "$impl2" "$test1"; do

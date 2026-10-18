@@ -106,6 +106,7 @@ WINDOW_DAYS = 28
 **Target State** (from design.md Success Metrics):
 
 - 2.25 km displays as 2.3 km
+- Everything else displays as today: a whole-number (int) input stays whole (`5` shows `5 km`) and a float keeps its one decimal (`10.0` shows `10.0 km`)
 
 **Implementation**:
 
@@ -114,9 +115,13 @@ WINDOW_DAYS = 28
 from decimal import Decimal, ROUND_HALF_UP
 
 def format_distance(km):
+    if isinstance(km, int):
+        return f"{km} km"
     value = Decimal(str(km)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-    return f"{value.normalize():f} km"
+    return f"{value} km"
 ```
+
+Only the tie-breaking changes. The `int` branch keeps `5` as `5 km` (the existing `test_keeps_a_whole_number_whole`), and the float path keeps the trailing `.0` (`10.0` stays `10.0 km`, as the docstring says). Do not `normalize()` the Decimal: it would turn `10.0` into `10 km`.
 
 **Rationale**: built-in `round` rounds half to even, so 2.25 shows as 2.2.
 **Pattern Reference**: `tests/test_view_model.py:1`
@@ -137,6 +142,7 @@ def format_distance(km):
 - Add tests at `tests/test_store.py` and `tests/test_view_model.py` → `[beads:phase1_test_1]`
   - A ride on Oct 1 is listed and one on Sep 30 is not, with today = Oct 28
   - `format_distance(2.25)` returns `"2.3 km"`
+  - `format_distance(10.0)` returns `"10.0 km"` (a float keeps its trailing zero)
 
 ### Success Criteria
 
