@@ -406,6 +406,48 @@ Added 2026-10-18 at the Phase 5 checkpoint (`Decide: prompts-ufsh`).
   - Report text makes comments bulky in large plans.
   - Stealth-mode beads still holds the evidence locally only.
 
+#### D12. Safe defaults for repositories you do not control
+
+Added 2026-10-18 after an external (Codex) review of the branch (`Decide: prompts-271g`).
+
+- **Context**: wb runs both in repositories the user owns, where tooling and strictness can rise, and in repositories the user does not control, such as a large team monorepo with heavy existing coverage. In the second kind of repository nothing can be installed, conventions vary, legacy tests belong to other people, and cost must stay bounded. Defaults must suit the second kind.
+- **What** (four changes ship before 5.0.0):
+  1. **Deterministic integrity pre-check.** A stack-neutral git script under `plugin/scripts/` emits JSON:
+     - changed test files and hunks;
+     - outer tests byte-identical to their red commits;
+     - added skip or focus markers;
+     - deleted tests;
+     - changed test files with no declaring report.
+
+     `task-verifier` runs it first. Mechanical checks stop being model judgments, and the verifier keeps judgment for oracle quality and criterion protection. This adopts fallback 3C as a pre-gate, not as a replacement.
+  2. **Narrow blocking at phase checkpoints.** A deterministic failure in a test changed this phase blocks the go-ahead until the human acknowledges it. Such failures are:
+     - a missing or wrong-level outer test;
+     - a changed outer test;
+     - an undeclared test change;
+     - a test that cannot fail;
+     - a surviving planted defect.
+
+     Judgment-only findings stay advisory. Tests the phase did not change never block.
+  3. **Hard FAILs only for proven vacuity or non-protection.** Pattern rules become prompts for a targeted counterexample or planted defect, and the verdict follows what it shows. The pattern rules cover presence anchors, assertions on source text, CSS strings or private names, and doubles outside a declared seam. Documented exceptions with a rationale are allowed: code generators, serializers, migrations, and interaction contracts at an external boundary.
+  4. **Triage-first `/wb:test-audit`.** Detectors and heuristics rank tests, and auditors inspect the top-N. Before a full audit the skill states the scope, the planned auditor count, and a cost class, and on large repositories it asks to confirm or narrow the scope.
+- **Rationale**:
+  - False FAILs on valid team conventions teach people to ignore the gate.
+  - Unbounded audits do not get run.
+  - Deterministic checks are cheaper and reproducible.
+  - The phase-5 validation and the first cold audit showed the cost: about $28 for one mid-size repository with 31 Opus auditors.
+- **Deferred** (follow-up plan `prompts-fuds`):
+  - profile-driven strictness levels and a local-only profile;
+  - a deterministic mutation set, with a mutation gate for owned repositories;
+  - property-based and differential criterion fields;
+  - provenance: hook-based test-write blocking, coordinator manifests, attestations;
+  - heterogeneous judges;
+  - a measurement program.
+
+  Token and cost measurement is tracked as `prompts-6hz0`.
+- **Trade-offs**:
+  - Blocking still relies on the reviewer's classification of what is deterministic.
+  - The pre-check needs test-path conventions, with defaults when none are declared.
+
 ### Data Model
 
 **Acceptance criterion** (design.md):
