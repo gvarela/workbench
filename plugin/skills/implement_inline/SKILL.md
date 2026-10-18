@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — output templates and the beads
 
 ## Initial Response
 
-This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint.
+This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint after reading its test review.
 
 When invoked, check for arguments:
 
@@ -59,27 +59,9 @@ If you find a pre-existing bug, a performance concern, or behavior the task does
 
 When it will not affect the end result, edit a file in place rather than rewriting it — fewer tokens, same outcome.
 
-### TDD Implementation Flow
+### Who Writes Tests
 
-For each implementation task:
-
-```
-1. RED Phase (Write Failing Test First)
-   - Write test that defines the expected behavior
-   - Run test to confirm it fails
-   - Tracked in beads as testing task
-
-2. GREEN Phase (Minimal Implementation)
-   - Write just enough code to make test pass
-   - No optimization, just make it work
-   - Run test to confirm it passes
-   - Tracked in beads as implementation task
-
-3. REFACTOR Phase (Improve Without Breaking)
-   - Clean up code while tests stay green
-   - Run tests after each change
-   - Close beads issue: `bd close [task-id]`
-```
+You never edit test files: `wb:test-writer` writes and changes every test, outer and inner, including harness proofs. Keeping test authorship apart from the code is what lets the phase's test review trust a test, since whoever writes the code never shapes the check on it. You write production code, run the tests, and commit. Step 3 gives the cycle.
 
 ## Process Steps
 
@@ -176,6 +158,8 @@ This shows:
 - Tasks whose dependencies are all closed (newly unblocked)
 - Both granular tasks and phase milestones
 
+Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 5 test review diffs from it.
+
 #### Claim and Track Tasks
 
 For each task you work on:
@@ -209,10 +193,10 @@ bd ready
 - Close the phase milestone only after ALL phase tasks are done AND manual verification passes
 - Use `bd show [phase-milestone-id]` to see which tasks still block the milestone
 
-| Tool | Use Case |
-|------|----------|
-| Beads | ALL task tracking (granular tasks AND phase milestones) |
-| Markdown | Documentation only (what the plan is, not status) |
+| Tool     | Use Case                                                |
+| -------- | ------------------------------------------------------- |
+| Beads    | ALL task tracking (granular tasks AND phase milestones) |
+| Markdown | Documentation only (what the plan is, not status)       |
 
 ### Step 3: Implement Phase Tasks
 
@@ -224,18 +208,13 @@ bd ready
 🔴 Writing test for: [task description]
 ```
 
-1. Create/update test file
-2. Write test that captures the requirement
-3. Run test to confirm failure:
+Keep every `wb:test-writer` report for the Step 5 review, and copy its Files, Per changed test, and Changes to earlier tests fields into the body of the commit that carries its tests, so a resumed session can recover them from `git log`.
 
-   ```bash
-   # Example commands (adapt to project):
-   npm test path/to/test.spec.ts
-   go test ./path/to/package -run TestName
-   pytest tests/test_feature.py::test_name
-   ```
+1. **Write missing outer tests**: an outer test step (a `phaseN_outer_n` key in the tasks.md frontmatter) is done inside the implementation task it blocks, so when `bd ready` offers one, take that implementation task (`bd show` lists it) once its other open blockers are only outer test steps; a step that blocks no implementation task gets this item on its own. For each criterion the task cites that has no `red(AC-n)` commit yet, spawn `wb:test-writer` with caller "the inline session, outer mode", the criterion's id, text, example, observed-at boundary, and seam, the target test file named in its outer test step, the earlier `wb:test-writer` reports for this task, and the testing conventions for that boundary. When the report arrives, re-run the test yourself and confirm it fails on an assertion. Then commit only the test as `red(AC-n): <criterion title>` and run `bd close [outer-step-id]` (with the id: a bare `bd close` closes the last issue touched). A report of blocked, or a failure that is not an assertion (an import or setup error), proves nothing about the behavior: commit nothing and raise it as an Implementation Variance (see Handling Mismatches).
+2. **Write inner tests and harness proofs**: spawn `wb:test-writer` with caller "the inline session, inner mode", the behavior to pin as inputs and observable results, the criterion and example it serves (for a harness proof, the boundary and an existing behavior there), the target test file, and the earlier reports. Inner mode is the one that covers harness proofs: outer mode reports a passing run as blocked, and a harness proof's restored run passes by design. If the run stops at a load or import error, add only the stub needed to load the code and ask for a re-run.
+3. Confirm each new test fails on an assertion; a harness proof instead shows its failing run and its passing restored run in the report. To change a test later, ask `wb:test-writer`; outer tests stay as committed.
 
-4. Confirm test fails for the right reason
+**No acceptance criteria: plan predates 5.0.0.** When the phase has no outer test steps and its tasks cite no criteria, skip item 1. Inner tests still go through `wb:test-writer`, because the no-test-edit rule protects the tests however the plan was written.
 
 **B. Implementation (GREEN)**
 
@@ -288,23 +267,7 @@ After completing each task:
 - ❌ Use TaskCreate/TaskUpdate (not persisted)
 - ❌ Update frontmatter counts manually (beads is source of truth; /wb:update_status is the sole writer of those fields)
 
-### Step 4: Handle Testing Tasks
-
-For dedicated testing tasks:
-
-1. **Unit Tests**:
-   - Test individual functions/methods
-   - Mock external dependencies
-   - Aim for edge cases identified in design.md
-
-2. **Integration Tests**:
-   - Test component interactions
-   - Use real implementations where possible
-   - Verify data flow matches research findings
-
-Follow project testing patterns identified in research.md.
-
-### Step 5: Run Phase Verification
+### Step 4: Run Phase Verification
 
 **⛔ BARRIER 2: every phase task closed — verification on a partial phase reports work that has not landed**
 
@@ -326,7 +289,7 @@ Fix any issues before proceeding.
 
 After implementation, update the "Modified Files" section in tasks.md. Read the "Modified Files Section" template in [templates.md](templates.md) NOW and follow it exactly.
 
-### Step 6: Phase Checkpoint
+### Step 5: Phase Checkpoint
 
 **⛔ CHECKPOINT: Phase [N] Complete — the next phase builds on what a human has accepted**
 
@@ -357,13 +320,21 @@ make build          # or npm run build, go build
 
 **Requirement**: All automated checks must pass.
 
-#### 3. Request Manual Verification
+#### 3. Review the Phase's Tests
 
-Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly — automated results, beads state, then the manual checks from design.md.
+No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, every `wb:test-writer` report collected across the phase (after a resume, the fields recovered from the phase's commit bodies), the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+
+Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these".
+
+The findings inform the user's go-ahead and do not block it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
+
+#### 4. Request Manual Verification
+
+Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly — automated results, test review, beads state, then the manual checks from design.md.
 
 **Requirement**: Wait for user confirmation before proceeding.
 
-#### 4. Close Phase Milestone
+#### 5. Close Phase Milestone
 
 **ONLY after user confirms manual verification**, close the milestone:
 
@@ -372,11 +343,11 @@ bd close [phase-milestone-id] --reason "Phase [N] complete: [summary]. All tasks
 bd ready  # Check what's now unblocked (next phase milestone tasks)
 ```
 
-#### 5. Report Completion
+#### 6. Report Completion
 
 Report using the "Phase Completion Report" template in [templates.md](templates.md) — read it before writing the report.
 
-### Step 7: Update Status
+### Step 6: Update Status
 
 After phase completion and verification:
 
@@ -390,11 +361,11 @@ After phase completion and verification:
 
 2. **Reconcile tasks.md frontmatter via `/wb:update_status`**: run `/wb:update_status [project-directory]` to update `status`, `current_phase`, and `completed_tasks` from beads state — `update_status` is the sole writer of those fields, so do not hand-edit them here.
 
-3. **Add implementation notes** if there were discoveries:
+3. **Add implementation notes** with the phase's integrity-finding counts from Step 5 and any discoveries:
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Phase [N] complete: [key learnings, deviations from plan]
+   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); [key learnings, deviations from plan]
    ```
 
 4. **Record durable learnings.** If this phase established something the next session would otherwise rediscover — a repository convention, a tool quirk, a constraint the plan did not state — record it:
@@ -469,6 +440,7 @@ When resuming work (phase = "continue"):
    ```
 
 4. **Continue from next available task**:
+   - Recover the phase's starting commit (Step 2) for the test review: the parent of the phase's first task or `red(AC-n)` commit in `git log`, or HEAD if the phase has none; recover the earlier test-writer reports from the bodies of the commits since it
    - `bd ready` shows what's available (no blockers)
    - `bd show [task-id]` to review task details
    - `bd update [task-id] --claim` to claim it
@@ -476,26 +448,9 @@ When resuming work (phase = "continue"):
    - `bd close [task-id]` when complete
    - Trust completed work (closed beads issues) unless tests fail
 
-## TDD Best Practices
+## When to Skip TDD
 
-### Test Quality
-
-- **Test behavior, not implementation**
-- **One assertion per test** (when practical)
-- **Descriptive test names**: `should_return_error_when_payment_exceeds_limit`
-- **Arrange-Act-Assert** pattern
-- **Test edge cases** identified in design.md
-
-### When to Skip TDD
-
-These task types are the named exceptions to tdd-discipline's Iron Law, because they add no new production behavior:
-
-- Configuration changes
-- Documentation updates
-- Refactoring with existing tests
-- Build/deployment scripts
-
-For these, update tasks.md appropriately but skip RED phase.
+Only the work in tdd-discipline's exceptions section skips the RED step; anything else needs a failing test first.
 
 ## Special Considerations
 
@@ -574,7 +529,7 @@ If automated verification fails after implementation:
 
 ### Do not
 
-- Skip writing tests first (except for the noted exceptions).
+- Skip writing tests first (except for tdd-discipline's exceptions), or edit a test file yourself instead of asking `wb:test-writer`.
 - Move to the next phase without verification, or implement multiple phases without checkpoints unless explicitly instructed.
 - Close manual verification without user confirmation.
 - Act on a partial read: if Read returns a partial view of a large file, page through the rest with offset/limit.

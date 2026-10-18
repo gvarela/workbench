@@ -19,7 +19,7 @@ beads_tasks:
   # ... all tasks
 ```
 
-## Modified Files Section (Step 5)
+## Modified Files Section (Step 4)
 
 ```markdown
 ### 📝 Modified Files
@@ -40,7 +40,7 @@ npm test path/to/test1.spec.ts path/to/test2.test.ts
 
 ```
 
-## Manual Verification Request (Step 6 §3)
+## Manual Verification Request (Step 5 §4)
 
 ```
 
@@ -51,6 +51,12 @@ npm test path/to/test1.spec.ts path/to/test2.test.ts
 - ✅ All tests passing: [test command]
 - ✅ Linting clean: [lint command]
 - ✅ Build successful: [build command]
+
+**Test review** (proposals; no test was edited):
+
+- Integrity findings: [total] ([escalated] escalated)
+- Findings: [findings, settled candidates marked "n of 3"]
+- Review these: [items]
 
 **Beads state:**
 
@@ -68,7 +74,7 @@ Reply when manual verification is complete and I'll close the phase milestone.
 
 ```
 
-## Phase Completion Report (Step 6 §5)
+## Phase Completion Report (Step 5 §6)
 
 ```
 
