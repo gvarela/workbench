@@ -59,10 +59,11 @@ Generated: [YYYY-MM-DD HH:MM]
 - ✅ Uses established naming conventions
 - ⚠️ Inconsistent with logging pattern at `file:line`
 
-### Test Coverage
-- Unit Tests: [X]% coverage ([Y] new tests added)
-- Integration Tests: [X] scenarios covered
-- Missing Tests: [List any gaps]
+### Test Review
+- Integrity: [N] findings ([M] escalated)
+- Findings: [verdict, rubric item, `file:line`, evidence type; criterion coverage gaps; settled candidates marked "n of 3"]
+- Review these: [judgment-only observations]
+- Not run: [checks the reviewer listed under Not Run, with reasons]
 
 ## Deviations from Plan
 
