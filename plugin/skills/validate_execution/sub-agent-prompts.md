@@ -31,7 +31,7 @@ Task({
   Starting commit: [parent of the plan's earliest task or red(AC-n) commit, per Step 2]
   Criteria with examples, observed-at, and seams: [from tasks.md]
   Red commits: [this plan's red(AC-n) commits in the range]
-  Test-writer reports: [report fields from the range's commit bodies, or "none recorded"]
+  Test-writer reports: [the reports from the plan tasks' comments, per Step 2, or "none recorded" with the reason]
   Conventions source: [research.md Testing Conventions]
   Mode: inline
 

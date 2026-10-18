@@ -66,8 +66,8 @@ const contextPackage = {
     ],
 
     // The outer-mode test-writer reports written for this task, verbatim (empty when
-    // its outer tests came from an earlier task). The worker passes them on as the
-    // task's earlier reports; the verifier matches the red commits' changes against them
+    // its outer tests came from an earlier task), also posted as comments on the task
+    // ("Evidence in Beads"). The worker passes them on as the task's earlier reports
     outerTestReports: ["<report>"],
 
     // From the conventions source above, per boundary a criterion is observed at
@@ -164,7 +164,7 @@ For verification FAILs where the task cannot succeed AS SPECIFIED — the design
 
 2. **Block dependents**: `bd dep add [dependent-task-id] [revision-issue-id]` for every not-yet-run task that builds on the failed assumption
 
-3. **Halt the phase**: stop spawning workers; present a checkpoint to the user with the failed task, the verifier evidence, and the revision issue ID
+3. **Halt the phase**: stop spawning workers; record `halted: plan defect` on the failed task ("Evidence in Beads"); present a checkpoint to the user with the failed task, the verifier evidence, and the revision issue ID
 
 4. **Route the fix**: the revision goes through `/wb:create_design` (preceded by `/wb:explore_design` if it reopens an architectural choice) — never through fix workers
 
@@ -176,7 +176,8 @@ When the re-verification after the one fix attempt fails, the failed task's chan
 
 1. Start no further tasks, and commit nothing: the failed task's changes stay in the working tree for inspection.
 2. Reopen the task's issue so its dependents stay blocked: `bd update [task-id] --status=open`.
-3. Present:
+3. Record `halted: re-verification failed` on the task ("Evidence in Beads"), so a fresh session can find it.
+4. Present:
 
    ```
    ⚠️ Task Failed Re-verification: Phase Halted
@@ -196,6 +197,41 @@ When the re-verification after the one fix attempt fails, the failed task's chan
 
 **On the reply**:
 
-- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit, red commits, and test-writer reports. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
-- **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete the untracked files the worker and fix-worker reports list as created. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
+The worker and fix-worker reports live only in the task's comments once the session ends, so every reply below reads them from there ("Evidence in Beads"), never from memory.
+
+- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits, and the test-writer reports from the task's comments; without those reports every inner-test change reads as undeclared. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
+- **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete the untracked files that `git status --short` lists and that the task's `created files:` comments name; ask before deleting an untracked file no comment names, since it may be the user's. Post the `discarded:` comment. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
 - **Plan defect**: follow the protocol above; the reopened issue stays open.
+
+## Evidence in Beads (Steps 5, 6, 8, and Resume)
+
+git and the verifier decide whether a test is red or green. Beads keeps the evidence behind that decision, because a fresh session, a resumed phase, and `/wb:validate_execution` cannot read what lived only in this session.
+
+- **Red record**: after committing `red(AC-n)`, close the criterion's outer test step with that commit's short sha and the one assertion-failure line from your own re-run (the line naming the failed assertion, not the whole output):
+
+  ```bash
+  bd close [outer-step-id] --reason "red <sha>: <assertion line>"
+  ```
+
+- **Test-writer reports**: post each report verbatim as a comment on the task it served. You post the outer reports; the worker posts its inner reports. Reports run to many lines and quote backticks and angle brackets, so write the report with the Write tool to a new file outside the repository (for example `/tmp/<task-id>-report-<n>.md`; a file inside it would show up in the task's diff) and post the file:
+
+  ```bash
+  bd comments add [task-id] -f <report-file>
+  ```
+
+- **Test integrity**: when a verifier report arrives, post its Test Integrity section the same way, as a file whose first line is `test integrity:`, so the Step 8 test review can read every verifier's section after the session ends. Post the re-verification's section too; a later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
+- **Created files**: the worker posts one comment beginning `created files:` that lists every file created during the task, its own and `wb:test-writer`'s.
+- **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the two halts apart:
+
+  ```bash
+  bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect"
+  ```
+
+- **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports and created files no longer apply`. Readers skip the inner reports and created-file lists posted before it; the outer reports still apply, because the red commits stay.
+- **Reading**: `bd comments [task-id] --json`, taking each comment's `text` field. The plain `bd comments` and `bd show` render the text as markdown and drop backticks and `<...>` spans, which loses parts of a report. A comment that begins with `test integrity:`, `created files:`, `halted:`, or `discarded:` is that record. A test-writer report is a comment with a Mode field: the outer reports first, then the inner reports in the order posted, skipping the inner reports and `created files:` lists posted before the latest `discarded:` comment.
+- **Review findings that outlive the checkpoint**: after the majority settling in Step 8, file each escalated integrity finding and each finding a majority promoted as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did. The `discovered-from` link records where it came from without blocking anything:
+
+  ```bash
+  bd create "Test review: <verdict> <file:line>" --type=task --priority=2 \
+    --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"
+  ```
