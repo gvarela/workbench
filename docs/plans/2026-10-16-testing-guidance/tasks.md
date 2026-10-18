@@ -7,10 +7,10 @@ status: in-progress
 last_updated: 2026-10-17
 assignee: gabevarela
 # progress fields below are maintained by /wb:update_status — do not hand-edit
-current_phase: 5
-total_tasks: 41
-completed_tasks: 25
-git_commit: f60d1d362132bee9c526ddf6abf51e90e72c6007
+current_phase: 6
+total_tasks: 49
+completed_tasks: 40
+git_commit: 967477aed0f5893b70eb5077b4152afaada1b10d
 git_branch: testing-guidance
 repository: gvarela/workbench
 depends_on: [research.md, design.md]
@@ -63,6 +63,14 @@ beads_tasks:
   phase5_test_1: prompts-dnb3
   phase5_followup_1: prompts-vwv8  # Phase 1 follow-up: nested-agent attribution in count-tool-calls.sh
   phase5_followup_2: prompts-iyqq  # Phase 1 follow-up: legacy fixture rounding plan
+  phase5_followup_3: prompts-yyru  # Phase 5 checkpoint: halt on a failed re-verification (user option A)
+  phase5_followup_4: prompts-ev16  # Phase 5 checkpoint: D11 red/green evidence in beads
+  phase5_followup_5: prompts-rdrx  # Phase 5 fix pass: ac3/ac4/ac8/ac9 check defects
+  phase5_followup_6: prompts-khew  # Phase 5 fix pass: Fixture P committed plan and trap overlays
+  phase5_followup_7: prompts-27h8  # Phase 5 fix pass: run driver variants and chaining
+  phase5_followup_8: prompts-37mh  # Phase 5 fix pass: D11 posting via quoted heredocs
+  phase5_followup_9: prompts-7j6u  # Phase 5 re-run: ac8 verifier clause only for implement runs
+  phase5_followup_10: prompts-85o2  # Phase 5 re-run: predates statement, inline heredoc close, Part 1 findings
   # Phase 6 tasks
   phase6_impl_1: prompts-xplp
   phase6_impl_2: prompts-4fbv
@@ -1264,6 +1272,32 @@ bd blocked
   - Tracebacks may show the original tree's absolute path when `__pycache__` is untracked.
   - The AC-5 wording says "Test Integrity section", while the template puts planted-defect results under Criterion Check.
 - Status updated on 2026-10-17: the Phase 4 milestone is closed in beads (25 of 41 tasks closed). Current phase is 5.
+- **2026-10-17/18, Phase 5**: all seven planned tasks were audited, verified and committed.
+  - The coordinator prompts and flow (`prompts-z127`, `prompts-wzoc`) together cover: outer tests written first as `red(AC-n)`, the verifier's integrity inputs, classification by the `Cause:` label, and the phase test review with majority settling.
+  - `implement_inline` (`prompts-jbqm`) uses the test-writer for every test and runs an inline review.
+  - `validate_execution` (`prompts-jztu`) runs a plan-wide test review, with a range start that survives `update_status` rewriting `git_commit`.
+  - The Phase 1 follow-ups (`prompts-vwv8`, `prompts-iyqq`) also landed.
+- **First end-to-end run** ($15.45): AC-3 and AC-4 failed on check defects, AC-8 and AC-9 on one clause each. Fixture P had no committed plan, and all three traps fired a layer early.
+- **Phase 5 checkpoint decisions** (user):
+  - a fix pass and re-run;
+  - `prompts-yyru` option A: a failed re-verification halts the phase;
+  - **D11**: red/green evidence in beads (`Decide: prompts-ufsh`), framing approved.
+- **Fix pass**:
+  - `prompts-yyru`: halt on failed re-verification; discard-and-retry restores with `:/` and never moves HEAD.
+  - `prompts-ev16`: D11 implementation.
+  - `prompts-37mh`: D11 posting via quoted heredocs (`-f /dev/stdin` and `--reason-file -`), because a write to `/tmp` can stall on a permission prompt and quotes break `--reason "..."`.
+  - `prompts-rdrx`: check fixes, including SIGPIPE under `pipefail`.
+  - `prompts-khew`: the `planned` overlay and trap overlays.
+  - `prompts-27h8`: driver variants and chaining.
+- **Re-run** ($18.35): AC-3, AC-4 and AC-9 pass on implement and inline. Missing-module and framed-brief traps correct (test-writer pushback exercised). The outer-conflict trap was not exercised, and the user accepted that, because the verifier's byte-identical check covers the outcome.
+- **Last fixes and confirmation** ($2.64): `prompts-7j6u` (ac8) and `prompts-85o2` (predates statement, inline heredoc close, deterministic Part 1 failures as findings). AC-8 passes.
+- **Budget**: workers peaked at 8 own calls (11 with children) in the first run and 5 (8) on the re-run, against a Phase 1 max of 9 (`prompts-pqlw` closed).
+- **User checkpoint**: approved the checkpoint summary format and the `red(AC-n)` commit pattern (permanent for plans with acceptance criteria; squash-merge removes them from main if wanted).
+- **Environment note**: a fix worker ran `brew install bash` (bash 5.3.20) to test under two shells, without asking. Reported to the user; reversible with `brew uninstall bash`.
+- **Known limits recorded**:
+  - ac8: a halt sentence wrapped across two lines; double negatives.
+  - the reviewer in implement mode depends on `test integrity:` comments.
+- Status updated on 2026-10-18: the Phase 5 milestone is closed in beads (40 of 49 tasks closed). Current phase is 6.
 
 ---
 
