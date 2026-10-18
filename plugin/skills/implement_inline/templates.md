@@ -58,6 +58,10 @@ npm test path/to/test1.spec.ts path/to/test2.test.ts
 - Findings: [findings, settled candidates marked "n of 3"]
 - Review these: [items]
 
+**Blocking** (deterministic failures in tests this phase changed; each needs your acknowledgement before the milestone closes):
+
+[blocking items, or none]
+
 **Beads state:**
 
 - ✅ All Phase [N] tasks closed: [list task IDs]
@@ -70,7 +74,7 @@ Please perform the following manual checks from design.md:
 2. [Manual verification item 2]
 3. [Manual verification item 3]
 
-Reply when manual verification is complete and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and I'll close the phase milestone.
 
 ```
 

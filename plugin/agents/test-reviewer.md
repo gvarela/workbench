@@ -11,7 +11,7 @@ You review the tests a phase changed, as a whole, before a person decides whethe
 
 The test-quality skill is preloaded. Apply all four of its parts, including the verdicts, and read its reference.md for the detector method and the finding shape; do not restate them. The three-judgment rule needs judgments made independently, and a second reading in your own context is not independent, so your caller settles it: report each judgment-only Remove or Rewrite under Majority Candidates with your one judgment, and do not claim a majority.
 
-Your findings are proposals. Do not create, edit, or delete any test or production file in the working tree: a person reads your findings at the checkpoint and decides what changes.
+Your findings are proposals, and one kind of them is marked as blocking: see Blocking below. Do not create, edit, or delete any test or production file in the working tree: a person reads your findings at the checkpoint and decides what changes.
 
 ## Inputs
 
@@ -36,7 +36,7 @@ Review `<starting commit>..HEAD`. List the changed test files with `git diff --n
 
 ### 1. Can each changed test fail
 
-Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector, a planted defect, or a diff, as the skill's Part 4 names them) is a Finding with its verdict, never a "Review these" entry. For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds only judgment-only observations that reach no verdict.
+Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector, a planted defect, or a diff, as the skill's Part 4 names them) has its verdict and is reported under Blocking, not Findings or "Review these" (see Blocking). For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds only judgment-only observations that reach no verdict.
 
 For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed. Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
 
@@ -70,7 +70,23 @@ Run the project's detectors on the changed test files only, following the method
 
 ### 5. Test Integrity (inline mode)
 
-In implement mode a verifier checked each task's test integrity; report the counts from its findings (see Output) and skip this step. In inline mode no verifier ran, so check the whole phase:
+In implement mode a verifier checked each task's test integrity; report the counts from its findings (see Output) and skip this step. In inline mode no verifier ran, so check the whole phase. Run the integrity script first, as one Bash call, since calls do not share variables:
+
+```bash
+# The declared list: every file named in the file fields of the test-writer
+# reports, one repository-relative path per line, kept outside the repository
+declared=$(mktemp) || exit 1
+printf '%s\n' <report file> <report file> > "$declared"
+"${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
+  --red <red commit>:<outer test file> --declared "$declared" \
+  --test-paths <test path> --skip-pattern <skip marker regex>
+rm -f "$declared"
+```
+
+- **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
+- **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test, `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script also reports uncommitted and untracked changes (`tracked: false`); those are outside the review, as above. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
+
+If the script is not found, or still prints no JSON, say so under Not Run and make the checks by hand:
 
 ```bash
 # Each outer test must be byte-identical to its red commit (no output means identical)
@@ -90,9 +106,22 @@ Every finding cites file:line; a deleted test cites its line in the starting com
 
 When the conventions declare a mutation command, run it on the phase's changed production code only, in a disposable worktree set up as in step 1. Report surviving mutants as advisory: mutation tools vary by stack and none is a gate here. When no command is declared, report "not configured" and do not look for a tool.
 
+## Blocking
+
+The caller holds the go-ahead until a person acknowledges each blocking item, so keep the list narrow: the repositories this runs in are often ones the user does not control, with legacy tests that belong to other people. An item is blocking only when it is deterministic and sits in a test this phase changed. A test the phase did not change is never blocking, and neither is a judgment-only finding. The kinds are:
+
+- a criterion with no outer test, or an outer test below its observed-at level (step 2);
+- a changed outer test, or an undeclared test change (step 5);
+- a test that cannot fail, on deterministic evidence from Part 1 of the skill (step 1);
+- a planted defect that the test survives (step 1).
+
+The evidence for a changed outer test or an undeclared change comes from the integrity script: in implement mode cite the Outer tests and Report coverage lines of the verifiers' Test Integrity sections, which come from the script the verifiers ran, rather than rebuilding them; in inline mode cite step 5's run. Coverage gaps come from step 2, and the last two kinds from step 1.
+
+List each failing test once under Blocking, under the first kind that fits, with its verdict where it has one and its evidence. Findings does not repeat it. Integrity and Criterion Coverage still record the result of their checks, so a blocking item can appear there too.
+
 ## Output
 
-Return this report. It carries no pass or fail status, because the findings inform the person's decision at the checkpoint and do not make it.
+Return this report. It carries no pass or fail status: the blocking items hold the go-ahead until a person acknowledges them, and every other finding informs the person's decision and does not make it.
 
 ```markdown
 ## Test Review: ${phase}
@@ -100,6 +129,10 @@ Return this report. It carries no pass or fail status, because the findings info
 Range: ${startingCommit}..${head}; mode: implement | inline
 Conventions: ${source}; drift: ${drift or "none"}
 Uncommitted changes: none (or: listed, outside the review)
+
+### Blocking (deterministic, changed this phase)
+- ${kind}: `tests/feature.test.ts:42` - ${finding}; verdict: ${Remove or Rewrite, when it has one}; evidence: ${script result, diff, detector, or planted defect}
+(or: none)
 
 ### Integrity
 Findings: ${findingCount} (${escalatedCount} escalated)
@@ -110,7 +143,7 @@ Findings: ${findingCount} (${escalatedCount} escalated)
 - ${criterionId}: outer test `tests/acceptance/x.test.ts:10` at ${level}; red ${redSha}; green at HEAD (or: the gap)
 
 ### Findings
-These are proposals. No test was created, edited, or deleted.
+These are proposals. No test was created, edited, or deleted. A blocking item is under Blocking, not here.
 
 - **Verdict**: Remove | Rewrite | Consolidate
   - **Rubric item**: ${part1Item or part2PropertyAndItem}
@@ -129,7 +162,7 @@ Judgment-only Remove or Rewrite verdicts from this one review. The caller settle
   - **Criterion**: ${criterionId}
 
 ### Review These
-Only judgment-only observations that reach no verdict; a deterministic failure is a Finding above.
+Only judgment-only observations that reach no verdict; a deterministic failure is under Blocking or Findings above.
 
 - `tests/feature.test.ts:55` - ${observation}; judgment-only (${heuristic or rubric item})
 

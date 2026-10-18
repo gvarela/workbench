@@ -22,7 +22,7 @@ Supporting files in this directory (read each when its step directs you to — n
 
 ## Initial Response
 
-This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, and a decision when a verified failure or a plan defect halts the phase.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, and a decision when a verified failure or a plan defect halts the phase.
 
 When invoked, check for arguments:
 
@@ -296,7 +296,7 @@ Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at 
 
 Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". File each escalated integrity finding and each "n of 3" finding as an issue linked to its task, as "Evidence in Beads" in [reference.md](reference.md) shows, so a Rewrite or Remove proposal outlives this summary.
 
-The findings inform the user's go-ahead and do not block it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
+Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script each task verifier ran; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
 
 #### 4. Request Manual Verification
 
@@ -318,6 +318,9 @@ ${workerSummaries.map(w => `- ✅ ${w.title}: ${w.summary}`).join('\n')}
 - Findings: ${reviewFindings}  (settled candidates marked "n of 3")
 - Review these: ${reviewThese}
 
+**Blocking** (deterministic failures in tests this phase changed; each needs your acknowledgement before the milestone closes):
+${blockingItems or "none"}
+
 **Beads state:**
 - ✅ All Phase ${phase} tasks closed: [list task IDs]
 - 🔓 Phase milestone ready to close: ${phaseMilestoneId}
@@ -328,10 +331,10 @@ Please perform the following manual checks from design.md:
 
 ${manualVerificationSteps}
 
-Reply when manual verification is complete and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and I'll close the phase milestone.
 ```
 
-**Requirement**: Wait for user confirmation before proceeding.
+**Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
 
 #### 5. Close Phase Milestone
 

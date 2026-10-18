@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — output templates and the beads
 
 ## Initial Response
 
-This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint after reading its test review.
+This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name.
 
 When invoked, check for arguments:
 
@@ -336,13 +336,13 @@ Then settle its Majority Candidates, because a judgment-only Remove or Rewrite n
 
 File each escalated integrity finding and each "n of 3" finding as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did, so a Rewrite or Remove proposal outlives the checkpoint summary: `bd create "Test review: <verdict> <file:line>" --type=task --priority=2 --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"`. The `discovered-from` link records the source without blocking anything.
 
-The findings inform the user's go-ahead and do not block it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
+Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script, which the reviewer runs over the phase; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
 
 #### 4. Request Manual Verification
 
 Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly — automated results, test review, beads state, then the manual checks from design.md.
 
-**Requirement**: Wait for user confirmation before proceeding.
+**Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
 
 #### 5. Close Phase Milestone
 
