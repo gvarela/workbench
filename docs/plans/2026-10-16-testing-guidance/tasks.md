@@ -1304,3 +1304,4 @@ bash docs/plans/2026-10-16-testing-guidance/validation/run-headless.sh python-ri
 - D8a: `wb:test-reviewer` at every phase checkpoint; D8b: `/wb:test-audit` with `wb:test-auditor` agents, never auto-delete
 - D9: inline uses the test-writer and phase-level integrity
 - D10: research Testing Conventions; optional `.claude/wb/testing.md`
+- D11: red/green evidence in beads (outer-step close reason carries the red SHA and assertion line; test-writer reports as task comments; escalated or promoted findings as issues); not a second state machine

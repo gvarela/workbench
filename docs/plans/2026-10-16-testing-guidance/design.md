@@ -381,6 +381,31 @@ They share only the rubric, so wb gives them separate shapes.
   - `/wb:test-audit` must work cold (decision 5).
 - **Trade-offs**: profile staleness, mitigated by research recording drift. A new file in users' repositories, opt-in only.
 
+#### D11. Red/green evidence in beads
+
+Added 2026-10-18 at the Phase 5 checkpoint (`Decide: prompts-ufsh`).
+
+- **What**: beads is the durable store for red/green **evidence**. It does not become a second red/green state machine.
+  - **Red record**: the coordinator, or the inline session, closes each outer-test step with the red commit and its assertion line: `bd close <outer-step> --reason "red <sha>: <assertion line>"`.
+  - **Test-writer reports**: every report becomes a `bd comments add` on the task it served. The coordinator posts the outer reports, and the worker or inline session posts the inner ones.
+    - Resume, the verifier, the phase test-reviewer, and `/wb:validate_execution` read reports from these comments, in both implement skills.
+    - This replaces implement_inline's commit-body recording.
+  - **Findings that outlive the checkpoint**: escalated integrity findings, and review findings promoted by a majority of three, are filed as issues linked to their task.
+- **Not adopted**:
+  - Per-criterion issues. They would duplicate design.md, and outer-test steps already stand in for criteria.
+  - Red/green labels or states. git (`red(AC-n)` commits) and the verifier stay authoritative for state.
+- **Rationale**:
+  - Red/green evidence is status, so it belongs in beads under the plugin's "beads for status, markdown for plan" rule.
+  - Phase 5 validation showed the evidence lived only in the session. That caused three problems:
+    - AC-3 had no recorded assertion output.
+    - Reports were lost on resume.
+    - The plan-wide report-coverage check never ran for `/wb:implement`.
+  - `wb:test-writer` and `wb:test-reviewer` stay free of bd commands; their callers post.
+- **Trade-offs**:
+  - More bd commands in shipped prompts, each kept current in `docs/beads-guide.md`.
+  - Report text makes comments bulky in large plans.
+  - Stealth-mode beads still holds the evidence locally only.
+
 ### Data Model
 
 **Acceptance criterion** (design.md):
@@ -499,9 +524,9 @@ This design uses its own format. The plugin's observable boundaries are its arti
   - Given an approved criterion and a task citing it
   - When `/wb:implement` runs the phase
   - Then a `red(AC-n)` commit containing only the outer test exists before the implementing task's commit
-  - And its recorded failure is an assertion failure, not a load error
+  - And its recorded failure is an assertion failure, not a load error, recorded in the outer-test step's beads close reason (D11)
   - Example: AC-1 of the fixture, the 28-day window, has a red commit whose failure shows "Sep 30 ride listed"
-  - Observed at: the git log of the fixture repository and the coordinator transcript
+  - Observed at: the git log of the fixture repository, the outer-test step's close reason (`bd show`), and the coordinator transcript
   - Refines: M1
 - **AC-4 Implementers never edit tests**
   - Given a worker implementing a task
