@@ -167,3 +167,35 @@ For verification FAILs where the task cannot succeed AS SPECIFIED — the design
 3. **Halt the phase**: stop spawning workers; present a checkpoint to the user with the failed task, the verifier evidence, and the revision issue ID
 
 4. **Route the fix**: the revision goes through `/wb:create_design` (preceded by `/wb:explore_design` if it reopens an architectural choice) — never through fix workers
+
+## Failed Re-verification Halt (Step 6)
+
+When the re-verification after the one fix attempt fails, the failed task's changes are still uncommitted and its issue is closed (the worker closed it). Moving on would make every later verifier see another task's files and undeclared test changes, so each later task would fail, and the closed issue would unblock its dependents. The phase stops for a human instead.
+
+**Halt actions**:
+
+1. Start no further tasks, and commit nothing: the failed task's changes stay in the working tree for inspection.
+2. Reopen the task's issue so its dependents stay blocked: `bd update [task-id] --status=open`.
+3. Present:
+
+   ```
+   ⚠️ Task Failed Re-verification: Phase Halted
+
+   Task ${taskId}: ${title} (issue reopened; changes left uncommitted)
+   Verifier report: ${failFindings with file:line}
+   Cause: ${causeLabel}
+   Fix attempt changed: ${fixAttemptSummary}
+
+   **Options**:
+   1. Fix it or give guidance, then say "continue". I re-verify the working tree, commit on PASS, and resume the phase.
+   2. Discard the task's uncommitted changes, back to its starting commit (${startingCommit}) plus its committed red(AC-n) tests, and retry the task.
+   3. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
+
+   How should I proceed?
+   ```
+
+**On the reply**:
+
+- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit, red commits, and test-writer reports. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
+- **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete the untracked files the worker and fix-worker reports list as created. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
+- **Plan defect**: follow the protocol above; the reopened issue stays open.

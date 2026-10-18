@@ -109,4 +109,4 @@ Provide:
 
 **Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, adding the fix worker's item 7 to Test-writer Reports (the outer reports, the first worker's item 7, then the fix worker's item 7, verbatim). Without it, the fix's test changes match no report and fail as undeclared.
 
-**If re-verification fails**: add the task to the phase checkpoint's blocking list and continue to the next task. Do not spawn a second fix worker.
+**If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.
