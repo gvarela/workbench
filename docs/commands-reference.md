@@ -379,9 +379,9 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 **Tests**:
 
 - Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites, confirms it fails on an assertion, and commits it as `red(AC-n): <criterion title>`.
-- Workers never edit tests; for inner tests the worker asks `wb:test-writer`.
-- `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail. It fails any test change no test-writer report declares, and any changed outer test.
-- The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports and the verifier's `test integrity:` result. The checkpoint review reads them there.
+- Workers never edit test cases; for inner tests the worker asks `wb:test-writer`. A harness task's support code (fakes, fixtures, factories, harness modules) is the worker's to write, and it declares those files in its report and in a `support files:` comment on the task.
+- `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail. It fails any test change that neither a test-writer report nor, on a harness task, the worker's declared support files cover, any support file that holds a test case, and any changed outer test.
+- The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports, the verifier's `test integrity:` result, and on a harness task the worker's `support files:` list. The checkpoint review reads them there.
 - At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
 - A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
 
@@ -393,7 +393,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 
 #### `/wb:implement_inline`
 
-The same plan, coded inline by this session with TDD. Use when the work should run on the session model. The session never edits tests: `wb:test-writer` writes each outer test (committed as `red(AC-n)` before its code) and every inner test. With no per-task verifier, the checkpoint's `wb:test-reviewer` review also checks test integrity across the phase, and the same blocking rule applies.
+The same plan, coded inline by this session with TDD. Use when the work should run on the session model. The session never edits test cases (a harness task's support code is its own): `wb:test-writer` writes each outer test (committed as `red(AC-n)` before its code) and every inner test. With no per-task verifier, the checkpoint's `wb:test-reviewer` review also checks test integrity across the phase, and the same blocking rule applies.
 
 **TDD Process**:
 

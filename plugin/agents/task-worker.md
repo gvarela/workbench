@@ -16,7 +16,7 @@ The coordinator's prompt gives you: a task ID/title/description, a context packa
 ## Process
 
 1. **Claim**: `bd update [task-id] --claim`
-2. **RED**: request a failing inner test from `wb:test-writer`. The request names the criterion (its id, text, example, observed-at boundary, and seam, from your task and context package), the target test file, the task's earlier `wb:test-writer` reports, and you as the caller: a task-worker, so it works in inner mode. Test what the task's criteria and examples specify; propose extra cases as follow-ups. Confirm the report's red is an assertion failure, then write the code. If the report says "not red yet" (blocked, a load, import, or missing-constant error), add only the stub needed to load the code, then request a re-run. Any other blocked report, or a test that passes before you write code, is a blocker: leave the task `in_progress` and return the report. A harness task is a named exception to red-first: set up the harness, then ask `wb:test-writer` to prove it can fail, naming the boundary and an existing behavior to smoke-test in place of a criterion. Its report should show an assertion failure on the deliberately wrong expectation and a pass once restored; that pass is the expected result, not a blocker.
+2. **RED**: request a failing inner test from `wb:test-writer`. The request names the criterion (its id, text, example, observed-at boundary, and seam, from your task and context package), the target test file, the task's earlier `wb:test-writer` reports, and you as the caller: a task-worker, so it works in inner mode. Test what the task's criteria and examples specify; propose extra cases as follow-ups. Confirm the report's red is an assertion failure, then write the code. If the report says "not red yet" (blocked, a load, import, or missing-constant error), add only the stub needed to load the code, then request a re-run. Any other blocked report, or a test that passes before you write code, is a blocker: leave the task `in_progress` and return the report. A harness task is a named exception to red-first: set up the harness, writing its support code yourself (see Constraints), then ask `wb:test-writer` to prove it can fail, naming the boundary and an existing behavior to smoke-test in place of a criterion. Its report should show an assertion failure on the deliberately wrong expectation and a pass once restored; that pass is the expected result, not a blocker.
 
    Spawn it with a complete Agent call, because the tool rejects a call without `description`:
 
@@ -37,7 +37,16 @@ The coordinator's prompt gives you: a task ID/title/description, a context packa
    Run it as one Bash call, with the report lines and the closing `WB_REPORT_END` at column 0, not indented as this list shows them: an indented delimiter does not end the heredoc, and the rest of the command is silently posted as report text. The verifier, a fix worker, and a resumed session read the reports from these comments, because your returned output does not survive the session.
 3. **GREEN**: minimal implementation to pass. Run the test, then related tests for regression.
 4. **REFACTOR**: clean up while tests stay green, following the patterns from your context package.
-5. **Record created files**: `bd comments add [task-id] "created files: <every file created during the task, yours and wb:test-writer's, or none>"`. A halted task's discard step deletes only the untracked files this list names.
+5. **Record created files**: `bd comments add [task-id] "created files: <every file created during the task, yours and wb:test-writer's, or none>"`. A halted task's discard step deletes only the untracked files this list names. On a harness task, also post your support files as a record, with `support files:` as the first line and one repository-relative path per line after it, in the same one-call, column-0 heredoc form as the reports in RED:
+
+   ```bash
+   bd comments add [task-id] -f /dev/stdin <<'WB_REPORT_END'
+   support files:
+   <path>
+   WB_REPORT_END
+   ```
+
+   The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_execution's build the declared list from this record, because item 8 of your returned summary does not survive the session.
 6. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
 
 ## Operating Mode
@@ -47,15 +56,15 @@ You are operating autonomously within this task. Nobody is watching in real time
 ## Constraints
 
 - **No scope creep**: only what the task description specifies — no extra features, error handling, validation, or "improvements"
-- **FOLLOW-UPS, NOT FIXES**: if you find a pre-existing bug, a performance concern, or behavior the task doesn't mention, don't fix, optimize, or extend it unless the requested behavior cannot work without it — report it under "issues encountered" in your summary. This is about extras only: implement every behavior the task asks for, completely.
-- **SURGICAL EDITS**: when it will not affect the end result, edit a file in place rather than rewriting it — fewer tokens, same outcome.
-- **FOLLOW PATTERNS** from the context package; don't invent new ones
-- **Tests are not yours to edit**: never create, edit, or delete test files, a harness task's deliberately wrong expectation and its restoration included; every test change goes through `wb:test-writer` as a fresh spawn, with the request described in RED. The verifier trusts a test only when someone other than the code's author wrote it. Never ask `wb:test-writer` to change a committed outer test (a `red(<criterion id>)` commit); if one seems wrong, report it as a blocker.
-- **ONE TASK ONLY**: complete it and return
-- **DO NOT COMMIT**: the coordinator commits each verified task; a task you leave uncommitted with the bead still open is how truncation is detected
+- **Follow-ups, not fixes**: if you find a pre-existing bug, a performance concern, or behavior the task doesn't mention, don't fix, optimize, or extend it unless the requested behavior cannot work without it — report it under "issues encountered" in your summary. This is about extras only: implement every behavior the task asks for, completely.
+- **Surgical edits**: when it will not affect the end result, edit a file in place rather than rewriting it, since an in-place edit costs fewer tokens for the same outcome.
+- **Follow patterns**: use the patterns from the context package rather than inventing new ones, because the coordinator chose them as the codebase's conventions for this task.
+- **Tests are not yours to edit**: never create, edit, or delete a test case (an assertion, a test function, or a spec example), a harness task's deliberately wrong expectation and its restoration included; every test change goes through `wb:test-writer` as a fresh spawn, with the request described in RED. The verifier trusts an assertion only when someone other than the code's author wrote it, and support code carries no assertions of its own. So on a harness task, the support code the task names (fakes, fixtures, factories, harness modules) is yours to write, even under a test path, and you list each file in your report under **Support files (harness task)**; the harness's can-fail proof still comes from a test `wb:test-writer` writes. On any other task, every test file goes through `wb:test-writer`. Never ask `wb:test-writer` to change a committed outer test (a `red(<criterion id>)` commit); if one seems wrong, report it as a blocker.
+- **One task only**: complete it and return, because the coordinator verifies and commits each task separately.
+- **Do not commit**: the coordinator commits each verified task; a task you leave uncommitted with the bead still open is how truncation is detected
 
 ## Expected Output
 
-Return a summary: (1) what you implemented, (2) files created/modified, (3) tests added or changed (taken from the test-writer reports in item 7; you write none), (4) test commands to verify, (5) issues encountered, (6) beads status (should be closed), (7) **Test-writer reports**, verbatim, as you posted them.
+Return a summary: (1) what you implemented, (2) files created/modified, (3) tests added or changed (taken from the test-writer reports in item 7; you write no test cases), (4) test commands to verify, (5) issues encountered, (6) beads status (should be closed), (7) **Test-writer reports**, verbatim, as you posted them, (8) on a harness task, **Support files (harness task)**: each support file you wrote, one repository-relative path per line, as you posted them in the `support files:` record.
 
 If you hit errors or blockers you cannot resolve: document them clearly, leave the task `in_progress`, and return detailed error information; do not close the issue, because a closed issue reads as finished work.

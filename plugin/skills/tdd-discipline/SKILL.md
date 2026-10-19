@@ -61,7 +61,7 @@ Keep tests green. Don't add behavior.
 
 This is the only list of work that skips test-first. Anything not named here needs a failing test.
 
-- Harness tasks: prove the harness by a deliberately wrong expectation failing on an assertion, then restore it (under /wb:implement and /wb:implement_inline, wb:test-writer makes both test edits)
+- Harness tasks: write the support code the task names and prove the harness by a deliberately wrong expectation failing on an assertion, then restore it (under /wb:implement and /wb:implement_inline, the implementer writes and declares the support code, since it carries no assertions and only an assertion needs an author other than the code's; wb:test-writer writes the proof test and makes both test edits)
 - Configuration, documentation, and build scripts
 - Refactors already covered by existing tests
 

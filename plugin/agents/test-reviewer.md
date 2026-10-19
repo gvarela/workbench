@@ -22,6 +22,7 @@ Your prompt names:
 - **Red commits**: the red commit of each outer test (`red(<criterion id>): …`)
 - **Test Integrity findings** (implement mode): the Test Integrity section of each task's verifier report, whose findings each carry a file:line and say whether they were escalated
 - **Test-writer reports** (inline mode, when the caller has them): the reports from every test-writer run in the phase
+- **Support files** (inline mode, when any harness task wrote them): the support files each harness task declared in its `support files:` records, by task, with each task's type as its description names it
 - **Conventions**: take them in the order the test-quality skill gives (the research's Testing Conventions, then `.claude/wb/testing.md`, then the existing tests)
 - **Mode**: `implement` or `inline`
 - **Candidates** (optional): majority candidates from an earlier review of this phase, each as a location, rubric item, and proposed verdict, without that review's reasoning
@@ -74,16 +75,17 @@ In implement mode a verifier checked each task's test integrity; report the coun
 
 ```bash
 # The declared list: every file named in the file fields of the test-writer
-# reports, one repository-relative path per line, kept outside the repository
+# reports, plus the support files harness tasks declared; one
+# repository-relative path per line, kept outside the repository
 declared=$(mktemp) || exit 1
-printf '%s\n' <report file> <report file> > "$declared"
+printf '%s\n' <report file> <support file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
   --red <red commit>:<outer test file> --declared "$declared" \
   --test-paths <test path> --skip-pattern <skip marker regex>
 rm -f "$declared"
 ```
 
-- **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
+- **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports or declared support files, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
 - **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test, `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script compares the starting commit with the working tree, not with HEAD, so its results include uncommitted changes too, and it marks only untracked files (`tracked: false`). Uncommitted changes are outside the review, as above: when `git status --short` showed any, confirm each hit against `git diff <starting commit> HEAD` before reporting it. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
 
 If the script is not found, or still prints no JSON, say so under Not Run and make the checks by hand:
@@ -97,7 +99,7 @@ git diff <starting commit> HEAD --stat
 ```
 
 - **Outer tests**: any difference from the red commit is a finding, whatever the reason given. The outer test is the approved statement of its criterion, so changing it moves the goalposts.
-- **Coverage by reports**: match each changed test file, and each change within it, against the test-writer reports' files, per-test entries, and changes to earlier tests. A change no report names is undeclared, however it was made. Without reports, list this check under Not Run.
+- **Coverage by reports**: match each changed test file, and each change within it, against the test-writer reports' files, per-test entries, and changes to earlier tests. A change no report names is undeclared, however it was made. Support files count as declared only on a harness task, under the harness-task rule on who writes tests; read them for test cases instead, and report one that holds a test case the implementer wrote, or one declared on any other task, as an undeclared change. Without reports, list this check under Not Run.
 - **The test hunks**: read them for skipped or deleted tests, loosened assertions, and expected values computed by calling the code under test.
 
 Every finding cites file:line; a deleted test cites its line in the starting commit (`git show <starting commit>:<path>`). Mark a finding escalated when it is one the per-task gate fails: a changed outer test, an undeclared change, or a test that does not protect its criterion (a loosened assertion that a planted defect, or a counterexample applied to the whole assertion, shows now accepts wrong behavior the original rejected; an expected value computed by calling the code under test that a planted defect in that code leaves passing; a skipped or deleted guard; or a missed planted defect), declared or not. A loosened assertion without that proof is not escalated, per the skill's Part 3. Give the evidence that cleared any finding you do not escalate.

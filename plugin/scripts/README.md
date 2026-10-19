@@ -74,7 +74,7 @@ Reports, as JSON, deterministic test-integrity evidence for a task since its sta
 
 - `--start <commit>`: the commit the task began from (required)
 - `--red <commit>:<path>`: an outer test file and its red commit (repeatable)
-- `--declared <file>`: a file listing the test files the test-writer reports declare, one per line; without it, `undeclared_changes` is null
+- `--declared <file>`: a file listing the test files the test-writer reports declare, plus the support files a harness task's worker declares, one per line; without it, `undeclared_changes` is null
 - `--test-paths <spec>`: what counts as a test file (repeatable; replaces the defaults `spec/ test/ tests/ __tests__/ *_test.* *_spec.* test_*.py *.test.* *.spec.*`). `dir/` matches a directory anywhere in the path, a spec with `/` is a glob on the whole path, anything else is a glob on the file name
 - `--skip-pattern <regex>`: an extended regex for a skip or focus marker (repeatable; added to the built-in markers)
 

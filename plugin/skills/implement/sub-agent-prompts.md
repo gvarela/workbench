@@ -81,6 +81,7 @@ Provide the agent with:
 - Test Command: ${workerOutput.testCommand}
 - Files Changed: ${workerOutput.filesChanged}
 - Tests Modified: ${workerOutput.testsModified}
+- Support Files: ${taskSupportFiles}  (harness tasks only: every path in the task's `support files:` comments that no later `discarded:` comment voids, read as reference.md's "Evidence in Beads" says; they count as declared beside the test-writer reports)
 - Worker Report: ${workerOutput.summary}
 - Starting Commit: ${taskTestContext.startingCommit}
 - Red Commits: ${redCommits}  (each taskTestContext.criteria[].redCommit: the red commit of each outer test the task touches)
@@ -107,6 +108,6 @@ Provide:
 - Instructions: Fix the specific issues identified. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, reading Test-writer Reports from the task's comments again, which now include the fix worker's. Without them, the fix's test changes match no report and fail as undeclared.
+**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter, reading Test-writer Reports and, on a harness task, Support Files from the task's comments again, which now include the fix worker's. Without them, the fix's test changes match no report and fail as undeclared.
 
 **If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.

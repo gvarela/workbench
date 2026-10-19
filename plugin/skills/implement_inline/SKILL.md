@@ -61,7 +61,7 @@ When it will not affect the end result, edit a file in place rather than rewriti
 
 ### Who Writes Tests
 
-You never edit test files: `wb:test-writer` writes and changes every test, outer and inner, including harness proofs. Keeping test authorship apart from the code is what lets the phase's test review trust a test, since whoever writes the code never shapes the check on it. You write production code, run the tests, and commit. Step 3 gives the cycle.
+You never edit test cases: `wb:test-writer` writes and changes every test, outer and inner, including harness proofs. Keeping test authorship apart from the code is what lets the phase's test review trust a test, since whoever writes the code never shapes the check on it. A harness task's support code (fakes, fixtures, factories, harness modules) is yours to write, even under a test path, because it carries no assertions of its own; the review counts it as declared on that task only. Before the task's commit, post those files as a record on the task with `bd comments add [task-id] -f /dev/stdin` and the quoted heredoc that Step 3 uses for reports, first line `support files:` and one repository-relative path per line, so the review and a resumed session read the list from beads. You write production code, run the tests, and commit. Step 3 gives the cycle.
 
 ## Process Steps
 
@@ -332,7 +332,7 @@ make build          # or npm run build, go build
 
 #### 3. Review the Phase's Tests
 
-No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, every `wb:test-writer` report in the phase tasks' comments, the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, every `wb:test-writer` report in the phase tasks' comments, the support files from each harness task's `support files:` comments, by task with its type, the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
 Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these".
 

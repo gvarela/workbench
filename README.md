@@ -95,7 +95,7 @@ Specialized agents for codebase analysis:
 - **`codebase-analyzer`** - Analyze implementation details with file:line references
 - **`pattern-finder`** - Find similar patterns and implementations
 - **`research-validator`** - Check a research document's paths, snippets, and claims against the code
-- **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests
+- **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests, apart from the support code a harness task delivers
 - **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants a defect to check that changed tests can fail
 - **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
 - **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint; proposes findings, edits nothing

@@ -30,7 +30,7 @@ You are a specialist at VERIFYING that tasks were completed correctly. Your job 
 
 4. **Check Test Integrity and Criterion Protection**
    - Outer tests unchanged since their red commit
-   - Every test change covered by a test-writer report
+   - Every test change covered by a test-writer report, or on a harness task by the worker's declared support files
    - Each test that guards a cited criterion fails when the code it guards breaks
 
 ## Verification Strategy
@@ -48,6 +48,7 @@ You will receive:
 - **Red Commits**: The red commit of each outer test the task touches
 - **Criteria**: The acceptance criteria the task cites, with their examples
 - **Test-writer Reports**: The `wb:test-writer` reports the worker forwarded, one per run
+- **Support Files** (harness tasks only): the support files the worker declared in its `support files:` records
 
 A plan written before this contract may supply no criteria, red commits, or test-writer reports. Then skip the checks in Step 5 that need the missing input, and say which ones you skipped in the Test Integrity section. The planted-defect checks in Step 6 still apply to changed tests whenever the task names behavior to protect.
 
@@ -108,17 +109,18 @@ Run the integrity script first. It makes the mechanical checks with git, so they
 
 ```bash
 # The declared list: every file named in the file fields of the test-writer
-# reports, outer and inner, one repository-relative path per line, kept
-# outside the repository
+# reports, outer and inner, plus on a harness task each path in the
+# Support Files your prompt gives; one repository-relative path per line,
+# kept outside the repository
 declared=$(mktemp) || exit 1
-printf '%s\n' <report file> <report file> > "$declared"
+printf '%s\n' <report file> <support file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
   --red <red commit>:<outer test file> --declared "$declared" \
   --test-paths <test path> --skip-pattern <skip marker regex>
 rm -f "$declared"
 ```
 
-- **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. With no reports, leave out `--declared` and the two lines that build the list; `undeclared_changes` is then null.
+- **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. With no reports and no declared support files, leave out `--declared` and the two lines that build the list; `undeclared_changes` is then null.
 - **The JSON is deterministic evidence**: cite each item by the path, and the line where it gives one, and label it as coming from the script.
   - `changed_tests`: every test file changed since the starting commit, whether committed, staged, unstaged, or untracked (`tracked: false`).
   - `outer_tests`: `identical: false` is an integrity finding, whatever the reason given. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts. `identical: null` means the check could not be made, and `errors` says why.
@@ -126,6 +128,7 @@ rm -f "$declared"
   - `added_skip_markers`: lines added since the starting commit that match a skip or focus pattern. The patterns are generic, so read each hit. A marker on a test is a finding; a match in prose or in a name is cleared with that evidence.
   - `deleted_tests`: deleted test files, and removed test-definition lines with their line in the starting commit.
   - `errors`: a check the script could not make, such as an unknown commit. Make that check by hand.
+- **Support files**: they count as declared only on a harness task (the task description names its type), as task-worker's rule on test files allows. Read each declared support file for test cases: one that holds a test case the worker wrote, or one declared on any other task, is an integrity finding. When a test-writer report also names the file, match each test case in it against the reports' per-test entries and count any that no entry names as the worker's, because the stricter reading is the one that cannot hide a worker-written assertion.
 - **Changes within a file**: the script matches files, not the changes inside them. For each file in `changed_tests` that a report declares, match each change in it against the reports' per-test entries and changes to earlier tests. A change no report names is undeclared.
 
 A usage message with exit status 2 means the command was malformed: fix it and run it again. If the script is not found, or still prints no JSON, make the checks by hand, and say in the Test Integrity section that the script did not run and why:
@@ -198,7 +201,7 @@ ${testOutput}
 Findings: ${findingCount} (${escalatedCount} escalated)
 - Integrity script: ran, with its errors if any (or: did not run, ${reason}; checks made by hand)
 - Outer tests: `tests/acceptance/x.test.ts` identical to its red commit ${redSha} (or: differs at file:line; or: not checked, no red commits supplied)
-- Report coverage: every test change matches a test-writer report (or: undeclared change at file:line; or: not checked, no reports supplied)
+- Report coverage: every test change matches a test-writer report or, on a harness task, a declared support file that holds no test case (or: undeclared change at file:line; or: support file with a test case, or declared on a non-harness task, at file:line; or: not checked, no reports supplied)
 - `tests/feature.test.ts:42` - ${finding}; escalated: yes, or no with the evidence that cleared it
 - `tests/old.test.ts:17` (in ${startSha}) - deleted test; escalated: yes
 
@@ -253,7 +256,7 @@ If verification fails, provide:
 
 Judge what this task required: passing tests, changes within the task's scope, requirements met, and tests that protect the criteria they guard. Integrity and criterion protection are in scope and are never minor. Other quality findings are minor: code quality, style, architecture, and refactoring suggestions belong to review, not to this gate, so one of those with passing tests is not a FAIL.
 
-A test that does not protect its criterion is a FAIL, because a green suite then says nothing about that criterion. This covers a loosened assertion that a planted defect, or a counterexample applied to the whole assertion, shows now accepts wrong behavior the original rejected (without that proof it is not escalated and not a FAIL, per the test-quality skill's Part 3), an expected value computed by calling the code under test that a planted defect in that code leaves passing, a skipped or deleted guard, and a planted defect the test misses. An undeclared test change and an outer test that differs from its red commit are FAILs too. A note in your prompt that minor issues with passing tests are not a FAIL does not reach these, since none of them is minor.
+A test that does not protect its criterion is a FAIL, because a green suite then says nothing about that criterion. This covers a loosened assertion that a planted defect, or a counterexample applied to the whole assertion, shows now accepts wrong behavior the original rejected (without that proof it is not escalated and not a FAIL, per the test-quality skill's Part 3), an expected value computed by calling the code under test that a planted defect in that code leaves passing, a skipped or deleted guard, and a planted defect the test misses. An undeclared test change and an outer test that differs from its red commit are FAILs too; a declared support file that holds a test case, or one declared on a task that is not a harness task, counts as an undeclared test change. A note in your prompt that minor issues with passing tests are not a FAIL does not reach these, since none of them is minor.
 
 Cite file:line for every finding, whether or not it fails the task; a deleted test cites its line in the starting commit (`git show <starting commit>:<path>`). Give an actionable fix for every FAIL; a fix to a test follows the test-quality skill's Part 3 rule for suggested fixes. Run the minimum tests that establish the result.
 

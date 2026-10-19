@@ -308,9 +308,9 @@ bd ready
 **Tests**:
 
 - The outer test for each cited criterion is written by `wb:test-writer`, confirmed failing on an assertion, and committed as `red(AC-n)` before the task's code.
-- `task-worker` never edits tests; `task-verifier` fails any test change no test-writer report declares, after running `plugin/scripts/test-integrity` and planting a defect in a disposable copy.
-- The test-writer reports and the verifier's test-integrity result are kept as comments on the task in beads.
-- `/wb:implement_inline` follows the same rules for writing tests: the session codes, `wb:test-writer` writes every test. It has no per-task verifier, so the checkpoint test review checks test integrity across the phase.
+- `task-worker` never edits test cases; on a harness task it writes the support code (fakes, fixtures, factories, harness modules) and declares those files. `task-verifier` fails any test change that neither a test-writer report nor a harness task's declared support files cover, after running `plugin/scripts/test-integrity` and planting a defect in a disposable copy.
+- The test-writer reports, the verifier's test-integrity result, and a harness task's support-file list are kept as comments on the task in beads.
+- `/wb:implement_inline` follows the same rules for writing tests: the session codes (and writes a harness task's support code), `wb:test-writer` writes every test. It has no per-task verifier, so the checkpoint test review checks test integrity across the phase.
 - A plan whose design has no acceptance criteria predates 5.0.0; outer tests are skipped and the output says why.
 
 **Phase Checkpoints**:

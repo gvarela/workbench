@@ -32,6 +32,7 @@ Task({
   Criteria with examples, observed-at, and seams: [from tasks.md]
   Red commits: [this plan's red(AC-n) commits in the range]
   Test-writer reports: [the reports from the plan tasks' comments, per Step 2, or "none recorded" with the reason]
+  Support files: [the paths in each harness task's support files: records, by task with its type, per Step 2, or "none"]
   Conventions source: [research.md Testing Conventions]
   Mode: inline
 
