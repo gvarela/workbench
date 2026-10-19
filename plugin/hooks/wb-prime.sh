@@ -33,7 +33,7 @@ What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
   create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions
   create_tasks: confirm the phases and checkpoints
-  implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure by name
+  implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure by name, and a handoff decision when a phase that has already compacted heads for another compaction
   validate_execution: the manual checks only you can run
 Long form: /wb:help. Replace this text for a repository with .claude/wb/PRIME.md (print the default with hooks/wb-prime.sh --export).
 ORIENTATION

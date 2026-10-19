@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — output templates and the beads
 
 ## Initial Response
 
-This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, and a handoff decision when a phase that has already compacted heads for another compaction.
 
 When invoked, check for arguments:
 
@@ -250,7 +250,7 @@ Give every `wb:test-writer` spawn the task id: it posts its report verbatim as a
 
 **D. Update Progress**
 
-After completing each task:
+After completing each task (and, if the phase has already compacted once and is heading for another, ask the handoff question in Resume Logic before the next task):
 
 1. Close the beads issue:
 
@@ -303,7 +303,7 @@ After implementation, update the "Modified Files" section in tasks.md. Read the 
 
 **⛔ CHECKPOINT: Phase [N] Complete — the next phase builds on what a human has accepted**
 
-Complete these steps IN ORDER before proceeding to next phase:
+Complete these steps IN ORDER before proceeding to next phase. If this phase already compacted, suggest a fresh session for the next phase in the report; the user's go-ahead decides:
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -421,6 +421,8 @@ Document any deviations in the "Implementation Notes" section of tasks.md.
 
 ## Resume Logic
 
+If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?" You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
+
 When resuming work (phase = "continue"):
 
 1. **Check beads state** (source of truth):
@@ -451,7 +453,9 @@ When resuming work (phase = "continue"):
    [test command from tasks.md]
    ```
 
-4. **Continue from next available task**:
+4. **Pick up unfinished tasks**: for each `in_progress` task in this phase, an earlier session left it unfinished and `bd ready` will not offer it, so inspect the landed work before any new task: `git status` and `git diff`, plus the task's comments (`bd comments [task-id] --json`: the `wb:test-writer` reports, `support files:` records, and any `worker report:` or `created files:` an earlier `/wb:implement` run left). Then finish or restart it as the "Worker Failure Playbook" in [implement/reference.md](../implement/reference.md) does for truncated work: keep landed work and a committed `red(AC-n)` test and finish the remainder, and restart only when little landed, from Step 3 with the committed `red(AC-n)` tests kept.
+
+5. **Continue from next available task**:
    - Recover the phase's starting commit (Step 2) for the test review: the parent of the phase's first task or `red(AC-n)` commit in `git log`, or HEAD if the phase has none; the earlier test-writer reports are in the phase tasks' comments
    - `bd ready` shows what's available (no blockers)
    - `bd show [task-id]` to review task details

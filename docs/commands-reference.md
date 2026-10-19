@@ -497,7 +497,7 @@ Creates comprehensive handoff document for session transfer.
 - The next step as the stage command to run
 - Git state and uncommitted changes
 
-**When to use**: session ending with work incomplete, switching models, blocked and needing different expertise, after a significant milestone or discovery — and when a phase has already needed `/compact` once and is heading for another: hand off instead; a second compaction compounds summary drift
+**When to use**: session ending with work incomplete, switching models, blocked and needing different expertise, after a significant milestone or discovery — and when a phase has already needed `/compact` once and is heading for another: the implement stages ask you whether to hand off or compact; a second compaction compounds summary drift
 
 ---
 

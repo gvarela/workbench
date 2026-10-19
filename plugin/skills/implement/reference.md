@@ -256,3 +256,15 @@ An agent that cannot find its task or a criterion it was told to read stops rath
 
    How should I proceed?
    ```
+
+## Handoff Decision (Steps 5 and 8, and Resume)
+
+A phase that has already compacted once and is heading for another compaction is a choice for the user, because the session is theirs and a handoff ends it. Stop at a task or phase boundary, not mid-task, and ask:
+
+```
+This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?
+```
+
+Write the handoff with `/wb:create_handoff` only when the user says so: `resume_handoff` forces a fresh read of the plan documents, while a second compaction compounds summary drift, and the user weighs that against losing this session. If they choose to keep going, continue and re-read the plan documents after the compaction, as Resume Logic says.
+
+At a phase boundary, when the phase already compacted, also suggest a fresh session for the next phase when you present the checkpoint report. The suggestion is advice, and the user's go-ahead decides.

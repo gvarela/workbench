@@ -1,6 +1,6 @@
 ---
 name: create_handoff
-description: Write a handoff document that carries this session's working context — decisions, discoveries, deviations from plan, beads state, next steps — into a new session, model, or agent. Use when ending or pausing a session, switching models or machines, when asked to hand off, checkpoint, or save context, or before compaction on long-running work. Takes the project directory under docs/plans/ and an optional reason.
+description: Write a handoff document that carries this session's working context — decisions, discoveries, deviations from plan, beads state, next steps — into a new session, model, or agent. Use when ending or pausing a session, switching models or machines, when asked to hand off, checkpoint, or save context, or when the user chooses a handoff over another compaction. Takes the project directory under docs/plans/ and an optional reason.
 argument-hint: [project-directory] [handoff-reason]
 allowed-tools: Read
 ---
@@ -229,7 +229,7 @@ Create a handoff when:
 - Blocked and need different expertise
 - Completed significant milestone
 - Made important discoveries
-- The session has already needed `/compact` once this phase and is heading for another — hand off instead; a second compaction compounds summary drift
+- The session has already needed `/compact` once this phase and is heading for another — the implement stages ask the user whether to hand off or compact; a second compaction compounds summary drift
 
 ### Why a Handoff Instead of a Second `/compact`
 

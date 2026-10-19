@@ -11,7 +11,7 @@ allowed-tools: Read
 
 You coordinate task implementation from `tasks.md` by spawning worker agents sequentially, each with focused context and fresh context window. This prevents main session context bloat.
 
-**Recommended for**: Long phases with many tasks, sessions where context compaction would be disruptive, or when you want the main window available for monitoring/debugging. If a phase has already needed one `/compact` and is heading for another, stop and run `/wb:create_handoff` instead — `resume_handoff` forces a fresh doc read, while a second compaction compounds summary drift.
+**Recommended for**: Long phases with many tasks, sessions where context compaction would be disruptive, or when you want the main window available for monitoring/debugging. If a phase has already needed one `/compact` and is heading for another, stop at a task or phase boundary and ask the user whether to write a handoff or keep going; the "Handoff Decision" in [reference.md](reference.md) has the question.
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
@@ -22,7 +22,7 @@ Supporting files in this directory (read each when its step directs you to — n
 
 ## Initial Response
 
-This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, and a decision when a verified failure or a plan defect halts the phase.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, a decision when a verified failure or a plan defect halts the phase, and a handoff decision when a phase that has already compacted heads for another compaction.
 
 When invoked, check for arguments:
 
@@ -176,7 +176,7 @@ bd ready   # tasks with no open dependencies
 
 ### Step 5: Spawn Worker Agents Sequentially
 
-The coordinator is operating autonomously within this task loop. Nobody is watching in real time, so asking "Want me to…?" blocks the work. For reversible actions that follow from the plan, proceed without asking. Before ending a turn, check the last paragraph: if it is a plan, a question, or a promise about work not yet done ("I'll now run…"), do that work now with tool calls. End the turn only when the phase is complete or blocked on something only a human can decide. This does not apply to phase checkpoints, plan-defect halts, the failed re-verification halt, or the missing-context halt — those stop for a human by design.
+The coordinator is operating autonomously within this task loop. Nobody is watching in real time, so asking "Want me to…?" blocks the work. For reversible actions that follow from the plan, proceed without asking. Before ending a turn, check the last paragraph: if it is a plan, a question, or a promise about work not yet done ("I'll now run…"), do that work now with tool calls. End the turn only when the phase is complete or blocked on something only a human can decide. This does not apply to phase checkpoints, plan-defect halts, the failed re-verification halt, the missing-context halt, or the handoff decision — those stop for a human by design.
 
 **For each ready task in the phase**, spawn a focused worker agent:
 
@@ -270,7 +270,7 @@ bd show ${phaseMilestoneId}
 
 **⛔ CHECKPOINT: Phase ${phase} Complete — the next phase builds on what a human has accepted**
 
-Phase verification:
+Phase verification (if this phase already compacted, suggest a fresh session for the next phase in the report; "Handoff Decision" in [reference.md](reference.md)):
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -390,7 +390,7 @@ After phase completion:
 
 ## Resume Logic
 
-If you are resuming after a context compaction: everything you recall about research.md/design.md/tasks.md is paraphrase until re-read — the re-reads below are mandatory, not optional. If this phase has already been compacted once, prefer `/wb:create_handoff` + a fresh session over compacting again.
+If you are resuming after a context compaction: everything you recall about research.md/design.md/tasks.md is paraphrase until re-read — the re-reads below are mandatory, not optional. If this phase has already been compacted once and is heading for another, ask the user before the next task ("Handoff Decision" in [reference.md](reference.md)); you write a handoff only if they say so.
 
 When resuming work (phase = "continue"):
 
@@ -411,9 +411,9 @@ When resuming work (phase = "continue"):
 3. **Check for a halt**: uncommitted changes in `git status` while no task is `in_progress` mean the phase halted, and so does a `halted: missing context` comment on a phase task that is not closed, since that halt can leave a clean tree and the task `in_progress`. Find the halted task by the latest `halted:` comment among the phase's tasks that no commit names, and handle it before any new task. `halted: plan defect` follows the "Plan-Defect Deviation Protocol"; `halted: missing context` follows the "Missing Context Check", from its first step; `halted: re-verification failed` follows the "Failed Re-verification Halt" (all three in [reference.md](reference.md)): on `continue`, re-verify the working tree first (the verifier reads the reports and, on a harness task, the `support files:` records from the task's comments), with the task's starting commit recovered as the parent of its own `red(AC-n)` commits at the tip of `git log`, or HEAD when the tip has none.
 
 4. **Handle incomplete workers**:
-   - If tasks are stuck in `in_progress`, investigate why
+   - A task an earlier session left `in_progress` that item 3 did not find halted is unfinished work: inventory what landed (`git status`, `git diff`) and read its `worker report:` comments, then finish or restart it as the "Worker Failure Playbook" in [reference.md](reference.md) says (starting commit recovered as item 3 says)
    - Review worker outputs for errors
-   - Retry failed tasks with adjusted context
+   - Retry a genuinely failed task (Case B) with adjusted context
 
 5. **Continue coordination**:
    - Extract context package
