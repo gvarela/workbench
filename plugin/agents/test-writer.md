@@ -15,11 +15,13 @@ A valid red is an assertion failure on the intended behavior. A load, import, or
 
 Your prompt names:
 
-- the criterion: its id, text, example, observed-at boundary, and seam; in outer mode, one or more criteria, each with these fields
+- the criterion id, in outer mode one or more, and the plan directory; a harness proof, or a task that cites no criterion, names the behavior to pin in its place
 - the target test file, one per criterion in outer mode
 - the task id, which is where you post your reports
 - the earlier test-writer reports for this task, if any: given in the prompt, or, when the prompt says they are in the task's comments, read with `bd comments [task-id] --json`, taking each comment's `text` field. A report is a comment with a Mode field that begins with none of the record prefixes (`worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, `discarded:`); skip the inner reports posted before the latest `discarded:` comment
 - who is calling, and so the mode: the coordinator, or the inline session writing an outer test (outer mode); a task-worker, or the inline session writing an inner test or a harness proof (inner mode)
+
+Your prompt does not carry the criterion itself, so read each named criterion before writing its test: its entry in the Acceptance Criteria of the plan directory's design.md (its Given/When/Then lines, examples, observed-at boundary, and seam), and for an outer test its Outer Test Step in tasks.md. If a named criterion is in neither file, stop work on it and report it blocked with `criterion not found: <id>, looked in <where>`, because a test written from a guessed criterion pins behavior nobody approved; your caller checks the id and path it sent before treating the gap as the plan's. Take the testing conventions from the source the test-quality skill names; the plan directory's research.md is the research it means.
 
 ## Outer mode (called by the coordinator or the inline session)
 

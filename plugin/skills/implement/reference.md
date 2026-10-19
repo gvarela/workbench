@@ -4,10 +4,14 @@ Specs and playbooks consulted at specific steps. Read the relevant section in fu
 
 ## Context Package Structure (Step 3)
 
-Build exactly this structure from the documentation you've read — only what workers actually need:
+Build exactly this structure from the documentation you've read. It holds what the agents cannot read for themselves: your choices from the plan and the state of this session. Task text and criteria are not in it, because each agent reads its task with `bd show <id> --json` and the cited criteria from the plan directory, so a prompt does not paste them.
 
 ```javascript
 const contextPackage = {
+  // The project directory the skill was given; agents read design.md, tasks.md,
+  // and research.md there
+  planDir: "docs/plans/<date>-<project>/",
+
   // From design.md - the reason behind the phase: what it delivers and who it serves
   why: "<one or two sentences from design.md: what this phase delivers and who it serves>",
 
@@ -21,12 +25,9 @@ const contextPackage = {
     errorHandling: "established patterns"
   },
 
-  // From design.md - relevant to this phase
+  // From design.md - the constraints that bear on this phase's tasks
   design: {
-    phaseGoal: "what this phase achieves",
-    successCriteria: ["criterion 1", "criterion 2"],
-    constraints: ["constraint 1", "constraint 2"],
-    architecturalApproach: "key decisions"
+    constraints: ["constraint 1", "constraint 2"]
   },
 
   // From tasks.md frontmatter
@@ -44,32 +45,27 @@ const contextPackage = {
     coverage: "<coverage command from the conventions, if it names one>"
   },
 
-  // Per task, built when the task is about to run. Workers and the verifier
-  // get tests and criteria from here, so each field says where it came from.
+  // Per task, built when the task is about to run: the commits this session
+  // made, which no plan document records, and the conventions for the red run.
   taskTestContext: {
     // The commit the task begins from (git rev-parse HEAD, recorded before any
     // outer test or worker work); the verifier diffs against it
     startingCommit: "<sha>",
 
-    // One entry per acceptance criterion the task cites (the task's "Serves" line),
-    // from design.md and the phase's Outer Test Steps in tasks.md
+    // One entry per acceptance criterion the task cites (the task's "Serves" line).
+    // The criterion's text, examples, observed-at, and seam stay in design.md,
+    // where each agent reads them
     criteria: [
       {
         id: "AC-n",
-        title: "criterion title",
-        text: "the criterion's Given / When / Then lines, verbatim",
-        example: "the criterion's Example lines, verbatim",
-        observedAt: "the boundary where the criterion is observed",
-        seam: "where the behavior can be exercised",
+        title: "criterion title (for the red commit message)",
+        testFile: "the test file named in its outer test step in tasks.md",
         redCommit: "<sha of the red(AC-n) commit for its outer test>"
       }
     ],
 
-    // No outer test reports here: wb:test-writer posts them as comments on the task
-    // ("Evidence in Beads") and returns only a short block, and the worker tells its
-    // test-writer the task's earlier reports are in those comments
-
-    // From the conventions source above, per boundary a criterion is observed at
+    // From the conventions source above, per boundary a criterion is observed at;
+    // you use them for the red run, and the agents read the same source themselves
     conventions: {
       "<boundary>": {
         command: "how to run tests at this boundary",
@@ -224,10 +220,10 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   - **Failed post**: an agent whose post failed returns the whole report and says what was not posted: a worker or `wb:test-writer` on its `Full report: not posted` line, a verifier on a first `Not posted:` line. Post what it names, in the same heredoc form: the report with the first line it carries, and for a verifier's `test integrity`, its Test Integrity section with `test integrity:` as the first line.
 - **Created files**: the worker posts one comment beginning `created files:` that lists every file created during the task, its own and `wb:test-writer`'s.
 - **Support files**: on a harness task, the worker posts a comment whose first line is `support files:`, followed by each support file it wrote, one repository-relative path per line, in the heredoc form above. A fix worker that writes more posts its own. The declared support files are every path in the task's `support files:` records, and they count as declared on harness tasks only.
-- **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the two halts apart:
+- **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the halts apart:
 
   ```bash
-  bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect"
+  bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect", "halted: missing context"
   ```
 
 - **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports, worker reports, created files, and support files no longer apply`. Readers skip the inner reports, worker reports, created-file lists, and support-file lists posted before it; the outer reports still apply, because the red commits stay.
@@ -238,3 +234,25 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   bd create "Test review: <verdict> <file:line>" --type=task --priority=2 \
     --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"
   ```
+
+## Missing Context Check (Steps 5 and 6, and Resume)
+
+An agent that cannot find its task or a criterion it was told to read stops rather than guessing, and says what it could not find: the verifier returns FAIL with `Cause: missing context (<what>)`, a worker puts a `missing context:` line under Blockers and leaves the task `in_progress`, and `wb:test-writer` returns a block `blocked (criterion not found: <id>, looked in <where>)`. The gap may be in your own prompt rather than in the plan, so check your inputs before anything else. The Plan-Defect Deviation Protocol would file a design revision against a plan that may be fine, and a fix worker cannot repair a wrong id.
+
+1. **Check what you passed**: the task id resolves with `bd show <task-id> --json`; the plan directory is the project directory this skill was given and holds design.md and tasks.md; each criterion id you named is on the task description's Serves line and in the phase's Outer Test Steps in tasks.md.
+2. **Your input was wrong**: correct it and spawn the same agent again from the same prompt template. Nothing the agent did was wrong, so this is not the fix attempt in Step 6 and not a retry of the worker.
+3. **Your input was right and the plan lacks it** (the task does not resolve, or a criterion the task cites is in neither design.md nor tasks.md): halt the phase for a human. Start no further task and commit nothing. If the worker closed the task, reopen it so its dependents stay blocked (`bd update [task-id] --status=open`). Record `halted: missing context` on the task when it exists ("Evidence in Beads"), and present:
+
+   ```
+   ⚠️ Missing Plan Context: Phase Halted
+
+   Task ${taskId}: ${agent} could not find ${what} (looked in ${where})
+   My inputs checked: task id, plan directory ${planDir}, criterion ids against tasks.md
+   Landed changes: ${gitStatusSummary}
+
+   **Options**:
+   1. Add or correct it in the plan or beads, then say "continue". I run the agent that stopped again.
+   2. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
+
+   How should I proceed?
+   ```

@@ -40,12 +40,19 @@ You are a specialist at VERIFYING that tasks were completed correctly. Your job 
 You will receive:
 
 - **Task ID**: The beads issue identifier
-- **Task Description**: What was supposed to be implemented
+- **Plan Directory**: Where the plan's design.md and tasks.md are
 - **Files Changed**: List of modified files
+- **Tests Modified**: the test files the worker's block names
 - **Test Command**: How to run tests for this task
 - **Starting Commit**: The commit the task began from
-- **Red Commits**: The red commit of each outer test the task touches
-- **Criteria**: The acceptance criteria the task cites, with their examples
+- **Red Commits**: The red commit of each outer test the task touches, with its criterion id and outer test file
+
+Your prompt does not carry the task text or the criteria, so read them before any check:
+
+- **Task Description**: what was supposed to be implemented, from `bd show <task-id> --json`, taking the `title` and `description` fields; the plain `bd show` drops backticks and `<...>` spans.
+- **Criteria**: each criterion id the description cites (its Serves line), from the Acceptance Criteria in the plan directory's design.md, with its Given/When/Then lines, examples, observed-at boundary, and seam; the phase's Outer Test Steps in tasks.md name each one's test file.
+
+If `bd show` finds no such task, or a cited criterion is in neither design.md nor tasks.md, stop without running the checks: return FAIL with `Cause: missing context (<what you could not find>)`, and name under Failing findings what you looked for and where. When the task exists, post your report as usual first, with a Test Integrity section that says the checks were not run and why. The gap may be a wrong id or path in your prompt rather than in the plan, so the coordinator checks its own inputs before treating it as a plan defect. A verdict against requirements you rebuilt from the title or from memory would check the wrong thing.
 
 Read the rest from the task's comments, because the worker and `wb:test-writer` post them there and the coordinator does not retype them. Run `bd comments <task-id> --json` and take each comment's `text` field (the plain `bd comments` renders markdown and drops backticks and `<...>` spans). A comment that begins with `worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, or `discarded:` is that record; a test-writer report is a comment with a Mode field that begins with none of them. A `discarded:` comment voids the inner reports, worker reports, and `support files:` records posted before it; the outer reports still apply.
 
@@ -53,7 +60,7 @@ Read the rest from the task's comments, because the worker and `wb:test-writer` 
 - **Test-writer Reports**: the outer reports, then the inner reports in the order posted
 - **Support Files** (harness tasks only): every path in the `support files:` records
 
-A plan written before this contract may supply no criteria, red commits, or test-writer reports. Then skip the checks in Step 5 that need the missing input, and say which ones you skipped in the Test Integrity section. The planted-defect checks in Step 6 still apply to changed tests whenever the task names behavior to protect.
+A plan written before this contract may have tasks that cite no criteria, and no red commits or test-writer reports. Then skip the checks in Step 5 that need the missing input, and say which ones you skipped in the Test Integrity section. The planted-defect checks in Step 6 still apply to changed tests whenever the task names behavior to protect.
 
 ### Step 2: Run Tests
 
@@ -221,7 +228,7 @@ ${issuesList}
 ### Recommendation
 - **PASS**: Proceed to next task
 - **FAIL**: ${failureReason}
-  - Cause: implementation defect | plan defect
+  - Cause: implementation defect | plan defect | missing context (<what>)
   - Suggested fix: ${fixSuggestion}
 ```
 
@@ -259,7 +266,7 @@ Then return only this block, because the coordinator reads the verdict from its 
 - Tests: ${testCommand}, exit ${exitCode}
 - Integrity findings: ${findingCount} (${escalatedCount} escalated)
 - Failing findings: ${file:line - finding}, one per line, or none
-- Cause: implementation defect | plan defect (FAIL only)
+- Cause: implementation defect | plan defect | missing context (<what>) (FAIL only)
 - Suggested fix: ${fixSuggestion} (FAIL only)
 - Full report: the `verification report:` comment on ${taskId}; its Test Integrity section is also the `test integrity:` comment
 ```
@@ -295,7 +302,7 @@ If verification fails, provide:
 2. **Test Output**: Full error messages
 3. **Suggested Fix**: What needs to change
 4. **Severity**: Critical (blocks) vs Minor (can proceed). Integrity and protection findings are always Critical.
-5. **Cause**: an integrity or protection defect is an implementation defect, which the worker gets one attempt to fix. A criterion that is wrong or ambiguous, so that no correct test or code could satisfy it as written, is a plan defect, which the coordinator handles through its plan-defect protocol rather than a retry.
+5. **Cause**: an integrity or protection defect is an implementation defect, which the worker gets one attempt to fix. A criterion that is wrong or ambiguous, so that no correct test or code could satisfy it as written, is a plan defect, which the coordinator handles through its plan-defect protocol rather than a retry. A task or cited criterion you could not find is missing context, not a plan defect, because the coordinator may have passed a wrong id or path (Step 1).
 
 ## Boundaries
 
