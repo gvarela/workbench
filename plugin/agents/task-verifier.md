@@ -1,6 +1,6 @@
 ---
 name: task-verifier
-description: Verifies task completion by running tests, checking scope adherence, and validating implementation against requirements. Returns structured pass/fail report.
+description: Verifies task completion by running tests, checking scope adherence, and validating implementation against requirements. Posts its structured pass/fail report to the task's beads comments and returns a short status block.
 tools: Bash, Read, Grep, Glob
 model: opus
 effort: high
@@ -41,14 +41,17 @@ You will receive:
 
 - **Task ID**: The beads issue identifier
 - **Task Description**: What was supposed to be implemented
-- **Worker Report**: What the worker claims to have done
 - **Files Changed**: List of modified files
 - **Test Command**: How to run tests for this task
 - **Starting Commit**: The commit the task began from
 - **Red Commits**: The red commit of each outer test the task touches
 - **Criteria**: The acceptance criteria the task cites, with their examples
-- **Test-writer Reports**: The `wb:test-writer` reports the worker forwarded, one per run
-- **Support Files** (harness tasks only): the support files the worker declared in its `support files:` records
+
+Read the rest from the task's comments, because the worker and `wb:test-writer` post them there and the coordinator does not retype them. Run `bd comments <task-id> --json` and take each comment's `text` field (the plain `bd comments` renders markdown and drops backticks and `<...>` spans). A comment that begins with `worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, or `discarded:` is that record; a test-writer report is a comment with a Mode field that begins with none of them. A `discarded:` comment voids the inner reports, worker reports, and `support files:` records posted before it; the outer reports still apply.
+
+- **Worker Report**: what the worker claims to have done: every `worker report:` comment, in the order posted, so after a fix the original worker's report comes first and the fix worker's after it
+- **Test-writer Reports**: the outer reports, then the inner reports in the order posted
+- **Support Files** (harness tasks only): every path in the `support files:` records
 
 A plan written before this contract may supply no criteria, red commits, or test-writer reports. Then skip the checks in Step 5 that need the missing input, and say which ones you skipped in the Test Integrity section. The planted-defect checks in Step 6 still apply to changed tests whenever the task names behavior to protect.
 
@@ -110,7 +113,7 @@ Run the integrity script first. It makes the mechanical checks with git, so they
 ```bash
 # The declared list: every file named in the file fields of the test-writer
 # reports, outer and inner, plus on a harness task each path in the
-# Support Files your prompt gives; one repository-relative path per line,
+# Support Files from the task's comments; one repository-relative path per line,
 # kept outside the repository
 declared=$(mktemp) || exit 1; trap 'rm -f "$declared"' EXIT
 printf '%s\n' <report file> <support file> > "$declared"
@@ -172,9 +175,10 @@ For each criterion the task cites, name the smallest realistic regression and th
 
 ## Output Format
 
-Return a structured verification report:
+Write a structured verification report, with `verification report:` as its first line:
 
 ```markdown
+verification report:
 ## Verification Report: ${taskId}
 
 ### Status: PASS | FAIL
@@ -221,7 +225,46 @@ ${issuesList}
   - Suggested fix: ${fixSuggestion}
 ```
 
-The verdict appears once, in the Status line, because the coordinator reads it from there. Keep the Test Integrity and Criterion Check sections free of that status marker text.
+The verdict appears once in the report, in the Status line. Keep the Test Integrity and Criterion Check sections free of that status marker text.
+
+### Posting and returning
+
+Post two comments on the task, each as one Bash call with every line and the closing `WB_REPORT_END` at column 0, since an indented delimiter does not end the heredoc and the rest of the command is silently posted as text. The quoted heredoc keeps backticks and angle brackets intact, and `-f -` does not work for comments.
+
+First the whole report, so a fix worker, a halt, and a resumed session can read it after this session ends:
+
+```bash
+bd comments add <task-id> -f /dev/stdin <<'WB_REPORT_END'
+verification report:
+<the report, after its first line>
+WB_REPORT_END
+```
+
+Then the Test Integrity section alone, with `test integrity:` as its first line, pass or fail, because the phase's test review reads every verifier's section from these comments and a later `discarded:` comment does not void them:
+
+```bash
+bd comments add <task-id> -f /dev/stdin <<'WB_REPORT_END'
+test integrity:
+<the Test Integrity section>
+WB_REPORT_END
+```
+
+Then return only this block, because the coordinator reads the verdict from its Status line and the detail is on the task:
+
+```markdown
+## Verification Report: ${taskId}
+
+### Status: PASS | FAIL
+
+- Tests: ${testCommand}, exit ${exitCode}
+- Integrity findings: ${findingCount} (${escalatedCount} escalated)
+- Failing findings: ${file:line - finding}, one per line, or none
+- Cause: implementation defect | plan defect (FAIL only)
+- Suggested fix: ${fixSuggestion} (FAIL only)
+- Full report: the `verification report:` comment on ${taskId}; its Test Integrity section is also the `test integrity:` comment
+```
+
+The block carries the verdict once, in its Status line. If either post fails, return the whole report in place of the block, with a first line naming each comment that was not posted (`Not posted: verification report`, `Not posted: test integrity`, or both, with the reason), so your caller can post it and the verdict still appears once.
 
 ## Verification Checks
 

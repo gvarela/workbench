@@ -37,7 +37,7 @@ To resume this work:
 1. Read this handoff document
 2. Read tasks.md to see current phase
 3. Check git status for uncommitted changes
-4. Continue from "Next Steps" section below
+4. Run the "Next command" from the Next Steps section below
 ```
 
 ## Current State Summary
@@ -48,7 +48,7 @@ To resume this work:
 
 **Last completed action**: [What was just finished]
 
-**Next immediate task**: [What to do next]
+**Next immediate task**: [What to do next, and the stage command that does it]
 
 ## Work Completed This Session
 
@@ -174,33 +174,38 @@ To resume this work:
 
 ## Next Steps
 
-### Immediate Next Tasks
+### Next command
 
-1. **Complete current task**: [Specific task from tasks.md]
-   - Start at: `file:line`
-   - Implement: [What to add/change]
-   - Verify with: [Test command]
+The stage command the next session's user runs after `/resume_handoff`, with its arguments filled in. Resuming restores context and stops; the stage skill does the work, so the handoff records the command and not coding instructions.
 
-2. **Fix blocker**: [If any]
-   - Try approach: [Specific suggestion]
+```bash
+# e.g. /wb:implement <plan-dir> <phase>, /wb:implement <plan-dir> continue,
+# /wb:validate_execution <plan-dir>, or the next stage's command
+[exact command]
+```
+
+### Context for the next stage
+
+What the stage and its workers should know; these are hints, not steps to run outside the stage.
+
+1. **Current task**: [Specific task from tasks.md]
+   - Where it starts: `file:line`
+   - What it needs: [What to add/change]
+   - Verified by: [Test command]
+
+2. **Blocker**: [If any]
+   - Suggested approach: [Specific suggestion]
    - If that fails: [Alternative]
 
-3. **Continue phase**: Complete remaining [N] tasks in Phase [M]
+3. **Remaining in the phase**: [N] tasks in Phase [M]
 
 ### Recommended Approach
 
 ```bash
-# 1. Resume from handoff
+# 1. In the new session, restore context (it stops and names the command)
 /resume_handoff [this file]
 
-# 2. Check git status
-git status
-
-# 3. Run tests to verify state
-npm test
-
-# 4. Continue with next task
-# [Specific guidance for next task]
+# 2. Run the command it names (the "Next command" above)
 ```
 
 ### Watch Out For

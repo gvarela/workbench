@@ -20,7 +20,7 @@ Handoff documents preserve:
 - Context not captured in formal docs
 - Exact state for seamless resumption
 - Blockers and their solutions
-- Next steps with specific guidance
+- The next step, recorded as the stage command to run (not as instructions to start coding)
 
 ## Initial Response
 
@@ -174,12 +174,12 @@ This handoff captures:
 - Current progress: Phase [N], [X]% complete
 - Critical learnings: [count] discoveries
 - Active blockers: [count] issues
-- Next steps: [count] specific tasks
+- Next command: [the stage command recorded for the next session]
 
 To resume this work in a new session:
 /resume_handoff [full path to handoff file]
 
-The handoff includes all context needed for seamless continuation.
+It restores the context and stops with the next command for you to run.
 ```
 
 ## Important Guidelines
@@ -193,7 +193,7 @@ The handoff includes all context needed for seamless continuation.
 - Problems solved and how
 - Active blockers and attempted solutions
 - Critical discoveries about codebase
-- Next immediate steps
+- Next step as the exact stage command (for example `/wb:implement <plan-dir> <phase>`), because a resumed session stops and hands that command to the user instead of starting the work
 
 **Include When Relevant**:
 

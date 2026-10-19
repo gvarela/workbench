@@ -25,13 +25,17 @@ Current State:
 - Beads: [N] open, [M] in_progress, [X] closed
 - Active phase: [phase-id] or "none"
 
-Ready to continue with:
+Next step from the handoff:
 [Next immediate task from handoff]
 
-Using approach:
+Approach the handoff recommends (context for the next stage):
 [Recommended approach from handoff]
 
-Watching for:
+Watch for:
 - [Gotcha 1 from handoff]
 - [Gotcha 2 from handoff]
+
+Context is restored and nothing has been started. Implementation goes through the stage skill that enforces its discipline, and you decide when to begin. To continue, run:
+
+  [exact command, e.g. /wb:implement <plan-dir> <phase>]
 ```

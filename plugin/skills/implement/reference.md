@@ -66,7 +66,7 @@ const contextPackage = {
     ],
 
     // The outer-mode test-writer reports written for this task, verbatim (empty when
-    // its outer tests came from an earlier task), also posted as comments on the task
+    // its outer tests came from an earlier task), which wb:test-writer also posts as comments on the task
     // ("Evidence in Beads"). The worker passes them on as the task's earlier reports
     outerTestReports: ["<report>"],
 
@@ -116,7 +116,7 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 1. Inventory the landed work (`git status`, `git diff`) first, because partial changes are sitting in the tree unexamined. A committed `red(AC-n)` outer test is expected state, not worker damage: the coordinator commits it before the worker is spawned, so a red outer test after a truncated worker means the implementation is unfinished, not that something broke. Keep that commit and finish the work under it
 2. **Finish the remainder directly yourself**, or re-delegate ONLY the remaining slice as a fresh worker with a smaller prompt that names the exact files still to change
-3. Close the bead once the tail is done, then run verification (Step 6) on the completed whole
+3. Close the bead once the tail is done, post a `worker report:` comment covering the landed work and the remainder, then run verification (Step 6) on the completed whole
 4. **Never retry the whole task**: same task + same context = same budget, truncating at the same point
 
 (The reason truncation is even detectable is the worker contract making `bd close` the final action — a truncated worker surfaces as `in_progress` with partial work instead of looking finished. Keep that contract.)
@@ -199,7 +199,7 @@ When the re-verification after the one fix attempt fails, the failed task's chan
 
 The worker and fix-worker reports live only in the task's comments once the session ends, so every reply below reads them from there ("Evidence in Beads"), never from memory.
 
-- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits, and the test-writer reports and, on a harness task, the `support files:` records from the task's comments; without them every inner-test change and every support file reads as undeclared. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
+- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits. The verifier reads the worker reports, the test-writer reports, and on a harness task the `support files:` records from the task's comments itself; with the comments missing, every inner-test change and every support file reads as undeclared. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
 - **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete with `rm -f` the untracked files that `git status --short` lists and that the task's `created files:` comments name; ask before deleting an untracked file no comment names, since it may be the user's. Post the `discarded:` comment. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
 - **Plan defect**: follow the protocol above; the reopened issue stays open.
 
@@ -215,17 +215,14 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   WB_REPORT_END
   ```
 
-  The heredoc is quoted (`<<'WB_REPORT_END'`) so nothing in the text expands, and the delimiter is distinctive so a line of the text, even a bare `EOF`, cannot end it early. Run the whole heredoc in one Bash call, with every text line and the closing `WB_REPORT_END` starting at column 0: the indentation above belongs to this list, and an indented delimiter does not end the heredoc, so the rest of the command is silently posted as text. The report and test-integrity posts below use the same form. A quoted `--reason "..."` would break on a double quote in the assertion line.
+  The heredoc is quoted (`<<'WB_REPORT_END'`) so nothing in the text expands, and the delimiter is distinctive so a line of the text, even a bare `EOF`, cannot end it early. Run the whole heredoc in one Bash call, with every text line and the closing `WB_REPORT_END` starting at column 0: the indentation above belongs to this list, and an indented delimiter does not end the heredoc, so the rest of the command is silently posted as text. The agents' report posts below use the same form. A quoted `--reason "..."` would break on a double quote in the assertion line.
 
-- **Test-writer reports**: post each report verbatim as a comment on the task it served. You post the outer reports; the worker posts its inner reports. Reports run to many lines and quote backticks and angle brackets, so pipe the report in through the quoted heredoc with `-f /dev/stdin` (`-f -` does not work for comments); this writes no file, so nothing lands in the task's diff:
-
-  ```bash
-  bd comments add [task-id] -f /dev/stdin <<'WB_REPORT_END'
-  <report text>
-  WB_REPORT_END
-  ```
-
-- **Test integrity**: when a verifier report arrives, post its Test Integrity section the same way, with `test integrity:` as the first line, so the Step 8 test review can read every verifier's section after the session ends. Post the re-verification's section too; a later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
+- **Agents post their own reports**: `wb:test-writer`, `task-worker`, and `task-verifier` each post their full report as a comment on the task, in the quoted-heredoc form with `-f /dev/stdin` that their definitions give, and return a short block naming that comment, so a report enters your context at most once. Do not post them again. Read a report from the comments only when you need its detail: for a fix worker, a halt, the Step 8 review, and Resume.
+  - **Test-writer reports**: each `wb:test-writer` run posts its report verbatim, outer and inner, given the task id in its prompt.
+  - **Worker reports**: the worker, and a fix worker, post theirs with `worker report:` as the first line.
+  - **Verification reports**: the verifier posts its report with `verification report:` as the first line, the re-verification's included.
+  - **Test integrity**: the verifier also posts its Test Integrity section, pass or fail, with `test integrity:` as the first line, so the Step 8 test review can read every verifier's section after the session ends. A later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
+  - **Failed post**: an agent whose post failed returns the whole report and says what was not posted: a worker or `wb:test-writer` on its `Full report: not posted` line, a verifier on a first `Not posted:` line. Post what it names, in the same heredoc form: the report with the first line it carries, and for a verifier's `test integrity`, its Test Integrity section with `test integrity:` as the first line.
 - **Created files**: the worker posts one comment beginning `created files:` that lists every file created during the task, its own and `wb:test-writer`'s.
 - **Support files**: on a harness task, the worker posts a comment whose first line is `support files:`, followed by each support file it wrote, one repository-relative path per line, in the heredoc form above. A fix worker that writes more posts its own. The declared support files are every path in the task's `support files:` records, and they count as declared on harness tasks only.
 - **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the two halts apart:
@@ -234,8 +231,8 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect"
   ```
 
-- **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports, created files, and support files no longer apply`. Readers skip the inner reports, created-file lists, and support-file lists posted before it; the outer reports still apply, because the red commits stay.
-- **Reading**: `bd comments [task-id] --json`, taking each comment's `text` field. The plain `bd comments` and `bd show` render the text as markdown and drop backticks and `<...>` spans, which loses parts of a report. A comment that begins with `test integrity:`, `created files:`, `support files:`, `halted:`, or `discarded:` is that record, not a report. A test-writer report is a comment with a Mode field: the outer reports first, then the inner reports in the order posted, skipping the inner reports, `created files:` lists, and `support files:` lists posted before the latest `discarded:` comment.
+- **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports, worker reports, created files, and support files no longer apply`. Readers skip the inner reports, worker reports, created-file lists, and support-file lists posted before it; the outer reports still apply, because the red commits stay.
+- **Reading**: `bd comments [task-id] --json`, taking each comment's `text` field. The plain `bd comments` and `bd show` render the text as markdown and drop backticks and `<...>` spans, which loses parts of a report. A comment that begins with `worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, or `discarded:` is that record, not a test-writer report. A test-writer report is a comment with a Mode field: the outer reports first, then the inner reports in the order posted, skipping the inner reports, worker reports, `created files:` lists, and `support files:` lists posted before the latest `discarded:` comment.
 - **Review findings that outlive the checkpoint**: after the majority settling in Step 8, file each escalated integrity finding and each finding a majority promoted as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did. The `discovered-from` link records where it came from without blocking anything:
 
   ```bash

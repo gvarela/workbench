@@ -32,7 +32,7 @@ Claude Code slash commands for managing project documentation, research, plannin
 /wb:test-audit and /wb:testing-profile sit outside the chain: neither needs a plan.
 
 For multi-session work:
-[Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [Continue work]
+[Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [run the command it names]
 ```
 
 ### Workflow Stages
@@ -494,7 +494,7 @@ Creates comprehensive handoff document for session transfer.
 - Critical learnings not in formal docs
 - Problems solved
 - Active blockers
-- Next steps with specific recommendations
+- The next step as the stage command to run
 - Git state and uncommitted changes
 
 **When to use**: session ending with work incomplete, switching models, blocked and needing different expertise, after a significant milestone or discovery — and when a phase has already needed `/compact` once and is heading for another: hand off instead; a second compaction compounds summary drift
@@ -503,7 +503,7 @@ Creates comprehensive handoff document for session transfer.
 
 ### `/wb:resume_handoff` - Resume from Handoff
 
-Resumes work from a handoff document created in previous session.
+Restores context from a handoff document created in a previous session, then hands the next step to you as a command.
 
 **Usage**:
 
@@ -515,8 +515,8 @@ Resumes work from a handoff document created in previous session.
 
 - Reads handoff and project documentation
 - Restores context and learnings
-- Applies discovered patterns
-- Continues from exact stopping point
+- Verifies git and beads state
+- Stops and names the exact stage command to run next (for example `/wb:implement <plan-dir> <phase>`); it does not start the work, because implementation must go through the stage skill that enforces its discipline
 - Prevents repeating solved problems
 
 ---

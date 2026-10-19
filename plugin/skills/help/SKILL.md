@@ -79,7 +79,7 @@ Run this first, before any topic. It decides which of three cases you are in.
 
 ```
 /wb:create_handoff    → Save context for later
-/wb:resume_handoff    → Restore context and continue
+/wb:resume_handoff    → Restore context, then name the command to run next
 /wb:update_status     → Sync status across all files
 ```
 
@@ -106,7 +106,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint, with the test review's findings (your go-ahead, acknowledging each blocking item by name) | every task in the phase is closed in beads, one commit each (under `implement`, each verified by a task-verifier); each cited criterion's outer test is committed as `red(AC-n)` before its code; the milestone closes only on your go-ahead, with each blocking item acknowledged |
 | `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement and a test review of the tests the plan changed, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
 | `update_status` | — | any backward transition, with a reason | the proposed transitions | frontmatter status, phase, and counts match beads |
-| `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary | the handoff carries decisions, discoveries, and next steps; resume ran the sanity check and `bd ready` shows the next task |
+| `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary, which ends with the command to run next | the handoff carries decisions, discoveries, and the next stage command; resume ran the sanity check, started no work, and `bd ready` shows the next task |
 | `validate_project` | — | which findings to fix | — | every checklist item reported with a fix for each finding |
 | `create_mockup` / mockup-iteration | the feature; keep, remove, and change feedback on each version | the open `UI Q:` questions | each version | `UI Q:` issues resolved before finalization; the mockup log records the decisions |
 | `create_product_research` | the product question, or confirmation of the one derived from the Goal | — | — | research.md in product language answering the question with user-visible behaviors and Intent Coverage |
@@ -259,7 +259,7 @@ Captures context for session transfer. Includes beads state. A phase that has al
 
 ### `/wb:resume_handoff [handoff-file]`
 
-Restores context from handoff. Syncs beads and continues work. A phase that has already needed one `/compact` should hand off rather than compact again.
+Restores context from handoff and checks beads state, then stops and names the stage command to run next (for example `/wb:implement <plan-dir> <phase>`); it does not start the work, because implementation must go through the stage skill that enforces its discipline. A phase that has already needed one `/compact` should hand off rather than compact again.
 
 ## Core Principles
 
