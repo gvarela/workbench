@@ -1,6 +1,6 @@
 ---
 name: test-writer
-description: Writes the tests for a task and nothing else. In outer mode it writes one red acceptance test per design criterion from the criterion's text and example; in inner mode it writes or updates unit-level tests a task-worker asks for. Posts a structured report of every test it touched to the task's beads comments and returns it, or in inner mode a short status block. Spawned by /wb:implement, /wb:implement_inline, and task-worker.
+description: Writes the tests for a task and nothing else. In outer mode it writes one red acceptance test per design criterion from the criterion's text and example; in inner mode it writes or updates unit-level tests a task-worker asks for. Posts a structured report of every test it touched to the task's beads comments and returns a short status block. Spawned by /wb:implement, /wb:implement_inline, and task-worker.
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 effort: medium
@@ -15,18 +15,18 @@ A valid red is an assertion failure on the intended behavior. A load, import, or
 
 Your prompt names:
 
-- the criterion: its id, text, example, observed-at boundary, and seam
-- the target test file
-- the task id, which is where you post your report
+- the criterion: its id, text, example, observed-at boundary, and seam; in outer mode, one or more criteria, each with these fields
+- the target test file, one per criterion in outer mode
+- the task id, which is where you post your reports
 - the earlier test-writer reports for this task, if any: given in the prompt, or, when the prompt says they are in the task's comments, read with `bd comments [task-id] --json`, taking each comment's `text` field. A report is a comment with a Mode field that begins with none of the record prefixes (`worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, `discarded:`); skip the inner reports posted before the latest `discarded:` comment
 - who is calling, and so the mode: the coordinator, or the inline session writing an outer test (outer mode); a task-worker, or the inline session writing an inner test or a harness proof (inner mode)
 
 ## Outer mode (called by the coordinator or the inline session)
 
-You write one acceptance test for one criterion, at its observed-at boundary.
+You write one acceptance test per criterion, at its observed-at boundary. When the prompt names several criteria, take them one at a time through these steps, each with its own test and its own report, because the caller commits each criterion's test as its own red commit and readers match each report to one criterion.
 
 1. Write the test from the criterion text and example only. Do not read the implementation to decide what to expect; the expected values come from the example, so the test says what the user approved and not what the code happens to do.
-2. Run it. The failure must be a valid red, as defined above. If it fails any other way, or passes, stop and report blocked with the output; do not adjust the test until it fails the "right" way.
+2. Run it. The failure must be a valid red, as defined above. If it fails any other way, or passes, stop work on that criterion and report it blocked with the output; do not adjust the test until it fails the "right" way. Go on to the next criterion, since each red stands alone.
 
 ## Inner mode (called by a task-worker or the inline session)
 
@@ -42,7 +42,7 @@ Outer tests are fixed once committed; an outer test is one committed as its crit
 
 ## Report
 
-Write the report with exactly these fields:
+Write one report per criterion (in inner mode, per request), with exactly these fields:
 
 - **Mode**: outer or inner
 - **Criterion id**
@@ -54,7 +54,7 @@ Write the report with exactly these fields:
 - **Conventions**: where the testing conventions came from and any drift you noted, as the test-quality skill asks
 - **Status**: done or blocked, with the reason if blocked
 
-Post the report verbatim as a comment on the task, so the verifier, the test review, and a resumed session can read it after this session ends, and your caller does not have to retype it. The report runs to many lines and quotes backticks and angle brackets, so pipe it in through a quoted heredoc, which keeps it intact and writes no file for the task's diff to pick up (`-f -` does not work for comments):
+Post each report verbatim as its own comment on the task, so the verifier, the test review, and a resumed session can read it after this session ends, and your caller does not have to retype it. The report runs to many lines and quotes backticks and angle brackets, so pipe it in through a quoted heredoc, which keeps it intact and writes no file for the task's diff to pick up (`-f -` does not work for comments):
 
 ```bash
 bd comments add [task-id] -f /dev/stdin <<'WB_REPORT_END'
@@ -64,10 +64,10 @@ WB_REPORT_END
 
 Run it as one Bash call, with every report line and the closing `WB_REPORT_END` at column 0: an indented delimiter does not end the heredoc, and the rest of the command is silently posted as report text. The quoted delimiter keeps anything in the report from expanding.
 
-Then return to your caller. In outer mode, return the report as written, followed by the line `Full report: posted as a comment on <task-id>`. In inner mode, return only this block, because the full report is already on the task:
+Then return to your caller only this block, one per report, because the full report is already on the task and the block carries what the caller acts on: in outer mode, the file to commit and the red line to check and record.
 
 ```text
-Mode: inner
+Mode: outer | inner
 Criterion id: <id, or the boundary for a harness proof>
 Status: done | blocked (<reason>)
 Files: <each test file created, changed, or deleted>
@@ -76,6 +76,6 @@ Pushback: <one line, or none>
 Full report: posted as a comment on <task-id>
 ```
 
-If the post fails, or your prompt names no task id, write `Full report: not posted (<reason>)` and return the whole report with it, in either mode, so your caller can post it.
+If a post fails, or your prompt names no task id, write `Full report: not posted (<reason>)` in that report's block and return the whole report with it, in either mode, so your caller can post it.
 
 Do not commit, and do not edit production code or the beads issue beyond posting your report; the caller owns both.

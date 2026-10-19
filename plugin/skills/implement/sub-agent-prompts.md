@@ -43,28 +43,30 @@ Follow your agent definition: it carries the TDD process, the constraints, and t
 
 ## Outer Test Prompt (Step 5)
 
-Spawn with `subagent_type: "wb:test-writer"` once per criterion the task cites that has no outer test yet, before the worker is spawned. The caller is the coordinator, so `wb:test-writer` works in outer mode.
+Spawn with `subagent_type: "wb:test-writer"` once per task, naming every criterion the task cites that has no outer test yet, before the worker is spawned. One spawn per task rather than per criterion saves the coordinator a spawn and a return per criterion, while each criterion still gets its own report and its own red commit. The caller is the coordinator, so `wb:test-writer` works in outer mode.
 
 ```markdown
-function buildOuterTestPrompt(task, criterion, testFile, taskTestContext, earlierReports) {
-  return `Write the outer acceptance test for one criterion.
+function buildOuterTestPrompt(task, criteria, taskTestContext) {
+  return `Write the outer acceptance test for each criterion below, one test and one report per criterion.
 
 ## Inputs
 
 **Caller**: the coordinator (outer mode)
 **Task ID**: ${task.id}
-**Criterion**: ${criterion.id} - ${criterion.title}
-**Text**: ${criterion.text}
-**Example**: ${criterion.example}
-**Observed at**: ${criterion.observedAt}
-**Seam**: ${criterion.seam}
-**Target test file**: ${testFile}
-**Earlier test-writer reports for this task**: ${earlierReports || "none"}
+**Earlier test-writer reports for this task**: in the task's comments
 
-### Testing Conventions for this boundary
-${formatConventions(taskTestContext.conventions, criterion.observedAt)}
+${criteria.map(c => `### ${c.id} - ${c.title}
+**Text**: ${c.text}
+**Example**: ${c.example}
+**Observed at**: ${c.observedAt}
+**Seam**: ${c.seam}
+**Target test file**: ${c.testFile}
 
-Report as your agent definition specifies, posting the report on task ${task.id}. Do not commit: the coordinator commits the test as red(${criterion.id}) once the report shows an assertion failure.
+Testing conventions for this boundary:
+${formatConventions(taskTestContext.conventions, c.observedAt)}
+`).join("\n")}
+
+Report as your agent definition specifies, posting each report on task ${task.id} and returning one block per criterion. Do not commit: the coordinator commits each test as red(<criterion id>) once its block shows an assertion failure.
 `;
 }
 ```

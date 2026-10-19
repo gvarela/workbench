@@ -65,10 +65,9 @@ const contextPackage = {
       }
     ],
 
-    // The outer-mode test-writer reports written for this task, verbatim (empty when
-    // its outer tests came from an earlier task), which wb:test-writer also posts as comments on the task
-    // ("Evidence in Beads"). The worker passes them on as the task's earlier reports
-    outerTestReports: ["<report>"],
+    // No outer test reports here: wb:test-writer posts them as comments on the task
+    // ("Evidence in Beads") and returns only a short block, and the worker tells its
+    // test-writer the task's earlier reports are in those comments
 
     // From the conventions source above, per boundary a criterion is observed at
     conventions: {
@@ -218,7 +217,7 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   The heredoc is quoted (`<<'WB_REPORT_END'`) so nothing in the text expands, and the delimiter is distinctive so a line of the text, even a bare `EOF`, cannot end it early. Run the whole heredoc in one Bash call, with every text line and the closing `WB_REPORT_END` starting at column 0: the indentation above belongs to this list, and an indented delimiter does not end the heredoc, so the rest of the command is silently posted as text. The agents' report posts below use the same form. A quoted `--reason "..."` would break on a double quote in the assertion line.
 
 - **Agents post their own reports**: `wb:test-writer`, `task-worker`, and `task-verifier` each post their full report as a comment on the task, in the quoted-heredoc form with `-f /dev/stdin` that their definitions give, and return a short block naming that comment, so a report enters your context at most once. Do not post them again. Read a report from the comments only when you need its detail: for a fix worker, a halt, the Step 8 review, and Resume.
-  - **Test-writer reports**: each `wb:test-writer` run posts its report verbatim, outer and inner, given the task id in its prompt.
+  - **Test-writer reports**: each `wb:test-writer` run posts its reports verbatim, outer and inner, given the task id in its prompt: one comment per criterion, so an outer spawn that covers several criteria still leaves one report for each.
   - **Worker reports**: the worker, and a fix worker, post theirs with `worker report:` as the first line.
   - **Verification reports**: the verifier posts its report with `verification report:` as the first line, the re-verification's included.
   - **Test integrity**: the verifier also posts its Test Integrity section, pass or fail, with `test integrity:` as the first line, so the Step 8 test review can read every verifier's section after the session ends. A later `discarded:` comment does not void these, because an integrity finding stays part of the phase's counts.
