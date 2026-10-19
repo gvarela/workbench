@@ -112,7 +112,7 @@ Run the integrity script first. It makes the mechanical checks with git, so they
 # reports, outer and inner, plus on a harness task each path in the
 # Support Files your prompt gives; one repository-relative path per line,
 # kept outside the repository
-declared=$(mktemp) || exit 1
+declared=$(mktemp) || exit 1; trap 'rm -f "$declared"' EXIT
 printf '%s\n' <report file> <support file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
   --red <red commit>:<outer test file> --declared "$declared" \
@@ -144,6 +144,8 @@ Then read the test hunks of the diff as you do in Step 3, for what only judgment
 ### Step 6: Criterion Protection
 
 A passing test shows only that it runs. A planted defect shows that it protects the criterion. For each changed or added test that guards a cited criterion (the test-writer report names the criterion, or the test exercises it), plant one defect in a disposable copy. Never touch the working tree: the coordinator commits it as it stands once you pass.
+
+Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 
 Bash calls do not share shell variables, so run each planted defect as a single Bash call. The `trap` removes the copy even when a step fails or the call is interrupted:
 

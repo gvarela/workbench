@@ -39,7 +39,9 @@ Review `<starting commit>..HEAD`. List the changed test files with `git diff --n
 
 Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector or diff that shows an item 1 to 3 failure, or a planted defect the test survives, as the skill's Part 3 and Part 4 name them) has its verdict and is reported under Blocking, not Findings or "Review these" (see Blocking). For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds the observations that reach no verdict: judgment-only ones, and pattern hits, including detector hits, that no planted defect or counterexample confirms.
 
-For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed. Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
+For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed.
+
+Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md). Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
 
 ```bash
 top=$(git rev-parse --show-toplevel) || exit 1
@@ -77,7 +79,7 @@ In implement mode a verifier checked each task's test integrity; report the coun
 # The declared list: every file named in the file fields of the test-writer
 # reports, plus the support files harness tasks declared; one
 # repository-relative path per line, kept outside the repository
-declared=$(mktemp) || exit 1
+declared=$(mktemp) || exit 1; trap 'rm -f "$declared"' EXIT
 printf '%s\n' <report file> <support file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
   --red <red commit>:<outer test file> --declared "$declared" \
