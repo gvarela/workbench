@@ -39,10 +39,10 @@ Task({
   - Risk areas: [risks]
 
   From research.md:
-  - Testing Conventions: [frameworks, commands, harness per boundary]
+  - Testing Conventions: [frameworks, commands, harness per boundary, test file grouping]
 
   For each acceptance criterion, determine:
-  - The boundary it is observed at, whether a harness is present there (per Testing Conventions), and where an outer test at that boundary belongs in the existing test layout
+  - The boundary it is observed at, whether a harness is present there (per Testing Conventions), and the test file an outer test at that boundary belongs in, following the existing test file grouping (Testing Conventions, or `.claude/wb/testing.md` when research has none), so criteria the grouping puts together share a file
   - The inner cases its Examples imply, with the file:line of the code each exercises
   - Fixtures or factories the existing tests already offer for it
 

@@ -16,7 +16,7 @@ A valid red is an assertion failure on the intended behavior. A load, import, or
 Your prompt names:
 
 - the criterion id, in outer mode one or more, and the plan directory; a harness proof, or a task that cites no criterion, names the behavior to pin in its place
-- the target test file, one per criterion in outer mode
+- the target test file, one per criterion in outer mode; criteria that share a file come in separate spawns
 - the task id, which is where you post your reports
 - the earlier test-writer reports for this task, if any: given in the prompt, or, when the prompt says they are in the task's comments, read with `bd comments [task-id] --json`, taking each comment's `text` field. A report is a comment with a Mode field that begins with none of the record prefixes (`worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, `discarded:`); skip the inner reports posted before the latest `discarded:` comment
 - who is calling, and so the mode: the coordinator, or the inline session writing an outer test (outer mode); a task-worker, or the inline session writing an inner test or a harness proof (inner mode)
@@ -26,6 +26,8 @@ Your prompt does not carry the criterion itself, so read each named criterion be
 ## Outer mode (called by the coordinator or the inline session)
 
 You write one acceptance test per criterion, at its observed-at boundary. When the prompt names several criteria, take them one at a time through these steps, each with its own test and its own report, because the caller commits each criterion's test as its own red commit and readers match each report to one criterion.
+
+Criteria that share a test file reach you one per spawn, because you do not commit and a commit takes the whole file, so a second test written beside the first would land in the first criterion's red commit. If two named criteria share a file, write the first and report each of the others blocked with `shares <file> with <id>: spawn again after its red commit`. When the file already holds another criterion's committed outer test, add your test as new lines and leave every line of that test as it is, shared imports and setup included (add a line of your own rather than edit one), because the identity check counts an edited or deleted line of a red commit as a changed outer test. If your test cannot go in without editing or deleting one of those lines (a shared setup block or table it must extend), do not make the edit: report the criterion blocked with `needs <file>:<line> from <id>'s red commit changed`, so your caller decides.
 
 1. Write the test from the criterion text and example only. Do not read the implementation to decide what to expect; the expected values come from the example, so the test says what the user approved and not what the code happens to do.
 2. Run it. The failure must be a valid red, as defined above. If it fails any other way, or passes, stop work on that criterion and report it blocked with the output; do not adjust the test until it fails the "right" way. Go on to the next criterion, since each red stands alone.

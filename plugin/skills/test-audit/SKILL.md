@@ -44,7 +44,7 @@ Take the stack and conventions from the first of these that exists, as the test-
 
 1. The plan's research.md Testing Conventions section, when the scope is a plan directory.
 2. `.claude/wb/testing.md` in the audited repository.
-3. Detection. Read the dependency manifests and lockfiles, the test runner and linter configuration, the test helpers (for example `spec/rails_helper.rb` or `tests/conftest.py`), and a sample of tests. Fill in the same fields research's Testing Conventions has: frameworks and versions, fast and full commands, levels and the harness per boundary, fixtures or factories, seams and mocking patterns, skip markers, installed test-quality linters and profilers with what each enables, any mutation tool, and the services the suite needs.
+3. Detection. Read the dependency manifests and lockfiles, the test runner and linter configuration, the test helpers (for example `spec/rails_helper.rb` or `tests/conftest.py`), and a sample of tests. Fill in the same fields research's Testing Conventions has: frameworks and versions, fast and full commands, test file grouping, levels and the harness per boundary, fixtures or factories, seams and mocking patterns, skip markers, installed test-quality linters and profilers with what each enables, any mutation tool, and the services the suite needs.
 
 The report states which source was used. When it was detection, the report lists what was inferred and from which files, so a reader can correct it.
 

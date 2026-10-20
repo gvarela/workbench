@@ -114,7 +114,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
   - Proof that the harness can fail: a smoke test on existing behavior, shown failing on a deliberately wrong expectation, then restored
 
 #### Outer Test Steps
-(One per acceptance criterion in this phase, except a criterion under a "manual" decision, which goes under Manual Verification instead. A "lower proxy" criterion is observed at the proxy design names. The coordinator runs each through `wb:test-writer` and commits the failing test as `red(AC-n): [criterion title]`.)
+(One per acceptance criterion in this phase, except a criterion under a "manual" decision, which goes under Manual Verification instead. A "lower proxy" criterion is observed at the proxy design names. The coordinator runs each through `wb:test-writer` and commits the failing test as `red(AC-n): [criterion title]`. Each test file follows the project's existing test file grouping, from research's Testing Conventions, or `.claude/wb/testing.md` when research has none, so criteria the grouping puts together share a file rather than getting a file each; the implement skills write and commit those one at a time.)
 - AC-[n]: [criterion title], observed at [boundary] → `[beads:phase1_outer_1]`
   - Examples: [the criterion's Example lines]
   - Test file: `[path/to/outer/test]`

@@ -133,7 +133,7 @@ rm -f "$declared"
 - **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. With no reports and no declared support files, leave out `--declared` and the two lines that build the list; `undeclared_changes` is then null.
 - **The JSON is deterministic evidence**: cite each item by the path, and the line where it gives one, and label it as coming from the script.
   - `changed_tests`: every test file changed since the starting commit, whether committed, staged, unstaged, or untracked (`tracked: false`).
-  - `outer_tests`: `identical: false` is an integrity finding, whatever the reason given. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts. `identical: null` means the check could not be made, and `errors` says why.
+  - `outer_tests`: `identical: false` is an integrity finding, whatever the reason given. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts. `identical: null` means the check could not be made, and `errors` says why. For each outer test file, list the `red(...)` commits that touched it (`git log --format='%h %s' -- <outer test file>`); when there is more than one, pass one `--red` for each of them with the same path, including criteria outside this task, since a later one in `file` mode would read as a change: the entry's `mode` is then `lines`, which checks only the lines that criterion's red commit added, so another criterion's test added later in the same file is not a change, and `changed_lines > 0` is the changed-outer-test finding (`mode` `file` compares the whole file; "Outer-test modes" in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` defines both).
   - `undeclared_changes`: a changed test file that no report names, however it was changed (an editor, `sed`, a script).
   - `added_skip_markers`: lines added since the starting commit that match a skip or focus pattern. The patterns are generic, so read each hit. A marker on a test is a finding; a match in prose or in a name is cleared with that evidence.
   - `deleted_tests`: deleted test files, and removed test-definition lines with their line in the starting commit.
@@ -144,7 +144,7 @@ rm -f "$declared"
 A usage message with exit status 2 means the command was malformed: fix it and run it again. If the script is not found, or still prints no JSON, make the checks by hand, and say in the Test Integrity section that the script did not run and why:
 
 ```bash
-git diff <red commit> -- <outer test file>   # no output means identical
+git diff <red commit> -- <outer test file>   # no output means identical; in a shared file, check instead that each line `git show <red commit> -- <outer test file>` added still blames to that commit in `git blame -- <outer test file>`
 git diff <starting commit> --stat
 git status --short   # new untracked test files do not appear in git diff
 ```
@@ -213,7 +213,7 @@ ${testOutput}
 ### Test Integrity
 Findings: ${findingCount} (${escalatedCount} escalated)
 - Integrity script: ran, with its errors if any (or: did not run, ${reason}; checks made by hand)
-- Outer tests: `tests/acceptance/x.test.ts` identical to its red commit ${redSha} (or: differs at file:line; or: not checked, no red commits supplied)
+- Outer tests: `tests/acceptance/x.test.ts` identical to its red commit ${redSha}, whole file or, in a shared file, its red lines (or: differs at file:line; or: not checked, no red commits supplied)
 - Report coverage: every test change matches a test-writer report or, on a harness task, a declared support file that holds no test case (or: undeclared change at file:line; or: support file with a test case, or declared on a non-harness task, at file:line; or: not checked, no reports supplied)
 - `tests/feature.test.ts:42` - ${finding}; escalated: yes, or no with the evidence that cleared it
 - `tests/old.test.ts:17` (in ${startSha}) - deleted test; escalated: yes

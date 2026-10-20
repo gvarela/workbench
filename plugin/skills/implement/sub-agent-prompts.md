@@ -41,7 +41,7 @@ Follow your agent definition: it carries the TDD process, the constraints, and t
 
 ## Outer Test Prompt (Step 5)
 
-Spawn with `subagent_type: "wb:test-writer"` once per task, naming every criterion the task cites that has no outer test yet, before the worker is spawned. One spawn per task rather than per criterion saves the coordinator a spawn and a return per criterion, while each criterion still gets its own report and its own red commit. The caller is the coordinator, so `wb:test-writer` works in outer mode.
+Spawn with `subagent_type: "wb:test-writer"` once per task, naming every criterion the task cites that has no outer test yet, before the worker is spawned. One spawn per task rather than per criterion saves the coordinator a spawn and a return per criterion, while each criterion still gets its own report and its own red commit. The exception is criteria that share a target test file: name at most one of them per spawn and spawn again after its red commit, because `wb:test-writer` does not commit and a commit takes the whole file, so a second test written beside the first would land in the first criterion's red commit. The caller is the coordinator, so `wb:test-writer` works in outer mode.
 
 ```markdown
 function buildOuterTestPrompt(task, criteria, planDir) {

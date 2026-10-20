@@ -89,6 +89,7 @@ Facts about how tests are written and run here; the test-writer, verifier, and t
 
 - **Frameworks and versions**: [test framework(s), assertion/mocking libraries, versions]
 - **Commands**: fast: `[command]`; full: `[command]`
+- **Test file grouping**: [how tests are split into files (for example one file per class, module, endpoint, or feature) and where acceptance-level tests live, with an example path]
 - **Levels and harness per boundary**: [levels present (unit, integration, system, end-to-end) and, for each boundary the code crosses (database, HTTP, queue, UI), the harness that exists]
 - **Fixtures vs factories**: [which are used, where defined]
 - **Seams and mocking patterns**: [how collaborators are replaced or stubbed, with examples]

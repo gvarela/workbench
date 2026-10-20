@@ -15,7 +15,7 @@ State the repository and whether `.claude/wb/testing.md` already exists, then st
 
 ## Step 1: Detect the stack
 
-Read the dependency manifests and lockfiles, the test runner and linter configuration, the test helpers, and a sample of tests. Fill in the same fields as research's Testing Conventions ([../create_research/templates.md](../create_research/templates.md)): frameworks and versions, fast and full commands, levels and the harness per boundary, fixtures or factories, seams and mocking patterns, skip markers, installed test-quality linters and profilers with what each enables, any mutation tool, and the services the suite needs.
+Read the dependency manifests and lockfiles, the test runner and linter configuration, the test helpers, and a sample of tests. Fill in the same fields as research's Testing Conventions ([../create_research/templates.md](../create_research/templates.md)): frameworks and versions, fast and full commands, test file grouping (how tests are split into files and where acceptance-level tests live), levels and the harness per boundary, fixtures or factories, seams and mocking patterns, skip markers, installed test-quality linters and profilers with what each enables, any mutation tool, and the services the suite needs.
 
 Use only what is installed and install nothing, because the profile describes the team's stack as it is. Change nothing else in the repository.
 

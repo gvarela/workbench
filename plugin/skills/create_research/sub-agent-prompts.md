@@ -57,7 +57,7 @@ Task({
   - Naming conventions for [component type]
   - Common patterns for [functionality]
   - Testing approaches for [feature type]
-  - Testing conventions: frameworks, assertion and mocking libraries, and versions; fast and full test commands; levels present and the harness per boundary; fixtures vs factories; seam and mocking patterns; skip markers; installed test-quality linters and profilers and what they enable; any installed mutation tool; services the suite needs (for example Postgres or Redis); whether .claude/wb/testing.md exists and, if it does, where it and the code differ
+  - Testing conventions: frameworks, assertion and mocking libraries, and versions; fast and full test commands; how tests are grouped into files and where acceptance-level tests live; levels present and the harness per boundary; fixtures vs factories; seam and mocking patterns; skip markers; installed test-quality linters and profilers and what they enable; any installed mutation tool; services the suite needs (for example Postgres or Redis); whether .claude/wb/testing.md exists and, if it does, where it and the code differ
 
   DO NOT write any files. Return your findings as a report.`,
   subagent_type: "wb:pattern-finder",

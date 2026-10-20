@@ -189,6 +189,88 @@ check "$OUT_RACY" '[o for o in d["outer_tests"] if o["path"]=="tests/test_r.py" 
 check "$OUT_RACY" '[c for c in d["changed_tests"] if c["path"]=="tests/test_r.py"]' \
     "a same-second, same-size edit of a test file is listed as changed"
 
+# ------------------------------------------------- shared outer test file
+# Two criteria whose outer tests share one file, committed one at a time:
+# each red commit adds only its own test, so each is checked line by line.
+SHARED="$TMP_ROOT/shared"
+mkdir -p "$SHARED/spec" "$SHARED/src" && cd "$SHARED" || exit 1
+git init -q .
+printf 'describe "s" do\nend\n' > spec/shared_spec.rb
+printf 'x\n' > src/x.rb
+git add -A && git commit -q -m start
+START_SH="$(git rev-parse HEAD)"
+printf 'describe "s" do\n  it "ac1" do\n    expect(1).to eq(1)\n  end\nend\n' > spec/shared_spec.rb
+printf 'describe "solo" do\nend\n' > spec/solo_spec.rb
+git add -A && git commit -q -m 'red(AC-1)'
+RED1="$(git rev-parse HEAD)"
+printf 'describe "s" do\n  it "ac1" do\n    expect(1).to eq(1)\n  end\n  it "ac2" do\n    expect(2).to eq(2)\n  end\nend\n' > spec/shared_spec.rb
+git add -A && git commit -q -m 'red(AC-2)'
+RED2="$(git rev-parse HEAD)"
+printf 'y\n' > src/x.rb
+git add -A && git commit -q -m 'green'
+GREEN_SH="$(git rev-parse HEAD)"
+
+shared_run() { run --start "$START_SH" --red "$RED1:spec/shared_spec.rb" --red "$RED2:spec/shared_spec.rb" --red "$RED1:spec/solo_spec.rb" "$@"; }
+ac() { printf 'd["outer_tests"][%s]' "$1"; }
+
+sleep 1
+touch spec/shared_spec.rb spec/solo_spec.rb
+INDEX_BEFORE_SH="$(mtime .git/index)"
+OUT_SH="$(shared_run)"
+INDEX_AFTER_SH="$(mtime .git/index)"
+check "$OUT_SH" 'd["errors"] == []' "shared file: no errors"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is True and $(ac 0)[\"mode\"]==\"lines\" and $(ac 0)[\"changed_lines\"]==0" \
+    "shared file, untouched: AC-1 identical by lines"
+check "$OUT_SH" "$(ac 1)[\"identical\"] is True and $(ac 1)[\"mode\"]==\"lines\"" \
+    "shared file, untouched: AC-2 identical by lines"
+check "$OUT_SH" "$(ac 2)[\"identical\"] is True and $(ac 2)[\"mode\"]==\"file\" and $(ac 2)[\"path\"]==\"spec/solo_spec.rb\"" \
+    "unshared file, unchanged: identical by whole file"
+[ "$INDEX_BEFORE_SH" = "$INDEX_AFTER_SH" ] && ok "shared file: .git/index mtime unchanged by the script" || fail "shared file: .git/index mtime unchanged by the script"
+
+# A later test appended to the file (committed, then also uncommitted).
+printf 'describe "s" do\n  it "ac1" do\n    expect(1).to eq(1)\n  end\n  it "ac2" do\n    expect(2).to eq(2)\n  end\n  it "later" do\n  end\nend\n' > spec/shared_spec.rb
+git add -A && git commit -q -m 'later test'
+printf '# trailing note\n' >> spec/shared_spec.rb
+OUT_SH="$(shared_run)"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is True and $(ac 1)[\"identical\"] is True" \
+    "shared file, unrelated test appended later: both identical"
+
+# An uncommitted edit to one of AC-1's lines.
+git checkout -q -- spec/shared_spec.rb
+sed 's/eq(1)/eq(9)/' spec/shared_spec.rb > spec/s.tmp && mv spec/s.tmp spec/shared_spec.rb
+OUT_SH="$(shared_run)"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is False and $(ac 0)[\"changed_lines\"]==1 and $(ac 0)[\"diff_stat\"]" \
+    "shared file, AC-1 line edited: AC-1 not identical, one changed line"
+check "$OUT_SH" "$(ac 1)[\"identical\"] is True" \
+    "shared file, AC-1 line edited: AC-2 still identical"
+
+# AC-1's test deleted.
+git checkout -q -- spec/shared_spec.rb
+printf 'describe "s" do\n  it "ac2" do\n    expect(2).to eq(2)\n  end\n  it "later" do\n  end\nend\n' > spec/shared_spec.rb
+OUT_SH="$(shared_run)"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is False and $(ac 0)[\"changed_lines\"]==3" \
+    "shared file, AC-1 test deleted: AC-1 not identical"
+check "$OUT_SH" "$(ac 1)[\"identical\"] is True" \
+    "shared file, AC-1 test deleted: AC-2 still identical"
+git checkout -q -- spec/shared_spec.rb
+
+# A red commit that does not touch the shared path, and a root red commit.
+OUT_SH="$(run --start "$START_SH" --red "$RED1:spec/shared_spec.rb" --red "$GREEN_SH:spec/shared_spec.rb")"
+check "$OUT_SH" "$(ac 1)[\"identical\"] is None and $(ac 1)[\"mode\"]==\"lines\" and [e for e in d[\"errors\"] if \"does not change\" in e]" \
+    "shared file, red commit does not touch the path: error and null"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is True" \
+    "shared file, the other criterion is still checked"
+OUT_SH="$(run --start "$START_SH" --red "$START_SH:spec/shared_spec.rb" --red "$RED1:spec/shared_spec.rb")"
+check "$OUT_SH" "$(ac 0)[\"identical\"] is None and [e for e in d[\"errors\"] if \"no parent\" in e]" \
+    "shared file, root red commit: error and null"
+# The same shared file spelled two ways is still one shared file.
+OUT_SH="$(run --start "$START_SH" --red "$RED1:./spec/shared_spec.rb" --red "$RED2:spec//shared_spec.rb")"
+check "$OUT_SH" 'd["errors"] == [] and all(o["mode"]=="lines" and o["identical"] is True and o["path"]=="spec/shared_spec.rb" for o in d["outer_tests"])' \
+    "shared file named with ./ and //: one path, lines mode, both identical"
+
+check "$OUT" '[o for o in d["outer_tests"] if o["path"]=="spec/outer_spec.rb" and o["mode"]=="file" and o["changed_lines"] is None]' \
+    "unshared outer test reports mode file"
+
 echo
 echo "bash $BASH_VERSION: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

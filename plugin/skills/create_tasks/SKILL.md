@@ -80,7 +80,7 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 1. **Read research.md completely**:
    - Current implementation details
-   - File locations and patterns
+   - File locations and patterns, and the Testing Conventions, whose test file grouping sets each outer test's file
    - Constraints to respect
    - Knowledge gaps identified
 
@@ -270,7 +270,7 @@ Verify with agent findings:
 3. **Knowledge gaps** from research.md are handled
 4. **Risk mitigations** from design.md are incorporated
 5. **Every task is specific and executable**
-6. **Every acceptance criterion has an outer-test step** (one under a "manual" decision has a Manual Verification line instead), and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task
+6. **Every acceptance criterion has an outer-test step** (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task
 7. **Dependencies** follow agent-identified order
 
 ### Step 7: Present the Plan

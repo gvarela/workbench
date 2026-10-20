@@ -3,8 +3,10 @@
 # test-integrity: deterministic test-integrity evidence since a starting commit.
 #
 # Reports, as JSON on stdout, the test files changed since --start (committed,
-# staged, unstaged, and untracked), whether each outer test is byte-identical
-# to its red commit, skip or focus markers added since --start, deleted test
+# staged, unstaged, and untracked), whether each outer test is unchanged since
+# its red commit (the whole file byte for byte; or, when several --red name
+# the same file, every line that red commit added, still present and still
+# blamed on it), skip or focus markers added since --start, deleted test
 # files and removed test definitions, and changed test files missing from a
 # declared list. It decides nothing: the caller interprets the result.
 #
@@ -188,6 +190,27 @@ case "$DECLARED" in
 esac
 cd "$TOP" || exit 2
 
+# norm_path <path>: one spelling per file, so --red arguments that name the
+# same file match: "./spec/a.rb", "spec//a.rb", and "spec/./a.rb" all become
+# "spec/a.rb". Sets NORM.
+norm_path() {
+    NORM="$1"
+    while :; do
+        case "$NORM" in
+            ./*)   NORM="${NORM#./}" ;;
+            *//*)  NORM="${NORM%%//*}/${NORM#*//}" ;;
+            */./*) NORM="${NORM%%/./*}/${NORM#*/./}" ;;
+            *)     return ;;
+        esac
+    done
+}
+NORM_REDS=()
+for spec in ${REDS[@]+"${REDS[@]}"}; do
+    norm_path "${spec#*:}"
+    NORM_REDS[${#NORM_REDS[@]}]="${spec%%:*}:$NORM"
+done
+REDS=(${NORM_REDS[@]+"${NORM_REDS[@]}"})
+
 # Diffing a commit against the work tree rewrites the index when a file is
 # stat-dirty, even with optional locks off. Work on a throwaway copy so the
 # repository's index is never written.
@@ -297,29 +320,85 @@ if [ -n "$START_SHA" ]; then
 fi
 
 # ---------------------------------------------------------------- outer tests
+# reds_naming <path>: how many --red arguments name this path.
+reds_naming() {
+    local n=0 s
+    for s in "${REDS[@]}"; do
+        [ "${s#*:}" = "$1" ] && n=$((n + 1))
+    done
+    echo "$n"
+}
+
+# blamed_to <sha> [<rev>] -- <path>: the line numbers, in <sha>'s version of
+# the file, of the lines that git blame attributes to <sha> in <rev> (the work
+# tree, uncommitted changes included, when <rev> is omitted).
+blamed_to() {
+    local sha="$1"
+    shift
+    g blame --porcelain "$@" 2>/dev/null |
+        awk -v sha="$sha" '!/^\t/ && $1 == sha && NF >= 3 && $2 ~ /^[0-9]+$/ { printf "%s ", $2 }'
+}
+
+# outer_entry <path> <red json> <mode> <identical> <diff_stat json> <changed_lines json>
+outer_entry() {
+    append OUTER "{\"path\":$(json_str "$1"),\"red\":$2,\"mode\":\"$3\",\"identical\":$4,\"diff_stat\":$5,\"changed_lines\":$6}"
+}
+
 for spec in ${REDS[@]+"${REDS[@]}"}; do
     red="${spec%%:*}"
     path="${spec#*:}"
+    mode=file
+    [ "$(reds_naming "$path")" -gt 1 ] && mode=lines
     red_sha="$(g rev-parse --verify --quiet "$red^{commit}")"
     if [ -z "$red_sha" ]; then
         add_error "red commit not found: $red"
-        append OUTER "{\"path\":$(json_str "$path"),\"red\":$(json_str "$red"),\"identical\":null,\"diff_stat\":null}"
+        outer_entry "$path" "$(json_str "$red")" $mode null null null
         continue
     fi
     if ! g cat-file -e "$red_sha:$path" 2>/dev/null; then
         add_error "outer test not in its red commit: $path at $red"
-        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":null,\"diff_stat\":null}"
+        outer_entry "$path" "\"$red_sha\"" $mode null null null
         continue
     fi
-    if [ -f "$path" ] && g cat-file blob "$red_sha:$path" | cmp -s - "$path"; then
-        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":true,\"diff_stat\":null}"
+    if [ $mode = lines ]; then
+        # Shared file: every line the red commit added must still be in the
+        # work tree and still be blamed on that commit.
+        if ! g rev-parse --verify --quiet "$red_sha^1^{commit}" >/dev/null; then
+            add_error "red commit has no parent, so its added lines are unknown: $red"
+            outer_entry "$path" "\"$red_sha\"" $mode null null null
+            continue
+        fi
+        if gdiff --quiet "$red_sha^1" "$red_sha" -- "$path"; then
+            add_error "red commit does not change its outer test: $path at $red"
+            outer_entry "$path" "\"$red_sha\"" $mode null null null
+            continue
+        fi
+        added="$(blamed_to "$red_sha" "$red_sha" -- "$path")"
+        surviving=""
+        [ -f "$path" ] && surviving="$(blamed_to "$red_sha" -- "$path")"
+        changed=0
+        if [ -n "$added" ]; then
+            changed="$(printf '%s\n' $added | awk -v keep="$surviving" '
+                BEGIN { n = split(keep, k, " "); for (i = 1; i <= n; i++) s[k[i]] = 1 }
+                !($1 in s) { c++ }
+                END { print c + 0 }')"
+        fi
+        identical=true
+        [ "$changed" -gt 0 ] && identical=false
+    else
+        identical=false
+        [ -f "$path" ] && g cat-file blob "$red_sha:$path" | cmp -s - "$path" && identical=true
+        changed=null
+    fi
+    if [ $identical = true ]; then
+        outer_entry "$path" "\"$red_sha\"" $mode true null "$changed"
     else
         if [ -f "$path" ]; then
             stat="$(gdiff --numstat "$red_sha" -- "$path" | awk '{ a += $1; d += $2 } END { printf "+%d -%d", a, d }')"
         else
             stat="deleted"
         fi
-        append OUTER "{\"path\":$(json_str "$path"),\"red\":\"$red_sha\",\"identical\":false,\"diff_stat\":$(json_str "$stat")}"
+        outer_entry "$path" "\"$red_sha\"" $mode false "$(json_str "$stat")" "$changed"
     fi
 done
 
