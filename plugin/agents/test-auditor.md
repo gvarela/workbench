@@ -70,7 +70,7 @@ These are proposals. No file in the repository was created, edited, or deleted.
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
   - **Objective evidence**: ${evidence} or "judgment-only, not actionable" (Remove or Consolidate)
   - **Proof**: ${the proof the skill's Part 3 names for this verdict} (Remove or Rewrite)
-  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite, as the skill's Part 3 describes)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, keeping everything the replaced assertion catches and adding the missing case} (Rewrite, as the skill's Part 3 describes)
 
 ### Majority Candidates
 Judgment-only Remove or Rewrite verdicts from this one auditor. The caller settles each by majority of three before it becomes a finding.
@@ -80,7 +80,7 @@ Judgment-only Remove or Rewrite verdicts from this one auditor. The caller settl
   - **Location**: `tests/feature.test.ts:48` - `${quotedExcerpt}`
   - **Proof**: ${your proof, of a kind the skill's Part 3 names, written out as its Part 4 requires}
   - **Reason**: ${reason, matching the proposed verdict}
-  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, keeping everything the replaced assertion catches and adding the missing case} (Rewrite, as the skill's Part 3 describes)
 
 ### Review These
 Observations that reach no verdict, each with exactly one evidence label; a proven failure is a Finding above.

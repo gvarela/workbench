@@ -74,7 +74,7 @@ Please perform the following manual checks from design.md:
 2. [Manual verification item 2]
 3. [Manual verification item 3]
 
-Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
 
 ```
 

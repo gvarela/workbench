@@ -60,7 +60,7 @@ const contextPackage = {
         id: "AC-n",
         title: "criterion title (for the red commit message)",
         testFile: "the test file named in its outer test step in tasks.md",
-        redCommit: "<sha of the red(AC-n) commit for its outer test>"
+        redCommit: "<sha of the latest red(AC-n) commit for its outer test; a sanctioned rewrite's replaces the original>"
       }
     ],
 
@@ -234,6 +234,21 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   bd create "Test review: <verdict> <file:line>" --type=task --priority=2 \
     --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"
   ```
+
+## Sanctioned Outer-Test Rewrite (Step 8)
+
+A phase test review can find an outer test too weak and propose a Rewrite. The outer test is the approved statement of its criterion, so it changes only when the person sanctions that Rewrite at the checkpoint, in a reply that names it (its file:line or its review issue); a general go-ahead sanctions nothing.
+
+- **Filing**: only you file it, and only after that reply, because the description line below is what lets a test change. Use the `discovered-from` form in "Evidence in Beads", linked to the review finding's issue, or, for a Blocking item, which is not filed as an issue, to the task whose commit last changed the test (`git log -1 -- <test file>`), titled `Rewrite outer test <file> (AC-n)`, with a description that cites the criterion on its Serves line and carries `Sanctioned rewrite: AC-n <outer test file> from red <sha>, approved at the phase <N> checkpoint`, followed by the review's proof and Suggested fix. No worker or agent writes that line, and `wb:test-writer` and the verifier treat a rewrite as sanctioned only when the task description carries it.
+- **Running**: run the task through Steps 5 and 6 before closing the phase milestone, filling the Worker Prompt Template's `task.sanctionedRewrite` (test file and red commit) from that line. Step 5 item 6 writes nothing for it, since the criterion already has its red commit.
+- **Committing**: on PASS, commit the rewritten test on its own as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, with the rewrite task's beads id on a second message line, in the commit form of Step 5 item 6, and any other changed files as the task commit. From then on that commit is the criterion's baseline: every reader that finds a criterion's red commit by title (Step 5's `taskTestContext`, the verifiers' `--red` lists, the phase test review, Resume, `/wb:validate_execution`) takes the latest `red(AC-n)` commit for it, so the next verifier does not report the rewrite as a changed outer test. A starting commit derived from red commits takes the earliest instead (Resume), which the later rewrite commit leaves unchanged.
+
+The brief carries a differential requirement, because a rewrite that drops a case the original caught loses coverage nobody agreed to lose, and a verifier that finds the loss one case at a time leaves the single fix attempt unable to succeed:
+
+- **Who plants the defects**: the worker asks `wb:test-writer` for the rewrite in inner mode, since workers do not edit tests, and `wb:test-writer` plants them. It plants one defect for each case the red-commit version catches, as the test-quality skill's Part 3 defines them (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found, and runs both versions against each in a disposable copy.
+- **The bar**: the rewrite fails on every one of those defects. The red-commit version is expected to pass on the gap's defect, since that miss is why the rewrite exists.
+- **The record**: `wb:test-writer` lists each planted defect, with the result for both versions, in its report, and the verifier checks that differential against its own (task-verifier Step 6).
+- **The suggested fix**: pass the review's Suggested fix on as a starting point, not as the specification. Where following it would stop catching something the red-commit version catches, the rewrite keeps the original's case and adds the gap, as the test-quality skill's Part 3 rule for suggested fixes says.
 
 ## Missing Context Check (Steps 5 and 6, and Resume)
 

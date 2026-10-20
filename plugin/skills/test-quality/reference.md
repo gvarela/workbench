@@ -50,7 +50,7 @@ Each finding from a reviewer or auditor has these fields:
 - **Evidence type**: deterministic (the named detector, planted defect, diff, or a counterexample or false failure reproduced by an actual run) or judgment-only (SKILL.md Part 4).
 - **Majority**: for a judgment-only Remove or Rewrite, the majority result (for example 3 of 3).
 - **Proof**: for Remove or Rewrite, the detector, diff, planted defect, or counterexample (applied to the whole assertion) that shows the test cannot fail or does not protect its criterion, or, for a Rewrite only, the false failure: the input or condition under which correct code fails the test (SKILL.md Part 3). Proof also states the reason for the verdict, and that reason matches the verdict (SKILL.md Part 3); where a template gives Reason its own field, the reason goes there instead.
-- **Suggested fix**: for a Rewrite, a relation built from test-owned inputs, or a specified literal with its derivation shown (SKILL.md Part 3).
+- **Suggested fix**: for a Rewrite, a relation built from test-owned inputs, or a specified literal with its derivation shown, that keeps everything the replaced assertion catches and adds the missing case (SKILL.md Part 3).
 - **Objective evidence**: for Remove or Consolidate, the evidence (no unique killed mutants, or no unique coverage, plus a passing run with the test removed in a disposable worktree), or "judgment-only, not actionable".
 - **Criterion**: the criterion id, when the review runs inside a plan.
 

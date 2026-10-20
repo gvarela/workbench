@@ -19,7 +19,7 @@ Your prompt names:
 
 - **Starting commit**: the commit the phase began from
 - **Criteria**: the phase's acceptance criteria, each with its example, observed-at boundary, and seam
-- **Red commits**: the red commit of each outer test (`red(<criterion id>): …`)
+- **Red commits**: the red commit of each outer test (`red(<criterion id>): …`); where a criterion has more than one, the latest is its baseline, because a sanctioned rewrite is committed later as `red(<criterion id>): <title> (rewrite sanctioned at the phase <N> checkpoint)`
 - **Test Integrity findings** (implement mode): the Test Integrity section of each task's verifier report, whose findings each carry a file:line and say whether they were escalated
 - **Test-writer reports** (inline mode, when the caller has them): the reports from every test-writer run in the phase
 - **Support files** (inline mode, when any harness task wrote them): the support files each harness task declared in its `support files:` records, by task, with each task's type as its description names it
@@ -61,7 +61,7 @@ git -C "$top" show HEAD:<file> | cmp -s - "$tmp/<file>" && { echo "break did not
 
 ### 2. Criterion coverage
 
-For each criterion, find its outer test: the test committed in the criterion's red commit. Confirm it runs at the criterion's observed-at boundary, and run it at HEAD to confirm it is green now. A criterion with no outer test, an outer test at a lower level than its observed-at, or an outer test that fails now is a coverage gap.
+For each criterion, find its outer test: the test committed in the criterion's latest red commit. Confirm it runs at the criterion's observed-at boundary, and run it at HEAD to confirm it is green now. A criterion with no outer test, an outer test at a lower level than its observed-at, or an outer test that fails now is a coverage gap.
 
 ### 3. Part 2 on changed tests
 
@@ -88,7 +88,7 @@ rm -f "$declared"
 ```
 
 - **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports or declared support files, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
-- **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test. When criteria share a test file, each has its own `--red` with the same path, including criteria from earlier phases whose `red(...)` commits touched the file (`git log --format='%h %s' -- <outer test file>` lists them) and its entry's `mode` is `lines`: only the lines its red commit added are checked, so another criterion's test added later in the same file is not a change, and `changed_lines > 0` is the changed-outer-test finding (`mode` `file` compares the whole file; "Outer-test modes" in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` defines both). `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script compares the starting commit with the working tree, not with HEAD, so its results include uncommitted changes too, and it marks only untracked files (`tracked: false`). Uncommitted changes are outside the review, as above: when `git status --short` showed any, confirm each hit against `git diff <starting commit> HEAD` before reporting it. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
+- **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test. When criteria share a test file, each has its own `--red` with the same path, including criteria from earlier phases whose `red(...)` commits touched the file (`git log --format='%h %s' -- <outer test file>` lists them; pass only the latest for each criterion), and its entry's `mode` is `lines`: only the lines its red commit added are checked, so another criterion's test added later in the same file is not a change, and `changed_lines > 0` is the changed-outer-test finding (`mode` `file` compares the whole file; "Outer-test modes" in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` defines both). `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script compares the starting commit with the working tree, not with HEAD, so its results include uncommitted changes too, and it marks only untracked files (`tracked: false`). Uncommitted changes are outside the review, as above: when `git status --short` showed any, confirm each hit against `git diff <starting commit> HEAD` before reporting it. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
 
 If the script is not found, or still prints no JSON, say so under Not Run and make the checks by hand:
 
@@ -156,7 +156,7 @@ These are proposals. No test was created, edited, or deleted. A blocking item is
   - **Evidence type**: deterministic (${detector, planted defect, diff, or a counterexample or false failure reproduced by a run}) | judgment-only (Consolidate; a judgment-only Remove or Rewrite goes under Majority Candidates)
   - **Objective evidence**: ${evidence} or "judgment-only, not actionable" (Remove or Consolidate)
   - **Proof**: ${the proof the skill's Part 3 names for this verdict} (Remove or Rewrite)
-  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite, as the skill's Part 3 describes)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, keeping everything the replaced assertion catches and adding the missing case} (Rewrite, as the skill's Part 3 describes)
   - **Criterion**: ${criterionId}
 
 ### Majority Candidates
@@ -167,7 +167,7 @@ Judgment-only Remove or Rewrite verdicts from this one review. The caller settle
   - **Location**: `tests/feature.test.ts:48` - `${quotedExcerpt}`
   - **Proof**: ${your proof, of a kind the skill's Part 3 names, written out as its Part 4 requires}
   - **Reason**: ${reason, matching the proposed verdict}
-  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation} (Rewrite)
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, keeping everything the replaced assertion catches and adding the missing case} (Rewrite, as the skill's Part 3 describes)
   - **Criterion**: ${criterionId}
 
 ### Review These

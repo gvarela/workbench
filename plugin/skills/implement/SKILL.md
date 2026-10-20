@@ -234,7 +234,7 @@ After each worker completes:
    ```
 
    **If PASS**:
-   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit. Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
+   - **Commit the task**: the coordinator commits that task's files with a message naming the task and its beads id. One task, one commit; a sanctioned rewrite's test is committed as its criterion's new red commit ("Sanctioned Outer-Test Rewrite" in [reference.md](reference.md)). Coordinator-side plan-doc edits (tasks.md notes, discoveries) are separate commits, made only between tasks, never while a worker or verifier runs, so they never land in a worker's diff. Structural and behavioral changes are separated at the task level (create_tasks' structure-before-behavior rule), so one commit per task keeps them apart.
    - Add to the success log and the aggregated lists: modified files, test commands, and implementation notes if the worker found issues
    - Run `bd ready` and spawn the next worker (Step 5)
 
@@ -299,7 +299,7 @@ make build          # or npm run build, go build
 
 Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section from the phase tasks' `test integrity:` comments, the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
-Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". File each escalated integrity finding and each "n of 3" finding as an issue linked to its task, as "Evidence in Beads" in [reference.md](reference.md) shows, so a Rewrite or Remove proposal outlives this summary.
+Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". File each escalated integrity finding and each "n of 3" finding as an issue linked to its task, as "Evidence in Beads" in [reference.md](reference.md) shows, so a Rewrite or Remove proposal outlives this summary. A Rewrite of an outer test that the person sanctions by name runs as a task you file and run before closing the milestone, under "Sanctioned Outer-Test Rewrite" in reference.md, because the rewrite must keep everything the red-commit version catches.
 
 Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script each task verifier ran; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
 
@@ -336,7 +336,7 @@ Please perform the following manual checks from design.md:
 
 ${manualVerificationSteps}
 
-Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
 ```
 
 **Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
@@ -417,7 +417,7 @@ When resuming work (phase = "continue"):
 
 5. **Continue coordination**:
    - Extract context package
-   - Recover the phase's starting commit (Step 4) for the test review: the parent of the phase's first task or `red(AC-n)` commit in `git log`, or HEAD if the phase has none; the earlier verifiers' Test Integrity sections are in the phase tasks' `test integrity:` comments, and the earlier workers' summaries are in their `worker report:` comments
+   - Recover the phase's starting commit (Step 4) for the test review: the parent of the phase's earliest task or `red(AC-n)` commit in `git log` (a sanctioned rewrite's `red(AC-n)` commit is later, so it does not move this), or HEAD if the phase has none; the red commits to pass are the latest per criterion; the earlier verifiers' Test Integrity sections are in the phase tasks' `test integrity:` comments, and the earlier workers' summaries are in their `worker report:` comments
    - Run `bd ready` to find next task
    - Spawn worker for next available task
    - Repeat until phase complete

@@ -31,6 +31,10 @@ ${formatTestCommands(contextPackage.testCommands)}
 ### Commits
 **Starting commit**: ${contextPackage.taskTestContext.startingCommit}
 **Red commits**: ${formatRedCommits(contextPackage.taskTestContext.criteria)}  (criterion id, sha, and test file of each committed outer test)
+${task.sanctionedRewrite ? `
+### Sanctioned Outer-Test Rewrite
+This task rewrites the outer test ${task.sanctionedRewrite.testFile} from its red commit ${task.sanctionedRewrite.redCommit}, which a person sanctioned at a phase checkpoint (your task's description carries the Sanctioned rewrite: line). Ask wb:test-writer for the rewrite in inner mode and pass on this requirement: plant one defect for each case the red-commit version catches, which the test-quality skill's Part 3 defines (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found; run both versions against each; the rewrite must fail on all of them; list each defect with both results in the report. The review's suggested fix is a starting point: where it would stop catching something the red-commit version catches, keep that case and add the gap.
+` : ""}
 
 ## Your Process
 
@@ -96,11 +100,11 @@ Verification failed. Spawn a fix worker using the task-worker agent with a fable
 Provide:
 - Task ID: ${taskId}
 - Plan Directory: ${planDir}
-- Context: the Worker Prompt Template's "Context You Need" section as the first worker got it (why, constraints, patterns, file references, test commands)
+- Context: the Worker Prompt Template's "Context You Need" section as the first worker got it (why, constraints, patterns, file references, test commands, and its Sanctioned Outer-Test Rewrite block when the task has one, since task-worker changes an outer test only when its prompt names the rewrite)
 - Starting Commit and Red Commits: as in the Verification Agent Prompt
 - Verification Report: the latest `verification report:` comment on the task; read it yourself with `bd comments ${taskId} --json`, along with the earlier worker and test-writer reports there
 - Earlier Test-writer Reports: in the task's comments; give `wb:test-writer` the task id and say the earlier reports are there
-- Instructions: Read the task and its cited criteria as your agent definition's Inputs says, then fix the specific issues the verification report names. Close beads issue when done.
+- Instructions: Read the task and its cited criteria as your agent definition's Inputs says, then fix the specific issues the verification report names. Where it names a class of failure, such as the cases a rewrite of an outer test stopped catching, fix the whole class, not only the instances it lists: the re-verification checks the class again, and there is no second fix attempt. Close beads issue when done.
 ```
 
 **Re-verify** using the task-verifier agent with the same context, again with no `model` parameter. It reads the test-writer reports and, on a harness task, the support files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.

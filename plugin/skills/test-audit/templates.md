@@ -78,7 +78,7 @@ ${three to six sentences: the overall state of the suite, the recurring patterns
   - **Evidence type**: deterministic (${detector and rule, or diff}) | judgment-only (${n} of 3)
   - **Proof**: ${counterexample applied to the whole assertion, or a false failure, as test-quality Part 3 describes; no planted defect runs in a cold audit}
   - **Reason**: ${reason, matching the verdict}
-  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, as test-quality Part 3 describes}
+  - **Suggested fix**: ${relation from test-owned inputs, or a specified literal with its derivation, keeping everything the replaced assertion catches and adding the missing case, as test-quality Part 3 describes}
 
 ### Consolidate
 

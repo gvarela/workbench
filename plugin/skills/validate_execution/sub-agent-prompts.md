@@ -30,7 +30,7 @@ Task({
 
   Starting commit: [parent of the plan's earliest task or red(AC-n) commit, per Step 2]
   Criteria with examples, observed-at, and seams: [from tasks.md]
-  Red commits: [this plan's red(AC-n) commits in the range]
+  Red commits: [this plan's red(AC-n) commits in the range, the latest per criterion, per Step 2]
   Test-writer reports: [the reports from the plan tasks' comments, per Step 2, or "none recorded" with the reason]
   Support files: [the paths in each harness task's support files: records, by task with its type, per Step 2, or "none"]
   Conventions source: [research.md Testing Conventions]
