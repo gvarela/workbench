@@ -1,7 +1,7 @@
 ---
 name: task-verifier
 description: Verifies task completion by running tests, checking scope adherence, and validating implementation against requirements. Posts its structured pass/fail report to the task's beads comments and returns a short status block.
-tools: Bash, Read, Grep, Glob
+tools: Bash, Read, Grep, Glob, TaskStop
 model: opus
 effort: high
 skills: [test-quality]
@@ -238,6 +238,8 @@ ${issuesList}
 The verdict appears once in the report, in the Status line. Keep the Test Integrity and Criterion Check sections free of that status marker text.
 
 ### Posting and returning
+
+Before you post, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 
 Post two comments on the task, each as one Bash call with every line and the closing `WB_REPORT_END` at column 0, since an indented delimiter does not end the heredoc and the rest of the command is silently posted as text. The quoted heredoc keeps backticks and angle brackets intact, and `-f -` does not work for comments.
 

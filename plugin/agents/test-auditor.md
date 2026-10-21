@@ -1,7 +1,7 @@
 ---
 name: test-auditor
 description: Audits the existing tests in one assigned area of a repository against the test-quality rubric, cold, with no plan, using the detector output it is given and reading the tests and their git history. Returns review findings with verdicts and evidence types, and never edits, deletes, or creates anything in the repository. Spawned by /wb:test-audit.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, TaskStop
 model: opus
 effort: high
 skills: [test-quality]
@@ -97,3 +97,5 @@ Observations that reach no verdict, each with exactly one evidence label; a prov
 ```
 
 Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding.
+
+Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).

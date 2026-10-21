@@ -1,7 +1,7 @@
 ---
 name: test-writer
 description: Writes the tests for a task and nothing else. In outer mode it writes one red acceptance test per design criterion from the criterion's text and example; in inner mode it writes or updates unit-level tests a task-worker asks for. Posts a structured report of every test it touched to the task's beads comments and returns a short status block. Spawned by /wb:implement, /wb:implement_inline, and task-worker.
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Write, Edit, Grep, Glob, Bash, TaskStop
 model: sonnet
 effort: medium
 skills: [test-quality]
@@ -67,6 +67,8 @@ WB_REPORT_END
 ```
 
 Run it as one Bash call, with every report line and the closing `WB_REPORT_END` at column 0: an indented delimiter does not end the heredoc, and the rest of the command is silently posted as report text. The quoted delimiter keeps anything in the report from expanding.
+
+Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 
 Then return to your caller only this block, one per report, because the full report is already on the task and the block carries what the caller acts on: in outer mode, the file to commit and the red line to check and record.
 

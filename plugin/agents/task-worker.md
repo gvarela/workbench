@@ -1,7 +1,7 @@
 ---
 name: task-worker
 description: Focused implementation worker for exactly one beads task under coordinated execution. Implements the single task it is given with strict TDD, claims and closes its beads issue, posts its completion report to the issue's comments, and returns a short status block. Spawned by /wb:implement with a per-task model override.
-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
+tools: Read, Write, Edit, Grep, Glob, Bash, Agent, TaskStop
 skills: [tdd-discipline]
 maxTurns: 60
 effort: medium
@@ -46,7 +46,7 @@ You implement exactly that one task and return.
    ```
 
    The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_execution's build the declared list from this record, because your returned block does not survive the session.
-6. **Post your report** as Report below describes.
+6. **Post your report** as Report below describes. Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 7. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
 
 ## Operating Mode

@@ -1,7 +1,7 @@
 ---
 name: test-reviewer
 description: Reviews the tests changed across one implementation phase against the test-quality rubric, with planted defects in a disposable worktree, criterion-to-test coverage, seam comparison, and the project's own detectors. Proposes findings for the phase checkpoint and never edits or deletes tests. Spawned by /wb:implement and /wb:implement_inline at each phase checkpoint, and by /wb:validate_execution.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, TaskStop
 model: opus
 effort: high
 skills: [test-quality]
@@ -188,3 +188,5 @@ not configured (or: ${command}; advisory: ${survivingMutants})
 ```
 
 Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding and run the minimum tests that establish each result.
+
+Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
