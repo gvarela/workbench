@@ -20,7 +20,7 @@ ${large repository only:} This is a large repository (${plannedSpawns} planned s
 
 ## Test Audit Report Template
 
-Read this in full before Step 7. Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding and every "review these" entry.
+Read this in full before Step 7. Leave a section with nothing to report in place, marked "none", so the reader knows the step ran. Cite file:line for every finding and every "review these" entry. Write the Headline as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says.
 
 ````markdown
 ---
@@ -51,7 +51,7 @@ These findings are proposals for a person to spot-check. No test was edited, del
 
 ## Headline
 
-${three to six sentences: the overall state of the suite, the recurring patterns behind the findings, and the counts per verdict}
+${three to six sentences, written as writing-for-the-user.md says: the overall state of the suite, the recurring patterns behind the findings, each named in plain words by the behavior it leaves unguarded and what that puts at risk, what the reader should spot-check first, and the counts per verdict}
 
 | Verdict | Deterministic | Judgment-only (n of 3) | Review these |
 | --- | --- | --- | --- |

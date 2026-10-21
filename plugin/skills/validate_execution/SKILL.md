@@ -188,7 +188,7 @@ Assess what IS, not what SHOULD BE. Cite file:line for every claim, pair each is
 
 - All critical functionality implemented
 - All automated tests pass
-- No blocking issues
+- Nothing under Needs Your Decision
 - Ready for manual testing
 
 **⚠️ PASS WITH ISSUES**:
@@ -196,13 +196,13 @@ Assess what IS, not what SHOULD BE. Cite file:line for every claim, pair each is
 - Core functionality works
 - Some non-critical issues exist
 - Can be deployed with known limitations
-- Issues documented for future work
+- Issues listed under Follow-ups, none blocking
 
 **❌ FAIL**:
 
 - Critical functionality missing
 - Tests failing
-- Blocking issues present
+- Blocking issues present (listed under Needs Your Decision)
 - Not safe to deploy
 
 ### Common Validation Checks

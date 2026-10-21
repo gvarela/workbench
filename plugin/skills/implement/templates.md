@@ -22,8 +22,25 @@ ${generatePhaseTestCommand(aggregatedTestFiles)}
 
 ## Phase Completion Report (Step 8)
 
+The user reads this report to decide what to do next, so it follows [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md): its sections in that order, and each item named in plain words with its id in parentheses, saying what it means for the user and what they need to do.
+
 ```
 ✅ Phase ${phase} Complete (Coordinated Execution)
+
+**Needs your decision:**
+${anything still open from the checkpoint, with options and a recommendation, or "Nothing needs your decision"}
+
+**What this phase delivered** (by acceptance criterion):
+${each criterion and task done as behavior the user can now rely on: "- <behavior> (AC-n, task <id>)"}
+
+**Test integrity:**
+- Outer tests committed red first: ${each named by the criterion it guards}
+- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); review findings filed: ${each in plain words with its criterion and issue id}
+- Outer-test rewrites run: ${each with the criterion it guards, or "none"}
+
+**Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
+- Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}
+- Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
 
 **Execution Statistics:**
 - Worker agents spawned: ${workerCount}
@@ -31,29 +48,28 @@ ${generatePhaseTestCommand(aggregatedTestFiles)}
 - Execution mode: sequential
 
 **Beads tracking:**
-- ✅ Phase ${phase} milestone closed: ${phaseMilestoneId}
-- 🔓 Unblocked: ${nextPhaseMilestoneId} and its initial tasks
+- ✅ Phase ${phase} milestone closed (${phaseMilestoneId})
+- 🔓 Unblocked: the Phase ${phase + 1} milestone (${nextPhaseMilestoneId}) and its first tasks, named in plain words
 
 **Progress Summary:**
 - Phase ${phase}: ${taskCount} tasks completed via workers
 - Next phase: ${nextPhaseTaskCount} tasks available (run \`bd ready\`)
 - Files modified: ${codeFileCount} code files, ${testFileCount} test files
 
-**Context Efficiency:**
-- Main agent context: Constant (no accumulation)
-- Worker contexts: Ephemeral (discarded after each task)
-- No compaction needed during phase implementation
+**Context:** compactions this phase: ${compactionCount}${; when 1 or more, the fresh-session choice the user made at the checkpoint ("Handoff Decision" in reference.md)}
 
 Ready to proceed to Phase ${phase + 1}.
 ```
 
 ## Implementation Notes Entry (Step 9)
 
+The user reads these notes in tasks.md, so a learning or follow-up names its subject in plain words with any id in parentheses, as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says.
+
 ```markdown
 ## Implementation Notes
 - [YYYY-MM-DD] Phase ${phase} complete using coordinated workers:
   - ${workerCount} workers spawned (sequential execution)
-  - Main context kept clean, no compaction needed
+  - Compactions this phase: ${compactionCount}
   - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
   - Key learnings: ${aggregatedLearnings}
 ```

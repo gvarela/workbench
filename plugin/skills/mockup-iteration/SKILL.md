@@ -196,15 +196,17 @@ If open issues exist:
 ```
 ⚠️ Cannot finalize - unresolved items:
 
-| Issue | Status |
-|-------|--------|
-| UI Q: [question] | Open |
-| UI Assumption: [assumption] | Open |
+| Item | What it leaves undecided in the design | Status |
+|------|------|--------|
+| UI Q: [question] ([issue-id]) | [what the design cannot settle until it is answered] | Open |
+| UI Assumption: [assumption] ([issue-id]) | [what the design builds on if the assumption is wrong] | Open |
 
 Options:
 1. Resolve these first (answer questions, validate assumptions)
 2. Close as "deferred to implementation" if acceptable
 3. Close as "out of scope" if not needed
+
+Recommendation: [option for each item, and the reason].
 ```
 
 ### After All Resolved

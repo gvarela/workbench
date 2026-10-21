@@ -27,14 +27,14 @@ Run this first, before any topic. It decides which of three cases you are in.
    - `research.md`, `design.md`, `tasks.md`: the frontmatter `status:` of each; research's `## Intent Coverage` lists; design's Success Metrics with their `(refines: ...)` markers and `Deferred:` line; tasks.md's `current_phase`, `completed_tasks`, `total_tasks`, and `beads_epic`.
    - Beads, after the session-start sanity check from [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md) (`bd context`, `bd show <beads_epic>`, `bd stats`; stop with the Wrong database case if the epic does not resolve): `bd show <beads_epic>` for milestone state, and `bd list -n 0 --status=open | grep -E "Q:|Decide:|Validate:|UI Q:"` for open planning issues (count only titles that begin with the prefix).
    - Structural checks (files present, frontmatter fields, beads IDs resolve): reuse the "Validation Checklist" section of [../validate_project/SKILL.md](../validate_project/SKILL.md); do not restate it here, and do not run the full validation unless asked.
-4. **Report**, in this order, before any requested topic:
+4. **Report**, in this order, before any requested topic, naming each item in plain words with its id in parentheses, as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says:
 
    ```
    📍 Plan: docs/plans/<dir> (others active: <list or none>)
    Documents: research.md <status>; design.md <status>; tasks.md <status>, phase <n>, <closed>/<total> tasks
-   Beads: epic <id> <open/closed>; milestones: <phase: state, ...>; open planning issues: <Q:/Decide:/Validate: titles, or none>
+   Beads: epic <title> (<id>) <open/closed>; milestones: <phase name: state, ...>; open planning issues: <Q:/Decide:/Validate: titles, each with its id in parentheses, or none>
    Next stage: /wb:<stage> — needs from you: <that stage's "You provide / You decide / You confirm" cells from the table below>
-   Left undone by the previous stage: <gaps, or none>
+   Left undone by the previous stage: <gaps, each in plain words with what it puts at risk, or none>
    ```
 
    The next stage is the first in the chain whose document is missing or whose status is not `complete` (research), `ready`/`implementing` (design), or whose phase milestone is open (implementation), then validation. Gaps come from the evidence: success statements research's Intent Coverage lists as not touched; statements with no `(refines:)` metric and no `Deferred:` entry; metrics that refine nothing; statements without a verdict suffix after validation ran; open `Q:` or `Decide:` issues; a milestone whose tasks are all closed but that is still open.

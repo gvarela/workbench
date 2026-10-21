@@ -120,13 +120,13 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 **Signature**: little or nothing landed, and/or the worker explicitly reported errors or blockers it could not resolve.
 
-Present:
+Present, writing each line as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says (this applies to every halt message in this file and to the handoff question; the `halted:` comments recorded in beads keep their fixed form):
 
 ```
 ⚠️ Worker Did Not Complete Task
 
-Task ${taskId} status: in_progress (should be closed)
-Worker reported: ${workerError}
+Task: ${what the task builds, in plain words} (${taskId}); still in_progress
+Worker reported: ${workerError, in plain words: what it could not do and why}
 Landed changes: ${gitStatusSummary}
 
 **Options**:
@@ -134,7 +134,7 @@ Landed changes: ${gitStatusSummary}
 2. Mark task as blocked, investigate
 3. Manual intervention required
 
-How should I proceed?
+Recommendation: ${option and the reason}. How should I proceed?
 ```
 
 ## Plan-Defect Deviation Protocol (Step 6)
@@ -159,7 +159,7 @@ For verification FAILs where the task cannot succeed as specified — the design
 
 2. **Block dependents**: `bd dep add [dependent-task-id] [revision-issue-id]` for every not-yet-run task that builds on the failed assumption
 
-3. **Halt the phase**: stop spawning workers; record `halted: plan defect` on the failed task ("Evidence in Beads"); present a checkpoint to the user with the failed task, the verifier evidence, and the revision issue ID
+3. **Halt the phase**: stop spawning workers; record `halted: plan defect` on the failed task ("Evidence in Beads"); present a checkpoint to the user with the failed task and the design assumption that failed, each in plain words, what the verifier evidence shows, which later tasks are now blocked, and the revision issue ID in parentheses
 
 4. **Route the fix**: the revision goes through `/wb:create_design` (preceded by `/wb:explore_design` if it reopens an architectural choice) — never through fix workers
 
@@ -177,9 +177,9 @@ When the re-verification after the one fix attempt fails, the failed task's chan
    ```
    ⚠️ Task Failed Re-verification: Phase Halted
 
-   Task ${taskId}: ${title} (issue reopened; changes left uncommitted)
-   Verifier report: ${failFindings with file:line}
-   Cause: ${causeLabel}
+   Task: ${what the task builds, in plain words} (${taskId}; issue reopened; changes left uncommitted)
+   What fails: ${each failFinding in plain words, what it breaks, then file:line}
+   Cause: ${causeLabel, explained in one plain sentence}
    Fix attempt changed: ${fixAttemptSummary}
 
    **Options**:
@@ -187,7 +187,7 @@ When the re-verification after the one fix attempt fails, the failed task's chan
    2. Discard the task's uncommitted changes, back to its starting commit (${startingCommit}) plus its committed red(AC-n) tests, and retry the task.
    3. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
 
-   How should I proceed?
+   Recommendation: ${option and the reason}. How should I proceed?
    ```
 
 **On the reply**:
@@ -261,7 +261,8 @@ An agent that cannot find its task or a criterion it was told to read stops rath
    ```
    ⚠️ Missing Plan Context: Phase Halted
 
-   Task ${taskId}: ${agent} could not find ${what} (looked in ${where})
+   Task: ${what the task builds, in plain words} (${taskId})
+   Missing: ${what could not be found, in plain words, and what the agent needed it for} (${id}; looked in ${where})
    My inputs checked: task id, plan directory ${planDir}, criterion ids against tasks.md
    Landed changes: ${gitStatusSummary}
 
@@ -269,7 +270,7 @@ An agent that cannot find its task or a criterion it was told to read stops rath
    1. Add or correct it in the plan or beads, then say "continue". I run the agent that stopped again.
    2. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
 
-   How should I proceed?
+   Recommendation: ${option and the reason}. How should I proceed?
    ```
 
 ## Handoff Decision (Steps 5 and 8, and Resume)
@@ -277,7 +278,8 @@ An agent that cannot find its task or a criterion it was told to read stops rath
 A phase that has already compacted once and is heading for another compaction is a choice for the user, because the session is theirs and a handoff ends it. Stop at a task or phase boundary, not mid-task, and ask:
 
 ```
-This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?
+This phase has already compacted once and is heading for another. Done so far: ${tasks done, in plain words}; left: ${tasks left, in plain words}.
+Write a handoff for a fresh session, or keep going and compact? I recommend ${choice}, because ${reason}.
 ```
 
 Write the handoff with `/wb:create_handoff` only when the user says so: `resume_handoff` forces a fresh read of the plan documents, while a second compaction compounds summary drift, and the user weighs that against losing this session. If they choose to keep going, continue and re-read the plan documents after the compaction, as Resume Logic says.

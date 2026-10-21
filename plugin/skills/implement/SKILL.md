@@ -305,36 +305,31 @@ Only the reviewer's Blocking section holds the go-ahead. It lists deterministic 
 
 #### 4. Request Manual Verification
 
-Present manual verification checklist to user:
+Present the checklist to the user, writing each item as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says and keeping its section order, so product progress and test housekeeping stay apart and no item is a bare id:
 
 ```
-✅ Phase ${phase} Automated Verification Complete
+✅ Phase ${phase} Automated Verification Complete, all passing (tests: [test command]; lint: [lint command]; typecheck: [typecheck command]; build: [build command])
 
-**Automated checks passed:**
-- ✅ All tests passing: [test command]
-- ✅ Linting clean: [lint command]
-- ✅ Build successful: [build command]
+**Needs your decision:**
+${each blocking item (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes; each proposed outer-test Rewrite, with a recommendation; if this phase compacted, whether to start the next phase in a fresh session, with a recommendation ("Handoff Decision" in reference.md); or "Nothing needs your decision"}
 
-**Worker agents completed:**
-${workerSummaries.map(w => `- ✅ ${w.title}: ${w.summary}`).join('\n')}
+**What this phase delivered** (by acceptance criterion):
+${each criterion and task done as behavior you can now rely on, ids in parentheses: "- <behavior> (AC-n, task <id>)"}
 
-**Test review** (proposals; no test was edited):
-- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
-- Findings: ${reviewFindings}  (settled candidates marked "n of 3")
-- Review these: ${reviewThese}
-
-**Blocking** (deterministic failures in tests this phase changed; each needs your acknowledgement before the milestone closes):
-${blockingItems or "none"}
-
-**Beads state:**
-- ✅ All Phase ${phase} tasks closed: [list task IDs]
-- 🔓 Phase milestone ready to close: ${phaseMilestoneId}
-
-**Manual verification required:**
-
-Please perform the following manual checks from design.md:
-
+**Manual checks** (from design.md):
 ${manualVerificationSteps}
+
+**Test integrity** (proposals; no test was edited):
+- Outer tests committed red first: ${each named by the criterion it guards}
+- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+- Review findings: ${reviewFindings, each with the criterion it guards and what the weakness lets through}  (settled candidates marked "n of 3")
+- Review these: ${reviewThese, each in plain words with its file:line after}
+
+**Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
+- Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}
+- Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
+
+**Beads state:** all Phase ${phase} tasks closed; the Phase ${phase} milestone (${phaseMilestoneId}) is ready to close.
 
 Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
 ```

@@ -76,17 +76,18 @@ if (beadsCheck.failed) {
 }
 
 // Extract beads IDs from frontmatter
-const beadsIds = [
-  tasksFrontmatter.beads_epic,
-  ...Object.values(tasksFrontmatter.beads_phases),
-  ...Object.values(tasksFrontmatter.beads_tasks)
+const beadsEntries = [
+  ['beads_epic', tasksFrontmatter.beads_epic],
+  ...Object.entries(tasksFrontmatter.beads_phases).map(([k, v]) => [`beads_phases.${k}`, v]),
+  ...Object.entries(tasksFrontmatter.beads_tasks).map(([k, v]) => [`beads_tasks.${k}`, v])
 ];
+const beadsIds = beadsEntries.map(([, id]) => id);
 
 // Verify each ID exists
-for (const id of beadsIds) {
+for (const [field, id] of beadsEntries) {
   const result = exec(`bd show ${id}`);
   if (result.failed) {
-    ERROR(`Beads issue not found: ${id}`);
+    ERROR(`The tasks.md frontmatter entry ${field} names a beads issue that does not exist (${id}), so that work cannot be tracked. Fix: correct the id in the frontmatter, or create the issue.`);
   }
 }
 
@@ -99,7 +100,7 @@ for (const issue of allBeadsIssues) {
     continue;  // exempt: planning-phase record, not an orphan
   }
   if (!beadsIds.includes(issue.id)) {
-    WARNING(`Orphaned beads issue: ${issue.id} (not in frontmatter)`);
+    WARNING(`A beads issue is not part of the plan: "${issue.title}" (${issue.id}). tasks.md frontmatter does not list it, so its work may fall outside this plan. Fix: add it to beads_tasks, or close it if it is no longer needed.`);
   }
 }
 ```
@@ -138,7 +139,7 @@ for (const section of sections) {
 ```
 
 ```
-❌ Invalid Beads ID: prompts-xyz
+❌ Missing Beads Epic: tasks.md names an epic that does not exist (prompts-xyz)
    Location: tasks.md frontmatter, beads_epic field
    Cause: Beads issue does not exist
    Impact: Cannot track project in beads
@@ -173,7 +174,7 @@ for (const section of sections) {
 
 ```
 ⚠️ Orphaned Beads Issue
-   Issue: prompts-abc (Priority: P2, Status: open)
+   Issue: [issue title] (prompts-abc; priority 2, status open)
    Cause: Beads issue exists but not referenced in frontmatter
    Impact: Work may be tracked that's not in plan
    Fix: Add to beads_tasks or close if no longer needed

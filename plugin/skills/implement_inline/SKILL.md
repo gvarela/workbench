@@ -268,7 +268,7 @@ After completing each task (and, if the phase has already compacted once and is 
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Completed [task-id]: [brief note about discoveries or deviations]
+   - [YYYY-MM-DD] Completed [what the task built, in plain words] ([task-id]): [brief note about discoveries or deviations]
    ```
 
 **Do NOT**:
@@ -344,7 +344,7 @@ Only the reviewer's Blocking section holds the go-ahead. It lists deterministic 
 
 #### 4. Request Manual Verification
 
-Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly — automated results, test review, beads state, then the manual checks from design.md.
+Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly: its sections keep decisions, delivered behavior, test integrity, and follow-ups apart, and every item is written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, so the user can decide without opening beads.
 
 **Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
 
@@ -379,7 +379,7 @@ After phase completion and verification:
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); [key learnings, deviations from plan]
+   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); [key learnings, deviations from plan, each named in plain words with any id in parentheses]
    ```
 
 4. **Record durable learnings.** If this phase established something the next session would otherwise rediscover — a repository convention, a tool quirk, a constraint the plan did not state — record it:
@@ -402,28 +402,28 @@ After phase completion and verification:
 
 ## Handling Mismatches
 
-When implementation differs from tasks:
+When implementation differs from tasks, present this, written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says:
 
 ```
 ⚠️ Implementation Variance Detected
 
-**Task states**: [what the task says to do]
+**Task states**: [what the task says to do, in plain words] ([task id])
 **Reality found**: [actual situation in code]
-**Impact**: [why this matters]
+**Impact**: [what breaks or is at risk for the user if nothing changes]
 
 **Options**:
 1. Adapt implementation to match codebase reality
 2. Update task to reflect necessary changes
 3. Skip task with documentation of why
 
-How should I proceed?
+Recommendation: [option and the reason]. How should I proceed?
 ```
 
 Document any deviations in the "Implementation Notes" section of tasks.md.
 
 ## Resume Logic
 
-If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?" You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
+If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?", naming the tasks done and left in plain words and recommending one choice with its reason. You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
 
 When resuming work (phase = "continue"):
 

@@ -191,9 +191,9 @@ Show user what will change:
 - Reason: [why this transition is appropriate]
 
 **Beads Status**:
-- Epic: [epic-id] - [status]
-- Phase 1: [phase1-id] - [open/in_progress/closed]
-- Phase 2: [phase2-id] - [open/in_progress/closed]
+- Epic: [epic title] ([epic-id]): [status]
+- Phase 1: [phase name] ([phase1-id]): [open/in_progress/closed]
+- Phase 2: [phase name] ([phase2-id]): [open/in_progress/closed]
 - ...
 
 **Git Metadata Update**:

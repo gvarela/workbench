@@ -291,7 +291,7 @@ Agent findings incorporated:
 - Similar patterns: [reference to pattern agent findings]
 
 Beads tracking:
-- Epic: [epic-id]
+- Epic: [epic title] ([epic-id])
 - Phase milestone issues created with dependencies
 - ALL granular tasks created as beads issues
 - Task dependencies set from consumed outputs (branching where tasks are independent)

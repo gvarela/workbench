@@ -436,7 +436,7 @@ Validates that execution plan was correctly implemented. Run after implementatio
 - Success criteria verification
 - Test review: `wb:test-reviewer` over the plan's whole range (criterion coverage, test integrity, planted defects), with judgment-only proposals settled by three independent readings
 - Deviations from plan
-- Recommendations
+- Needs your decision (what blocks the release) and follow-ups (product and plan, test quality), each item saying whether it blocks and when to do it
 
 ---
 

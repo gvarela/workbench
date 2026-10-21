@@ -114,21 +114,21 @@ Don't block - just note. User decides if intentional. If the user wants a broade
 
 ## Wrap-up
 
-When user says "done":
+When user says "done", write each listed item as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says (plain words first, file or id after):
 
 ```
 ## Review Summary
 
 **Changes reviewed**: X/Y
-**Problems addressed**: [list]
+**Problems addressed**: [each problem in plain words, with its files after it]
 
 **TDD Status**:
 - ✓ Changes with tests: N
-- ⚠ Changes without tests: M [list files if any]
+- ⚠ Changes without tests: M [each: what the untested change does, and its file]
 
-**Notes**: [any flags raised during review]
+**Notes**: [each flag raised: what it is, what it risks, and whether it holds the PR]
 
-Ready for PR? [yes/concerns]
+Ready for PR? [yes, or each concern with a recommendation]
 ```
 
 ## Script Reference
