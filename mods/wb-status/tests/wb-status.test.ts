@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
+  TONES,
   bandLines,
   buildModel,
+  closeReasonVerdict,
   isActivePlan,
   isRefreshCommand,
   paneSections,
@@ -10,7 +12,9 @@ import {
   parseFrontmatter,
   parseJsonArray,
   planIds,
+  readComments,
   redCommits,
+  separator,
 } from '../hooks/model.mjs'
 
 const TASKS_MD = `---
@@ -69,6 +73,46 @@ const COMMENTS = {
   'ex-t2': [{ text: 'halted: missing context', created_at: '2026-01-03T00:00:00Z' }],
 }
 
+// Phase 2's tasks are closed but its milestone is open: the run waits at the
+// phase 2 checkpoint. Verdicts come from a report, an older integrity comment,
+// and close reasons; ex-c2 is a follow-up verified during the phase.
+const CHECKPOINT_MD = `---
+project: demo-plan
+status: in-progress
+created: 2026-01-01
+beads_epic: ex-epic
+beads_phases:
+  phase1_milestone: ex-m1
+  phase2_milestone: ex-m2
+  phase3_milestone: ex-m3
+beads_tasks:
+  phase1_impl_1: ex-t1
+  phase2_impl_1: ex-t2
+  phase2_impl_2: ex-t3
+  phase3_impl_1: ex-t4
+---
+`
+
+function checkpointModel() {
+  const issues = [
+    { id: 'ex-epic', title: 'Epic', status: 'open', issue_type: 'epic' },
+    { id: 'ex-m1', title: 'Phase 1 Milestone', status: 'closed', closed_at: '2026-01-02T00:00:00Z' },
+    { id: 'ex-m2', title: 'Phase 2 Milestone', status: 'open' },
+    { id: 'ex-m3', title: 'Phase 3 Milestone', status: 'open' },
+    { id: 'ex-t1', title: 'Expire old links', status: 'closed', close_reason: 'Verified PASS', closed_at: '2026-01-01T12:00:00Z' },
+    { id: 'ex-t2', title: 'Build the reset form', status: 'closed', closed_at: '2026-01-03T00:00:00Z', comment_count: 1 },
+    { id: 'ex-t3', title: 'Wire the mailer', status: 'closed', close_reason: 'Verified PASS after one fix round', closed_at: '2026-01-04T00:00:00Z' },
+    { id: 'ex-t4', title: 'Send the reminder', status: 'open' },
+    { id: 'ex-c2', title: 'Cover the mailer timeout', status: 'closed', parent: 'ex-epic', closed_at: '2026-01-03T12:00:00Z', comment_count: 1 },
+    { id: 'ex-c3', title: 'Name the retry constant', status: 'open', parent: 'ex-epic', created_at: '2026-01-03T13:00:00Z' },
+  ]
+  const comments = {
+    'ex-t2': [{ text: 'verification report:\n### Status: PASS\n', created_at: '2026-01-02T23:00:00Z' }],
+    'ex-c2': [{ text: 'test integrity:\nFindings: 2 (1 escalated)\n', created_at: '2026-01-03T11:00:00Z' }],
+  }
+  return buildModel({ fm: parseFrontmatter(CHECKPOINT_MD), criteria: parseCriteria(DESIGN_MD), issues, openIssues: [], commits: [], comments })!
+}
+
 function demoModel() {
   const fm = parseFrontmatter(TASKS_MD)
   return buildModel({ fm, criteria: parseCriteria(DESIGN_MD), issues: ISSUES, openIssues: OPEN, commits: COMMITS, comments: COMMENTS })
@@ -119,20 +163,121 @@ describe('inputs', () => {
 })
 
 describe('band', () => {
-  test('progress and test integrity are two lines in plain words', () => {
+  test('progress and test integrity are two lines in plain words, what needs you first', () => {
     const model = demoModel()
     expect(model).not.toBe(null)
     const lines = bandLines(model!)
-    expect(lines.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · now: Build the reset form (ex-t2)')
-    expect(lines.tests).toBe('Tests: 1/2 criteria have a red-first outer test · verifier: last 1 passed · ')
-    expect(lines.attention).toEqual({ text: '⚠ 2 items need you: halted ex-t2, decision pending ex-q1', isOk: false })
+    expect(lines.text.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open · now: Build the reset form (ex-t2)')
+    expect(lines.text.tests).toBe('Tests: ⚠ halted: missing context (ex-t2) +1 more · red-first 1/2 · verifier none yet')
+    expect(lines.attention).toEqual({ text: '⚠ halted: missing context (ex-t2) +1 more', isOk: false })
   })
 
   test('nothing blocking reads as nothing needs you', () => {
     const fm = parseFrontmatter(TASKS_MD)
     const model = buildModel({ fm, criteria: [], issues: ISSUES, openIssues: [], commits: [], comments: {} })
     expect(bandLines(model!).attention).toEqual({ text: '✓ nothing needs you', isOk: true })
-    expect(bandLines(model!).tests).toBe('Tests: no acceptance criteria found · verifier: no reports yet · ')
+    expect(bandLines(model!).text.tests).toBe('Tests: ✓ nothing needs you · no criteria found · verifier none yet')
+  })
+
+  test('a narrow band drops the lowest-priority parts first and keeps what needs you', () => {
+    const model = demoModel()!
+    const at = (columns: number) => bandLines(model, columns).text
+
+    // Room for everything but the in-progress title in full: it is shortened, not dropped.
+    const shortened = at(95)
+    expect(shortened.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open · now: Build the… (ex-t2)')
+    expect([...shortened.progress].length <= 95).toBe(true)
+
+    // Narrower: "now" goes before the follow-ups, which go before the bar; the phase and counts stay.
+    expect(at(70).progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open')
+    expect(at(50).progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks')
+    expect(at(40).progress).toBe('Plan: demo-plan · Phase 2/2 0/2 tasks')
+
+    // Line 2: red-first goes first, then the verifier, then the label; the attention stays.
+    expect(at(75).tests).toBe('Tests: ⚠ halted: missing context (ex-t2) +1 more · verifier none yet')
+    expect(at(50).tests).toBe('Tests: ⚠ halted: missing context (ex-t2) +1 more')
+    expect(at(30).tests).toBe('⚠ halted: missing context…')
+    for (const columns of [30, 40, 50, 70, 90]) {
+      expect([...at(columns).tests].length <= columns).toBe(true)
+    }
+  })
+
+  test('each state gets its color and keeps its symbol', () => {
+    const tone = (segments: { text: string; tone: string }[], text: RegExp) => segments.find(one => text.test(one.text))?.tone
+    const ok = bandLines(buildModel({ fm: parseFrontmatter(TASKS_MD), criteria: [], issues: ISSUES, openIssues: [], commits: [], comments: {} })!)
+    expect(tone(ok.tests, /^✓ nothing needs you$/)).toBe('ok')
+    expect(TONES.ok).toEqual({ color: 'success' })
+
+    const checkpoint = bandLines(checkpointModel())
+    expect(tone(checkpoint.tests, /^⚠ Phase 2 checkpoint waiting for you$/)).toBe('warn')
+    expect(TONES.warn).toEqual({ color: 'warning' })
+    expect(tone(checkpoint.tests, /^1✗$/)).toBe('error')
+    expect(TONES.error).toEqual({ color: 'error' })
+    expect(tone(checkpoint.progress, /^█+$/)).toBe('accent')
+    expect(TONES.accent).toEqual({ color: 'permission' })
+    expect(tone(checkpoint.progress, /^Plan: $/)).toBe('dim')
+    expect(tone(checkpoint.tests, /^Tests: $/)).toBe('dim')
+    expect(TONES.dim).toEqual({ dimColor: true })
+    expect(tone(checkpoint.progress, /^demo-plan$/)).toBe('plain')
+  })
+
+  test('the separator is a labelled rule, a blank line when narrow, nothing with no row to spare', () => {
+    expect(separator(40, 10)).toEqual({ kind: 'rule', text: '── wb plan ' + '─'.repeat(29) })
+    expect(separator(12, 10)).toEqual({ kind: 'blank', text: ' ' })
+    expect(separator(40, 2)).toBe(null)
+  })
+})
+
+describe('plan state', () => {
+  test('a follow-up in progress under the epic is what is happening now, counted apart from planned tasks', () => {
+    const fm = parseFrontmatter(TASKS_MD)
+    const issues = [
+      ...ISSUES.map(issue => (issue.id === 'ex-t2' ? { ...issue, status: 'open' } : issue)),
+      { id: 'ex-c1', title: 'Fix the flaky mailer retry found in review', status: 'in_progress', parent: 'ex-epic', updated_at: '2026-01-04T00:00:00Z' },
+    ]
+    const model = buildModel({ fm, criteria: [], issues, openIssues: OPEN, commits: [], comments: {} })!
+    expect(model.now).toEqual({ id: 'ex-c1', title: 'Fix the flaky mailer retry found in review', isPlanned: false })
+    expect(model.total).toBe(2)
+    expect(model.followUps.map(item => item.id).sort()).toEqual(['ex-c1', 'ex-f1'])
+    expect(bandLines(model).text.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 2 follow-ups open · now: Fix the flaky mailer retry found in review (ex-c1)')
+  })
+
+  test('an open milestone whose tasks are all closed is a checkpoint waiting for you, and the band stays on that phase', () => {
+    const model = checkpointModel()
+    expect(model.phase).toBe(2)
+    expect(model.isAtCheckpoint).toBe(true)
+    expect(model.blocking[0]).toEqual({ kind: 'checkpoint', id: null, title: 'Phase 2 checkpoint', why: 'Phase 2 checkpoint waiting for you' })
+    const lines = bandLines(model).text
+    expect(lines.progress).toBe('Plan: demo-plan · Phase 2/3 at checkpoint ██████████ 2/2 tasks · 1 follow-up open')
+    expect(lines.tests).toBe('Tests: ⚠ Phase 2 checkpoint waiting for you · red-first 0/2 · verifier 2✓ 1✗')
+  })
+})
+
+describe('verifier results', () => {
+  test('both comment formats and close reasons carry a verdict', () => {
+    expect(readComments([{ text: 'verification report:\n## Verification Report: x\n\n### Status: FAIL\n', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'FAIL' })
+    expect(readComments([{ text: 'test integrity:\nFindings: 4 (2 escalated)\n- outer test differs', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'FAIL' })
+    expect(readComments([{ text: 'test integrity:\nFindings: 1 (0 escalated) — re-verification after one fix attempt: PASS', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'PASS' })
+    expect(readComments([{ text: 'test integrity:\nFindings: 0 (0 escalated)\n- clean', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'PASS' })
+    expect(closeReasonVerdict('Verified PASS, committed abc1234')).toBe('PASS')
+    expect(closeReasonVerdict('resolved by the fix pass and PASS re-verification')).toBe('PASS')
+    expect(closeReasonVerdict('Implemented the form, tests passing')).toBe(null)
+  })
+
+  test('a clean integrity count does not outweigh the report it accompanies', () => {
+    const notes = readComments([
+      { text: 'verification report:\n### Status: FAIL\n', created_at: 't1' },
+      { text: 'test integrity:\nFindings: 0 (0 escalated)\n', created_at: 't2' },
+    ])
+    expect(notes.verifier).toEqual({ at: 't1', status: 'FAIL' })
+  })
+
+  test('a halt stays open until a later verifier result or resolution', () => {
+    expect(readComments([{ text: 'halted: plan defect', created_at: 't1' }]).halt).toEqual({ at: 't1', why: 'halted: plan defect' })
+    expect(readComments([
+      { text: 'halted: plan defect', created_at: 't1' },
+      { text: 'verification report:\n### Status: PASS', created_at: 't2' },
+    ]).halt).toBe(null)
   })
 })
 
@@ -174,6 +319,7 @@ const BAND_PROPS = {
 function answerRun(argv: readonly string[]) {
   const [tool, sub] = argv
   if (tool === 'git') return COMMITS.join('\n') + '\n'
+  if (tool === 'bd' && sub === 'list' && argv.includes('--parent')) return JSON.stringify(ISSUES.filter(issue => issue.id !== 'ex-epic'))
   if (tool === 'bd' && sub === 'list') return JSON.stringify(argv.includes('--all') ? ISSUES : OPEN)
   if (tool === 'bd' && sub === 'comments') return JSON.stringify(COMMENTS[argv[2] as keyof typeof COMMENTS] ?? [])
   return ''
@@ -202,12 +348,27 @@ describe('mod', () => {
 
     for (const surface of ['terminal', 'desktop'] as const) {
       const ui = await $.ui.mount({ plugin: 'wb-status', surface, component: 'AbovePrompt', props: BAND_PROPS })
-      expect(await ui.find({ type: 'Text', text: /^Plan: demo-plan · Phase 2\/2/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /1\/2 criteria have a red-first outer test/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /⚠ 2 items need you/ })).toBeDefined()
+      const rule = await ui.find({ type: 'Text', text: /^── wb plan ─+$/ })
+      expect(rule?.props.dimColor).toBe(true)
+      expect([...(rule?.text ?? '')].length).toBe(BAND_PROPS.bodyColumns - 2)
+      expect((await ui.find({ type: 'Text', text: 'Plan: ' }))?.props.dimColor).toBe(true)
+      expect(await ui.find({ type: 'Text', text: 'demo-plan' })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^Phase 2\/2/ })).toBeDefined()
+      expect((await ui.find({ type: 'Text', text: /^░+$/ }))?.props.color).toBe('inactive')
+      expect(await ui.find({ type: 'Text', text: '1/2' })).toBeDefined()
+      const attention = await ui.find({ type: 'Text', text: /^⚠ halted: missing context \(ex-t2\) \+1 more$/ })
+      expect(attention?.props.color).toBe('warning')
       expect(await ui.find({ type: 'Text', text: 'another mod' })).toBeDefined()
       await ui.unmount()
     }
+
+    // A narrow band: a blank line in place of the rule, and what needs you still shows.
+    const narrow = await $.ui.mount({ plugin: 'wb-status', surface: 'terminal', component: 'AbovePrompt', props: { ...BAND_PROPS, bodyColumns: 14 } })
+    expect(await narrow.find({ type: 'Text', text: /wb plan/ })).toBeUndefined()
+    expect(await narrow.find({ type: 'Text', text: ' ' })).toBeDefined()
+    expect(await narrow.find({ type: 'Text', text: /^⚠ halted/ })).toBeDefined()
+    expect(await narrow.find({ type: 'Text', text: 'another mod' })).toBeDefined()
+    await narrow.unmount()
 
     const pane = await $.ui.mount({ plugin: 'wb-status', surface: 'vscode', component: 'Pane', requestId: 'wb-status', props: { title: 'wb status', isFocused: false, bodyColumns: 120, placement: 'inline', scroll: { offset: 0, bodyRows: 40 }, view: {} } })
     expect(await pane.find({ type: 'Text', text: 'Needs your decision' })).toBeDefined()

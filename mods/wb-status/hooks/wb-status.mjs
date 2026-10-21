@@ -5,8 +5,9 @@
 // tool.call (Bash): after a `bd close`, `bd update`, `git commit` and the like
 //   has run (a subagent's included), take a new reading. Observe only: the
 //   hook calls next(e) first and returns its result unchanged.
-// ui.render (AbovePrompt): two lines, plan progress and test integrity, above
-//   whatever the other mods draw there.
+// ui.render (AbovePrompt): a dim `── wb plan ──` rule, then two lines, plan
+//   progress and test integrity, fitted to the band's width, above whatever
+//   the other mods draw there.
 // ui.render (Pane): the four report sections, opened by /wb-status.
 // $.ui.status: a one-line fallback, set only while a surface with no band
 //   (the VS Code extension, mobile) is attached.
@@ -19,8 +20,10 @@
 // spelled literally, and helpers that take $ are top-level functions.
 
 import {
+  TONES,
   bandLines,
   buildModel,
+  commentTargets,
   criteriaMentioned,
   isActivePlan,
   isRefreshCommand,
@@ -29,6 +32,8 @@ import {
   parseFrontmatter,
   parseJsonArray,
   planIds,
+  planState,
+  separator,
   statusLine,
 } from './model.mjs'
 
@@ -36,7 +41,9 @@ const PANE = 'wb-status'
 const POLL_MS = 60 * 1000
 const SETTLE_MS = 1500
 const PLANS_TO_SCAN = 12
-const COMMENTED_TASKS = 15
+// Comment reads per reading for plan issues outside the verifier window;
+// the window itself is always read. Cached reads cost nothing.
+const OUTSIDE_WINDOW_READS = 10
 
 // The last reading, or null when there is nothing to show.
 let model = null
@@ -76,17 +83,15 @@ export function register(on) {
     if (model === null || e.props.hasSurvey) return next(e)
     const theirs = await next(e)
     const { Box, Text } = $.ui.resolve(e)
-    const lines = bandLines(model)
-    const children = [
-      Text({ wrap: 'truncate-end', children: [lines.progress] }),
-      Box({
-        flexDirection: 'row',
-        children: [
-          Text({ dimColor: true, wrap: 'truncate-end', children: [lines.tests] }),
-          Text({ color: lines.attention.isOk ? 'green' : 'yellow', wrap: 'truncate-end', children: [lines.attention.text] }),
-        ],
-      }),
-    ]
+    // paddingX: 1 takes a cell on each side.
+    const columns = Math.max(1, Number(e.props.bodyColumns ?? e.viewport?.columns ?? Infinity) - 2)
+    const lines = bandLines(model, columns)
+    const toText = segment => Text({ ...TONES[segment.tone], children: [segment.text] })
+    const row = segments => Box({ flexDirection: 'row', children: segments.map(toText) })
+    const children = []
+    const rule = separator(columns, e.props.maxRows)
+    if (rule !== null) children.push(Text({ dimColor: true, wrap: 'truncate-end', children: [rule.text] }))
+    children.push(row(lines.progress), row(lines.tests))
     if (theirs) children.push(theirs)
     return Box({ flexDirection: 'column', paddingX: 1, children })
   })
@@ -159,10 +164,15 @@ async function read($) {
   if (plan === null) return null
 
   const ids = planIds(plan.fm)
-  const issues = await bdList($, root, ['--all', '--id', ids.join(',')])
+  const named = await bdList($, root, ['--all', '--id', ids.join(',')])
+  // Every issue under the epic belongs to the plan, follow-ups included.
+  const epic = plan.fm.beads_epic
+  const children = typeof epic === 'string' && epic !== '' ? await bdList($, root, ['--all', '--parent', epic]) : []
+  const issues = [...named, ...children]
   const openIssues = await bdList($, root, ['--status', 'open,in_progress,blocked'])
   const commits = await gitLog($, root, plan.fm)
-  const comments = await readComments($, root, issues)
+  const state = planState({ fm: plan.fm, issues, openIssues })
+  const comments = state === null ? {} : await readComments($, root, state)
 
   return buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments })
 }
@@ -211,28 +221,36 @@ async function gitLog($, root, fm) {
   return exitCode === 0 ? stdout.split('\n').filter(line => line !== '') : []
 }
 
-/** Comments of the most recently updated plan tasks that have any, cached. */
-async function readComments($, root, issues) {
-  const commented = issues
-    .filter(issue => Number(issue.comment_count ?? 0) > 0 && issue.issue_type !== 'epic')
-    .sort((a, b) => String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? '')))
-    .slice(0, COMMENTED_TASKS)
+/**
+ * Comments of the plan's issues, cached by comment count and update time:
+ * every issue in the verifier window (this phase's tasks and follow-ups), and
+ * up to OUTSIDE_WINDOW_READS uncached others per reading, so the pane's
+ * per-criterion verdicts fill in over a few readings at a bounded cost.
+ */
+async function readComments($, root, state) {
+  const targets = commentTargets(state)
   const out = {}
-  for (const issue of commented) {
+  let outsideReads = 0
+  for (const id of [...targets.window, ...targets.rest]) {
+    const issue = state.byId.get(id)
     const stamp = `${issue.comment_count}|${issue.updated_at}`
-    const held = commentCache.get(issue.id)
+    const held = commentCache.get(id)
     if (held !== undefined && held.stamp === stamp) {
-      out[issue.id] = held.comments
+      out[id] = held.comments
       continue
     }
+    if (!targets.window.includes(id)) {
+      if (outsideReads >= OUTSIDE_WINDOW_READS) continue
+      outsideReads += 1
+    }
     const { exitCode, stdout } = await $.process.run(
-      ['bd', 'comments', issue.id, '--json', '--readonly'],
+      ['bd', 'comments', id, '--json', '--readonly'],
       { cwd: root, timeoutMs: 15000 },
     )
     const comments = exitCode === 0 ? parseJsonArray(stdout) : null
     if (comments === null) continue
-    commentCache.set(issue.id, { stamp, comments })
-    out[issue.id] = comments
+    commentCache.set(id, { stamp, comments })
+    out[id] = comments
   }
   return out
 }

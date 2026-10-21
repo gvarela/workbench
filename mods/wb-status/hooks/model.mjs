@@ -4,6 +4,7 @@
 // draw from. Kept apart so the tests can exercise it without a session.
 
 const FINISHED = new Set(['complete', 'completed', 'done', 'archived', 'cancelled'])
+const UNCLOSED = new Set(['open', 'in_progress', 'blocked'])
 
 /** A YAML-ish frontmatter parser: top-level scalars and one level of maps. */
 export function parseFrontmatter(text) {
@@ -111,26 +112,63 @@ function latest(list) {
   return list.reduce((best, one) => (best === null || one.at > best.at ? one : best), null)
 }
 
+/**
+ * The verdict a `test integrity:` comment carries. Older coordinators posted
+ * these with no Status line, so: an explicit PASS or FAIL wins, then an
+ * escalated finding (which fails the task), then a clean count, which says
+ * only that integrity held and is therefore a weak PASS.
+ */
+function integrityVerdict(text) {
+  const status = /###\s*Status:\s*(PASS|FAIL)\b/.exec(text)
+  if (status) return { status: status[1], isWeak: false }
+  const findingsLine = /^.*Findings:.*$/m.exec(text)?.[0] ?? ''
+  const worded = /\b(PASS|FAIL)(?:ED)?\b/.exec(findingsLine) ?? /^\s*(?:Verdict|Result|Status)\s*:\s*(PASS|FAIL)\b/im.exec(text)
+  if (worded) return { status: worded[1], isWeak: false }
+  const findings = /Findings:\s*(\d+)\s*\((\d+)\s*escalated\)/.exec(text)
+  if (findings === null) return null
+  return Number(findings[2]) > 0 ? { status: 'FAIL', isWeak: false } : { status: 'PASS', isWeak: true }
+}
+
+/** A verifier verdict a close reason states, such as "Verified PASS". */
+export function closeReasonVerdict(reason) {
+  const text = String(reason ?? '')
+  const match = /\b[Vv]erif\w*\b[^.\n]*?\b(PASS|FAIL)\b/.exec(text) ?? /\b(PASS|FAIL)\b[^.\n]*?\b[Vv]erif/.exec(text)
+  return match ? match[1] : null
+}
+
+const RESUMES = ['verification report:', 'test integrity:', 'resolved:', 'resumed:', 'unhalted:']
+
 /** What a task's comments say: its latest verifier verdict, integrity findings, and an open halt. */
 export function readComments(comments) {
-  const reports = []
+  const strong = []
+  const weak = []
   const integrity = []
   const halts = []
+  const resumes = []
   for (const comment of comments ?? []) {
     const text = String(comment.text ?? '')
     const at = String(comment.created_at ?? '')
     const head = firstLine(text).toLowerCase()
+    if (RESUMES.some(prefix => head.startsWith(prefix))) resumes.push(at)
     if (head.startsWith('verification report:')) {
       const status = /###\s*Status:\s*(PASS|FAIL)\b/.exec(text)
-      if (status) reports.push({ at, status: status[1] })
+      if (status) strong.push({ at, status: status[1] })
     } else if (head.startsWith('test integrity:')) {
+      const verdict = integrityVerdict(text)
+      if (verdict) (verdict.isWeak ? weak : strong).push({ at, status: verdict.status })
       const findings = /Findings:\s*(\d+)\s*\((\d+)\s*escalated\)/.exec(text)
       if (findings) integrity.push({ at, findings: Number(findings[1]), escalated: Number(findings[2]) })
     } else if (head.startsWith('halted:')) {
       halts.push({ at, why: firstLine(text) })
     }
   }
-  return { verifier: latest(reports), integrity: latest(integrity), halt: latest(halts) }
+  const halt = latest(halts)
+  const isResumed = halt !== null && resumes.some(at => at > halt.at)
+  return {
+    verifier: latest(strong) ?? latest(weak),
+    integrity: latest(integrity),
+    halt: isResumed ? null : halt,
+  }
 }
 
 function phaseOf(key) {
@@ -142,16 +180,39 @@ function servesCriterion(issue, id) {
   return new RegExp(`\\b${id}(?!\\d)`).test(`${issue.title ?? ''}\n${issue.description ?? ''}`)
 }
 
+function isAsk(issue) {
+  return /^(Q|Decide):/.test(String(issue.title ?? '')) || issue.issue_type === 'decision'
+}
+
+function linksTo(issue, ids) {
+  if (typeof issue.parent === 'string' && ids.has(issue.parent)) return true
+  return (issue.dependencies ?? []).some(dep => (dep.type === 'discovered-from' || dep.type === 'parent-child') && ids.has(dep.depends_on_id))
+}
+
 /**
- * The whole read-out, from what the hooks module gathered:
- * fm (tasks.md frontmatter), criteria, issues (bd list for the plan's ids),
- * openIssues (bd list of every unclosed issue), commits (git log lines),
- * comments ({ [id]: bd comments JSON }).
+ * Who belongs to the plan and where it stands, from the issues alone:
+ * planned tasks (the frontmatter's beads_tasks), follow-ups (every other
+ * issue under the epic, or filed discovered-from a plan issue), the phase
+ * (the lowest one whose milestone is open) and whether it waits at its
+ * checkpoint.
  */
-export function buildModel({ fm, criteria, issues, openIssues, commits, comments }) {
-  const byId = new Map((issues ?? []).map(issue => [issue.id, issue]))
-  const ids = new Set(planIds(fm))
-  const phaseKeys = Object.keys(fm.beads_phases ?? {})
+export function planState({ fm, issues, openIssues }) {
+  const byId = new Map()
+  for (const issue of [...(issues ?? []), ...(openIssues ?? [])]) {
+    if (issue && typeof issue.id === 'string' && !byId.has(issue.id)) byId.set(issue.id, issue)
+  }
+  const named = new Set(planIds(fm))
+  const members = new Set([...named].filter(id => byId.has(id)))
+  for (let isGrowing = true; isGrowing;) {
+    isGrowing = false
+    for (const issue of byId.values()) {
+      if (!members.has(issue.id) && linksTo(issue, members)) {
+        members.add(issue.id)
+        isGrowing = true
+      }
+    }
+  }
+
   const seen = new Set()
   const tasks = []
   for (const [key, id] of Object.entries(fm.beads_tasks ?? {})) {
@@ -159,27 +220,103 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
     const phase = phaseOf(key)
     if (issue === undefined || phase === null || seen.has(id)) continue
     seen.add(id)
-    tasks.push({ key, id, phase, title: issue.title ?? id, status: issue.status ?? 'open', issue, notes: readComments(comments?.[id]) })
+    tasks.push({ key, id, phase, title: issue.title ?? id, status: issue.status ?? 'open', issue })
   }
-  if (tasks.length === 0) return null
 
-  const phaseNumbers = [...phaseKeys.map(phaseOf), ...tasks.map(task => task.phase)].filter(n => n !== null)
+  const milestones = Object.entries(fm.beads_phases ?? {})
+    .map(([key, id]) => ({ phase: phaseOf(key), id, issue: byId.get(id) }))
+    .filter(one => one.phase !== null && one.issue !== undefined)
+    .sort((a, b) => a.phase - b.phase)
+  const milestoneIds = new Set(Object.values(fm.beads_phases ?? {}))
+
+  const followUps = [...members]
+    .map(id => byId.get(id))
+    .filter(issue => !named.has(issue.id) && !milestoneIds.has(issue.id) && issue.issue_type !== 'epic' && !isAsk(issue))
+    .map(issue => {
+      const from = (issue.dependencies ?? []).find(dep => dep.type === 'discovered-from' && members.has(dep.depends_on_id))
+      return { id: issue.id, title: issue.title ?? issue.id, status: issue.status ?? 'open', from: from?.depends_on_id ?? null, issue }
+    })
+
+  if (tasks.length === 0) return null
+  const phaseNumbers = [...milestones.map(one => one.phase), ...tasks.map(task => task.phase)]
   const phaseCount = Math.max(...phaseNumbers)
-  const unfinished = tasks.filter(task => task.status !== 'closed').map(task => task.phase)
-  const isDone = unfinished.length === 0
-  const phase = isDone ? phaseCount : Math.min(...unfinished)
+  let phase
+  let isDone
+  if (milestones.length > 0) {
+    const open = milestones.filter(one => one.issue.status !== 'closed')
+    isDone = open.length === 0
+    phase = isDone ? phaseCount : open[0].phase
+  } else {
+    const unfinished = tasks.filter(task => task.status !== 'closed').map(task => task.phase)
+    isDone = unfinished.length === 0
+    phase = isDone ? phaseCount : Math.min(...unfinished)
+  }
   const phaseTasks = tasks.filter(task => task.phase === phase)
   const closed = phaseTasks.filter(task => task.status === 'closed').length
+  const isAtCheckpoint = !isDone && milestones.length > 0 && phaseTasks.length > 0 && closed === phaseTasks.length
+  const before = milestones.filter(one => one.phase < phase).at(-1)
+  const phaseStart = String(before?.issue.closed_at ?? fm.created_timestamp ?? fm.created ?? '')
 
-  const working = tasks
+  // What the verifier window reads: this phase's planned tasks, and the
+  // follow-ups that moved since the phase began.
+  const touched = issue => [issue.updated_at, issue.closed_at, issue.created_at].some(at => at && String(at) >= phaseStart)
+  const window = [
+    ...phaseTasks.map(task => task.issue),
+    ...followUps.map(item => item.issue).filter(issue => phaseStart === '' || touched(issue)),
+  ]
+
+  return { byId, members, tasks, followUps, phase, phaseCount, isDone, isAtCheckpoint, closed, phaseTasks, window }
+}
+
+/** Which issues to read comments for: the verifier window first, then the rest of the plan. */
+export function commentTargets(state) {
+  const hasComments = issue => Number(issue.comment_count ?? 0) > 0 && issue.issue_type !== 'epic'
+  const newest = (a, b) => String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? ''))
+  const first = state.window.filter(hasComments).sort(newest)
+  const firstIds = new Set(first.map(issue => issue.id))
+  const rest = [...state.members]
+    .map(id => state.byId.get(id))
+    .filter(issue => hasComments(issue) && !firstIds.has(issue.id))
+    .sort(newest)
+  return { window: first.map(issue => issue.id), rest: rest.map(issue => issue.id) }
+}
+
+/** A task's verdict: the latest of its comments' and its close reason's. */
+function verdictOf(issue, notes) {
+  const fromClose = closeReasonVerdict(issue.close_reason)
+  const closing = fromClose === null ? null : { at: String(issue.closed_at ?? issue.updated_at ?? ''), status: fromClose }
+  const candidates = [notes.verifier, closing].filter(one => one !== null)
+  return latest(candidates)
+}
+
+/**
+ * The whole read-out, from what the hooks module gathered:
+ * fm (tasks.md frontmatter), criteria, issues (bd list for the plan's ids and
+ * the epic's children), openIssues (bd list of every unclosed issue),
+ * commits (git log lines), comments ({ [id]: bd comments JSON }).
+ */
+export function buildModel({ fm, criteria, issues, openIssues, commits, comments }) {
+  const state = planState({ fm, issues, openIssues })
+  if (state === null) return null
+  const notesOf = new Map()
+  const notes = id => {
+    if (!notesOf.has(id)) notesOf.set(id, readComments(comments?.[id]))
+    return notesOf.get(id)
+  }
+  const work = [
+    ...state.tasks.map(task => ({ ...task, isPlanned: true })),
+    ...state.followUps.map(item => ({ ...item, phase: null, isPlanned: false })),
+  ].map(task => ({ ...task, notes: notes(task.id), verdict: verdictOf(task.issue, notes(task.id)) }))
+
+  const working = work
     .filter(task => task.status === 'in_progress')
-    .sort((a, b) => (a.phase === phase ? -1 : 0) - (b.phase === phase ? -1 : 0) || String(b.issue.updated_at ?? '').localeCompare(String(a.issue.updated_at ?? '')))
+    .sort((a, b) => String(b.issue.updated_at ?? '').localeCompare(String(a.issue.updated_at ?? '')))
   const now = working[0] ?? null
 
   const red = redCommits(commits ?? [])
   const rows = (criteria ?? []).map(criterion => {
-    const serving = tasks.filter(task => servesCriterion(task.issue, criterion.id))
-    const verdicts = serving.filter(task => task.notes.verifier !== null).map(task => ({ ...task.notes.verifier, id: task.id }))
+    const serving = work.filter(task => servesCriterion(task.issue, criterion.id))
+    const verdicts = serving.filter(task => task.verdict !== null).map(task => ({ ...task.verdict, id: task.id }))
     const integrity = serving.filter(task => task.notes.integrity !== null).map(task => ({ ...task.notes.integrity, id: task.id }))
     return {
       id: criterion.id,
@@ -191,19 +328,22 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
     }
   })
 
-  const recent = tasks
-    .filter(task => task.notes.verifier !== null)
-    .map(task => ({ ...task.notes.verifier, id: task.id }))
+  const inWindow = new Set(state.window.map(issue => issue.id))
+  const verdicts = work
+    .filter(task => inWindow.has(task.id) && task.verdict !== null)
+    .map(task => ({ ...task.verdict, id: task.id }))
     .sort((a, b) => b.at.localeCompare(a.at))
-    .slice(0, 5)
 
   const blocking = []
-  for (const task of tasks) {
+  if (state.isAtCheckpoint) {
+    blocking.push({ kind: 'checkpoint', id: null, title: `Phase ${state.phase} checkpoint`, why: `Phase ${state.phase} checkpoint waiting for you` })
+  }
+  for (const task of work) {
     if (task.status === 'closed') continue
     if (task.notes.halt !== null) {
-      blocking.push({ id: task.id, title: task.title, why: task.notes.halt.why })
+      blocking.push({ kind: 'halt', id: task.id, title: task.title, why: task.notes.halt.why })
     } else if (task.issue.closed_at || task.issue.close_reason) {
-      blocking.push({ id: task.id, title: task.title, why: 'reopened' })
+      blocking.push({ kind: 'reopened', id: task.id, title: task.title, why: 'reopened' })
     }
   }
   // Q: and Decide: issues carry no link to a plan, so one counts when it is
@@ -211,31 +351,29 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
   const since = String(fm.created_timestamp ?? fm.created ?? '')
   for (const issue of openIssues ?? []) {
     const match = /^(Q|Decide):/.exec(String(issue.title ?? ''))
-    const isLinked = (issue.dependencies ?? []).some(dep => ids.has(dep.depends_on_id))
+    if (!match || !UNCLOSED.has(String(issue.status ?? 'open'))) continue
+    const isLinked = state.members.has(issue.id) || linksTo(issue, state.members)
     const isRecent = since !== '' && String(issue.created_at ?? '') >= since
-    if (match && (isLinked || isRecent)) blocking.push({ id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
+    if (isLinked || isRecent) blocking.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
   }
 
-  const followUps = (openIssues ?? [])
-    .filter(issue => !ids.has(issue.id))
-    .map(issue => ({ issue, from: (issue.dependencies ?? []).find(dep => dep.type === 'discovered-from' && ids.has(dep.depends_on_id)) }))
-    .filter(({ from }) => from !== undefined)
-    .map(({ issue, from }) => ({ id: issue.id, title: issue.title ?? issue.id, status: issue.status, from: from.depends_on_id }))
+  const openFollowUps = state.followUps.filter(item => UNCLOSED.has(item.status))
 
   return {
     planName: String(fm.project ?? 'plan'),
-    phase,
-    phaseCount,
-    isDone,
-    closed,
-    total: phaseTasks.length,
-    phaseTasks: phaseTasks.map(task => ({ id: task.id, title: task.title, status: task.status })),
-    now: now === null ? null : { id: now.id, title: now.title },
+    phase: state.phase,
+    phaseCount: state.phaseCount,
+    isDone: state.isDone,
+    isAtCheckpoint: state.isAtCheckpoint,
+    closed: state.closed,
+    total: state.phaseTasks.length,
+    phaseTasks: state.phaseTasks.map(task => ({ id: task.id, title: task.title, status: task.status })),
+    now: now === null ? null : { id: now.id, title: now.title, isPlanned: now.isPlanned },
     criteria: rows,
     redCount: rows.filter(row => row.redSha !== null).length,
-    recent,
+    verdicts,
     blocking,
-    followUps,
+    followUps: openFollowUps.map(item => ({ id: item.id, title: item.title, status: item.status, from: item.from })),
   }
 }
 
@@ -245,42 +383,155 @@ export function bar(done, total, width = 10) {
   return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
 
-/** The verifier's recent verdicts, in plain words. */
-export function verifierWords(recent) {
-  if (recent.length === 0) return 'verifier: no reports yet'
-  const passed = recent.filter(one => one.status === 'PASS').length
-  const words = passed === recent.length
-    ? `verifier: last ${recent.length} passed`
-    : `verifier: ${passed} of last ${recent.length} passed`
-  const failed = recent.find(one => one.status === 'FAIL')
-  return failed === undefined ? words : `${words}, ${failed.id} failed`
+// The band is drawn from segments: text and a tone. Color marks state only:
+// the tones map to theme keys so they follow the user's light or dark theme,
+// and every state keeps its symbol (✓ ⚠ ✗) for surfaces and people that do
+// not see the color.
+export const TONES = {
+  plain: {},
+  dim: { dimColor: true },
+  accent: { color: 'permission' },
+  track: { color: 'inactive' },
+  ok: { color: 'success' },
+  warn: { color: 'warning' },
+  error: { color: 'error' },
 }
 
-/** What needs the person, in plain words, and whether all is well. */
+const seg = (text, tone = 'plain') => ({ text, tone })
+const SEP = seg(' · ', 'dim')
+
+function cells(text) {
+  return [...String(text)].length
+}
+
+function width(segments) {
+  return segments.reduce((sum, one) => sum + cells(one.text), 0)
+}
+
+function joined(segments) {
+  return segments.map(one => one.text).join('')
+}
+
+function shorten(text, max) {
+  const chars = [...String(text)]
+  if (chars.length <= max) return String(text)
+  if (max <= 1) return '…'
+  const cut = chars.slice(0, max - 1).join('')
+  // End on a word when that keeps most of the room.
+  const space = cut.lastIndexOf(' ')
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).trimEnd()}…`
+}
+
+function line(...groups) {
+  const out = []
+  for (const group of groups) {
+    if (group === null || group.length === 0) continue
+    if (out.length > 0) out.push(SEP)
+    out.push(...group)
+  }
+  return out
+}
+
+/** The first of the variants that fits, else the last one. */
+function firstFitting(variants, columns) {
+  return variants.find(one => width(one) <= columns) ?? variants[variants.length - 1]
+}
+
+/** What the verifier said in this phase, as segments: `verifier 5✓ 1✗`. */
+export function verifierSegments(verdicts) {
+  if (verdicts.length === 0) return [seg('verifier none yet', 'dim')]
+  const passed = verdicts.filter(one => one.status === 'PASS').length
+  const failed = verdicts.length - passed
+  const out = [seg('verifier ', 'dim'), seg(`${passed}✓`)]
+  if (failed > 0) out.push(seg(' '), seg(`${failed}✗`, 'error'))
+  return out
+}
+
+/** What needs the person, as one short phrase, and whether all is well. */
 export function attentionWords(blocking) {
   if (blocking.length === 0) return { text: '✓ nothing needs you', isOk: true }
-  const shown = blocking.slice(0, 2).map(item => `${item.why.startsWith('halted') ? 'halted' : item.why} ${item.id}`)
-  const more = blocking.length > 2 ? `, +${blocking.length - 2} more` : ''
-  const noun = blocking.length === 1 ? 'item needs' : 'items need'
-  return { text: `⚠ ${blocking.length} ${noun} you: ${shown.join(', ')}${more}`, isOk: false }
+  const first = blocking[0]
+  const what = first.kind === 'checkpoint'
+    ? first.why
+    : first.kind === 'halt'
+      ? `${first.why} (${first.id})`
+      : `${first.why}: ${String(first.title).replace(/^(Q|Decide):\s*/, '')} (${first.id})`
+  const more = blocking.length > 1 ? ` +${blocking.length - 1} more` : ''
+  return { text: `⚠ ${what}${more}`, isOk: false }
 }
 
-/** The band's two lines: progress, then test integrity and attention. */
-export function bandLines(model) {
-  const phase = model.isDone ? `Phase ${model.phase}/${model.phaseCount} done` : `Phase ${model.phase}/${model.phaseCount}`
-  const now = model.now === null ? 'now: no task in progress' : `now: ${model.now.title} (${model.now.id})`
-  const progress = `Plan: ${model.planName} · ${phase} ${bar(model.closed, model.total)} ${model.closed}/${model.total} tasks · ${now}`
-  const criteria = model.criteria.length === 0
-    ? 'no acceptance criteria found'
-    : `${model.redCount}/${model.criteria.length} criteria have a red-first outer test`
-  const tests = `Tests: ${criteria} · ${verifierWords(model.recent)} · `
-  return { progress, tests, attention: attentionWords(model.blocking) }
+function attentionSegment(attention, max = Infinity) {
+  return seg(shorten(attention.text, max), attention.isOk ? 'ok' : 'warn')
+}
+
+/**
+ * The band's two lines, fitted to `columns` cells. Each line drops its
+ * lowest-priority parts first: line 1 shortens, then drops, what is in
+ * progress, then the follow-up count and the bar, keeping the phase and its
+ * counts; line 2 keeps what needs you and drops the red-first count, then the
+ * verifier, then its label.
+ */
+export function bandLines(model, columns = Infinity) {
+  const head = [seg('Plan: ', 'dim'), seg(model.planName)]
+  const where = model.isDone ? ' done' : model.isAtCheckpoint ? ' at checkpoint' : ''
+  const filled = model.total === 0 ? 0 : Math.round((model.closed / model.total) * 10)
+  const phase = [seg(`Phase ${model.phase}/${model.phaseCount}${where}`), seg(' '), seg('█'.repeat(filled), 'accent'), seg('░'.repeat(10 - filled), 'track'), seg(` ${model.closed}/${model.total} tasks`)]
+  const phaseNoBar = [seg(`Phase ${model.phase}/${model.phaseCount}${where} ${model.closed}/${model.total} tasks`)]
+  const count = model.followUps.length
+  const follow = count === 0 ? null : [seg(`${count} follow-up${count === 1 ? '' : 's'} open`)]
+  const isIdle = model.isDone || model.isAtCheckpoint
+  const nowFull = model.now === null ? null : `${model.now.title} (${model.now.id})`
+  const nowOf = text => (text === null ? (isIdle ? null : [seg('now: ', 'dim'), seg('nothing in progress', 'dim')]) : [seg('now: ', 'dim'), seg(text)])
+
+  const fixed = line(head, phase, follow)
+  const room = columns - width(fixed) - cells(' · now: ') - cells(` (${model.now?.id ?? ''})`)
+  const nowShort = model.now === null || room < 8 ? null : `${shorten(model.now.title, room)} (${model.now.id})`
+  const progressVariants = [
+    line(head, phase, follow, nowOf(nowFull)),
+    ...(nowShort === null ? [] : [line(head, phase, follow, nowOf(nowShort))]),
+    line(head, phase, follow),
+    line(head, phase),
+    line(head, phaseNoBar),
+    line([seg(model.planName)], phaseNoBar),
+  ]
+  const progress = firstFitting(progressVariants, columns)
+
+  const attention = attentionWords(model.blocking)
+  const label = [seg('Tests: ', 'dim')]
+  const red = model.criteria.length === 0
+    ? [seg('no criteria found', 'dim')]
+    : [seg('red-first ', 'dim'), seg(`${model.redCount}/${model.criteria.length}`)]
+  const verifier = verifierSegments(model.verdicts)
+  const testsVariants = [
+    [...label, ...line([attentionSegment(attention)], red, verifier)],
+    [...label, ...line([attentionSegment(attention)], verifier)],
+    [...label, attentionSegment(attention)],
+    [attentionSegment(attention, columns)],
+  ]
+  const tests = firstFitting(testsVariants, columns)
+
+  return { progress, tests, attention, text: { progress: joined(progress), tests: joined(tests) } }
+}
+
+/**
+ * The rule above the band, so it does not read as part of the status text
+ * above it: `── wb plan ───…` across the width, a blank line when the width
+ * has no room for a labelled rule, and nothing when the band has no row to
+ * spare.
+ */
+export function separator(columns, maxRows) {
+  if (typeof maxRows === 'number' && maxRows < 3) return null
+  const label = '── wb plan '
+  if (!Number.isFinite(columns) || columns < cells(label) + 4) return { kind: 'blank', text: ' ' }
+  return { kind: 'rule', text: label + '─'.repeat(columns - cells(label)) }
 }
 
 /** The one-line status, for surfaces with no band. */
 export function statusLine(model) {
   const attention = model.blocking.length === 0 ? '✓' : `⚠ ${model.blocking.length}`
-  return `wb ${model.planName}: phase ${model.phase}/${model.phaseCount} ${model.closed}/${model.total} · red-first ${model.redCount}/${model.criteria.length} · ${attention}`
+  const where = model.isAtCheckpoint ? ' at checkpoint' : ''
+  const verifier = joined(verifierSegments(model.verdicts))
+  return `wb ${model.planName}: phase ${model.phase}/${model.phaseCount}${where} ${model.closed}/${model.total} · red-first ${model.redCount}/${model.criteria.length} · ${verifier} · ${attention}`
 }
 
 const MARK = { closed: '✓', in_progress: '…', blocked: '⊘' }
@@ -289,7 +540,7 @@ const MARK = { closed: '✓', in_progress: '…', blocked: '⊘' }
 export function paneSections(model) {
   const decide = model.blocking.length === 0
     ? ['Nothing needs you.']
-    : model.blocking.map(item => `⚠ ${item.why}: ${item.title} (${item.id})`)
+    : model.blocking.map(item => (item.id === null ? `⚠ ${item.why}` : `⚠ ${item.why}: ${item.title} (${item.id})`))
 
   const delivered = []
   const inPhase = new Set(model.phaseTasks.map(task => task.id))
@@ -320,7 +571,7 @@ export function paneSections(model) {
 
   const followUps = model.followUps.length === 0
     ? ['No open follow-ups.']
-    : model.followUps.map(item => `○ ${item.title} (${item.id}, from ${item.from})`)
+    : model.followUps.map(item => `${MARK[item.status] ?? '○'} ${item.title} (${item.id}${item.from ? `, from ${item.from}` : ''})`)
 
   return [
     { heading: 'Needs your decision', rows: decide },
