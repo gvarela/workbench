@@ -26,7 +26,7 @@ Key Context Restored:
 Current State:
 - Git: [branch] at [commit]
 - Uncommitted changes: [YES/NO]
-- Tests: [PASSING/FAILING]
+- Tests: [last known result, e.g. "passing at the last verification ([task title], [commit], [time])", or "not recorded since [commit]; the next stage runs them"] (not re-run here)
 - Beads: [N] open, [M] in_progress, [X] closed
 - Active phase: [phase name] ([phase-id]) or "none"
 

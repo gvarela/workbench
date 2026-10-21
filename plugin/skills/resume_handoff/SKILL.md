@@ -213,15 +213,7 @@ Then end the turn. Do not edit code, claim or close beads issues, or run the han
 
 Run these checks before presenting the report in Step 6; their results fill its Current State section:
 
-1. **Code State Verification** (read-only checks; report failures, do not fix them):
-
-   ```bash
-   # Run tests to see whether the starting state is good
-   npm test  # or appropriate test command
-
-   # Check build still works
-   npm run build
-   ```
+1. **Code State Verification** (read-only, and cheap): report the last known test result rather than running the suite, because the next stage runs its own baseline check before any work and a full suite can take minutes. Take it from the handoff or from the latest `verification report:` or `test integrity:` comment on the phase's tasks (`bd comments [task-id] --json`), with when it ran and the commit it ran on; if commits landed since then, or none is recorded, say so and leave the run to the next stage. `git status` and `git fetch && git status -sb` (Step 2) cover the rest.
 
 2. **Progress Verification**:
    - Confirm phase matches handoff
