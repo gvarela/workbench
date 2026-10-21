@@ -1,0 +1,10 @@
+{
+  "name": "wb-status",
+  "version": "0.1.0",
+  "description": "Prototype mod for the wb workflow: a read-only band above the prompt with plan progress and test integrity, a status line, and a /wb-status pane",
+  "author": {
+    "name": "Gabriel Varela"
+  },
+  "repository": "https://github.com/gvarela/workbench",
+  "keywords": ["wb", "beads", "status", "mod"]
+}
