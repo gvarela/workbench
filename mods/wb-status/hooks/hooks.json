@@ -1,4 +1,4 @@
 {
-  "description": "wb-status: read-only plan progress and test-integrity band, status line, and /wb-status pane",
+  "description": "wb-status: read-only planning-stage, plan progress and test-integrity band, status line, and /wb-status pane",
   "modules": ["./wb-status.mjs"]
 }

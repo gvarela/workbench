@@ -346,16 +346,7 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
       blocking.push({ kind: 'reopened', id: task.id, title: task.title, why: 'reopened' })
     }
   }
-  // Q: and Decide: issues carry no link to a plan, so one counts when it is
-  // linked to the plan anyway or was opened since the plan was created.
-  const since = String(fm.created_timestamp ?? fm.created ?? '')
-  for (const issue of openIssues ?? []) {
-    const match = /^(Q|Decide):/.exec(String(issue.title ?? ''))
-    if (!match || !UNCLOSED.has(String(issue.status ?? 'open'))) continue
-    const isLinked = state.members.has(issue.id) || linksTo(issue, state.members)
-    const isRecent = since !== '' && String(issue.created_at ?? '') >= since
-    if (isLinked || isRecent) blocking.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
-  }
+  blocking.push(...asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? '')))
 
   const openFollowUps = state.followUps.filter(item => UNCLOSED.has(item.status))
 
@@ -375,6 +366,23 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
     blocking,
     followUps: openFollowUps.map(item => ({ id: item.id, title: item.title, status: item.status, from: item.from })),
   }
+}
+
+/**
+ * The open `Q:` and `Decide:` issues that need the person for this plan.
+ * They carry no link to a plan, so one counts when it is linked to the plan
+ * anyway (`members`) or was opened since the plan was created (`since`).
+ */
+export function asksFor(openIssues, members, since) {
+  const out = []
+  for (const issue of openIssues ?? []) {
+    const match = /^(Q|Decide):/.exec(String(issue.title ?? ''))
+    if (!match || !UNCLOSED.has(String(issue.status ?? 'open'))) continue
+    const isLinked = members.has(issue.id) || linksTo(issue, members)
+    const isRecent = since !== '' && String(issue.created_at ?? '') >= since
+    if (isLinked || isRecent) out.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
+  }
+  return out
 }
 
 /** A bar of `width` cells, filled in proportion. */
@@ -448,15 +456,22 @@ export function verifierSegments(verdicts) {
 }
 
 /** What needs the person, as one short phrase, and whether all is well. */
-export function attentionWords(blocking) {
+export function attentionWords(blocking, max = Infinity) {
   if (blocking.length === 0) return { text: '✓ nothing needs you', isOk: true }
   const first = blocking[0]
-  const what = first.kind === 'checkpoint'
-    ? first.why
-    : first.kind === 'halt'
-      ? `${first.why} (${first.id})`
-      : `${first.why}: ${String(first.title).replace(/^(Q|Decide):\s*/, '')} (${first.id})`
   const more = blocking.length > 1 ? ` +${blocking.length - 1} more` : ''
+  let what
+  if (first.kind === 'checkpoint' || first.kind === 'approval') {
+    what = first.why
+  } else if (first.kind === 'halt') {
+    what = `${first.why} (${first.id})`
+  } else {
+    // An issue's title is the part that gives way when room is short, never
+    // below a readable stub; its id and the count of the others stay.
+    const title = String(first.title).replace(/^(Q|Decide):\s*/, '')
+    const room = max - cells(`⚠ ${first.why}:  (${first.id})${more}`)
+    what = `${first.why}: ${room < cells(title) ? shorten(title, Math.max(room, 16)) : title} (${first.id})`
+  }
   return { text: `⚠ ${what}${more}`, isOk: false }
 }
 
@@ -472,12 +487,8 @@ function attentionSegment(attention, max = Infinity) {
  * verifier, then its label.
  */
 export function bandLines(model, columns = Infinity) {
-  // A guessed plan says so wherever its name shows; the worktree is the
-  // first thing to go when the band is narrow.
-  const name = [seg(model.planName), ...(isGuessed(model) ? [seg(' (guessed)', 'warn')] : [])]
-  const head = [seg('Plan: ', 'dim'), ...name]
-  const worktree = model.selection?.worktree
-  const headInWorktree = worktree && worktree !== model.planName ? [...head, seg(` (worktree ${worktree})`, 'dim')] : null
+  if (model.kind === 'planning') return planningBandLines(model, columns)
+  const { name, head, headInWorktree } = planHead(model)
   const where = model.isDone ? ' done' : model.isAtCheckpoint ? ' at checkpoint' : ''
   const filled = model.total === 0 ? 0 : Math.round((model.closed / model.total) * 10)
   const phase = [seg(`Phase ${model.phase}/${model.phaseCount}${where}`), seg(' '), seg('█'.repeat(filled), 'accent'), seg('░'.repeat(10 - filled), 'track'), seg(` ${model.closed}/${model.total} tasks`)]
@@ -491,7 +502,12 @@ export function bandLines(model, columns = Infinity) {
   const fixed = line(head, phase, follow)
   const room = columns - width(fixed) - cells(' · now: ') - cells(` (${model.now?.id ?? ''})`)
   const nowShort = model.now === null || room < 8 ? null : `${shorten(model.now.title, room)} (${model.now.id})`
+  // The stage chain is the least important part of the implement view: it
+  // shows only when everything else fits beside it, at the end of the line.
+  const chain = model.stages ? symbolChain(model.stages) : null
   const progressVariants = [
+    ...(chain === null || headInWorktree === null ? [] : [line(headInWorktree, phase, follow, nowOf(nowFull), chain)]),
+    ...(chain === null ? [] : [line(head, phase, follow, nowOf(nowFull), chain)]),
     ...(headInWorktree === null ? [] : [line(headInWorktree, phase, follow, nowOf(nowFull))]),
     line(head, phase, follow, nowOf(nowFull)),
     ...(nowShort === null ? [] : [line(head, phase, follow, nowOf(nowShort))]),
@@ -534,6 +550,7 @@ export function separator(columns, maxRows) {
 
 /** The one-line status, for surfaces with no band. */
 export function statusLine(model) {
+  if (model.kind === 'planning') return planningStatusLine(model)
   const attention = model.blocking.length === 0 ? '✓' : `⚠ ${model.blocking.length}`
   const where = model.isAtCheckpoint ? ' at checkpoint' : ''
   const verifier = joined(verifierSegments(model.verdicts))
@@ -545,9 +562,12 @@ const MARK = { closed: '✓', in_progress: '…', blocked: '⊘' }
 
 /** The pane's four sections, as heading and rows of plain text. */
 export function paneSections(model) {
-  const decide = model.blocking.length === 0
-    ? ['Nothing needs you.']
-    : model.blocking.map(item => (item.id === null ? `⚠ ${item.why}` : `⚠ ${item.why}: ${item.title} (${item.id})`))
+  const decide = decisionRows(model.blocking)
+  const plan = model.selection ? [{ heading: 'Plan', rows: selectionWords(model.selection) }] : []
+  const planning = model.stages ? [{ heading: 'Planning', rows: planningRows(model) }] : []
+  if (model.kind === 'planning') {
+    return [...plan, ...planning, { heading: 'Needs your decision', rows: decide }]
+  }
 
   const delivered = []
   const inPhase = new Set(model.phaseTasks.map(task => task.id))
@@ -580,9 +600,9 @@ export function paneSections(model) {
     ? ['No open follow-ups.']
     : model.followUps.map(item => `${MARK[item.status] ?? '○'} ${item.title} (${item.id}${item.from ? `, from ${item.from}` : ''})`)
 
-  const plan = model.selection ? [{ heading: 'Plan', rows: selectionWords(model.selection) }] : []
   return [
     ...plan,
+    ...planning,
     { heading: 'Needs your decision', rows: decide },
     { heading: `What phase ${model.phase} delivered`, rows: delivered.length === 0 ? ['No tasks in this phase.'] : delivered },
     { heading: 'Test integrity', rows: integrity },
@@ -639,9 +659,50 @@ export function pinFrom(name, args, at) {
 
 /** A pin from a `prompt.submit` input: its `command`, else a typed `/wb:<name> args` line. */
 export function pinFromPrompt(e, at) {
-  if (e?.command && typeof e.command.name === 'string') return pinFrom(e.command.name, e.command.args, at)
+  const ran = promptCommand(e)
+  return ran === null ? null : pinFrom(ran.name, ran.args, at)
+}
+
+/** The wb command a `prompt.submit` input runs, `{ name, args }`, or null. */
+export function promptCommand(e) {
+  if (e?.command && typeof e.command.name === 'string') {
+    const name = e.command.name.replace(/^\//, '')
+    return isWbName(name) ? { name, args: String(e.command.args ?? '') } : null
+  }
   const typed = /^\s*\/(wb:[\w-]+)(?:\s+([\s\S]*))?$/.exec(String(e?.text ?? ''))
-  return typed === null ? null : pinFrom(typed[1], typed[2] ?? '', at)
+  return typed === null ? null : { name: typed[1], args: typed[2] ?? '' }
+}
+
+/** Whether a Write or Edit to `filePath` shows the folder a pending /wb:create_project made: a plan folder not there before, or its README.md. */
+export function isCreatedPlanWrite(filePath, knownNames) {
+  const path = planPathIn(filePath)
+  if (path === null) return false
+  const name = path.split('/').at(-1)
+  return !(knownNames ?? []).includes(name) || /\/README\.md$/.test(String(filePath))
+}
+
+/**
+ * The plan to show when nothing is pinned. A beads plan with an issue in
+ * progress wins; else the most recent of the beads plan whose issue moved
+ * last and the planning plan (no beads tasks yet) whose file changed last,
+ * counting only planning plans changed within `maxAgeMs` of `now`; else the
+ * newest beads plan by directory name. Null when none qualifies.
+ * Planning candidates carry `newest: { name, mtimeMs }`.
+ */
+export function chooseGuess(beadsCandidates, issues, planningCandidates, now, maxAgeMs) {
+  const active = chooseByActivity(beadsCandidates, issues)
+  const beads = active === null ? null : { candidate: active.candidate, selection: { kind: 'beads', why: active.why, id: active.id } }
+  if (active?.why === 'in-progress') return beads
+  const isFresh = one => one.newest && one.newest.mtimeMs > 0 && (typeof now !== 'number' || now - one.newest.mtimeMs <= maxAgeMs)
+  const planning = (planningCandidates ?? []).filter(isFresh).reduce((best, one) => (best === null || one.newest.mtimeMs > best.newest.mtimeMs ? one : best), null)
+  const issue = active === null ? null : (issues ?? []).find(one => one?.id === active.id)
+  const beadsAt = issue ? Date.parse(String(issue.updated_at ?? issue.closed_at ?? issue.created_at ?? '')) : NaN
+  if (planning !== null && (beads === null || Number.isNaN(beadsAt) || planning.newest.mtimeMs > beadsAt)) {
+    return { candidate: planning, selection: { kind: 'recent-file', file: planning.newest.name, at: planning.newest.mtimeMs } }
+  }
+  if (beads !== null) return beads
+  if ((beadsCandidates ?? []).length > 0) return { candidate: newestByName(beadsCandidates), selection: { kind: 'directory' } }
+  return null
 }
 
 /**
@@ -651,22 +712,46 @@ export function pinFromPrompt(e, at) {
  * with the transcript already written (a resume).
  */
 export function latestPin(messages, at) {
-  let found = null
-  for (const message of messages ?? []) {
+  return latestInvocation(messages, at).pin
+}
+
+/**
+ * What a transcript's wb invocations leave: the pin (as latestPin), and the
+ * latest wb command that names a workflow stage, path or not. After a
+ * /wb:create_project, which creates its folder rather than naming it, the
+ * first Write or Edit into a `docs/plans/<dir>/` pins that folder.
+ */
+export function latestInvocation(messages, at) {
+  let pin = null
+  let stage = null
+  // Scanning newest first: the oldest plan-folder write seen so far since the
+  // last wb command, which a /wb:create_project before it would pin.
+  let write = null
+  const ran = (name, args) => {
+    if (!isWbName(name)) return false
+    if (stage === null && stageOfCommand(name) !== null) stage = { by: `/${name}`, at }
+    const found = pinFrom(name, args, at)
+    if (found !== null) pin = found
+    else if (name === 'wb:create_project' && write !== null) pin = { path: write, by: '/wb:create_project', at }
+    write = null
+    return pin !== null
+  }
+  const list = messages ?? []
+  for (let at_ = list.length - 1; at_ >= 0; at_ -= 1) {
+    const message = list[at_]
+    const uses = message?.toolUses ?? []
+    for (let one = uses.length - 1; one >= 0; one -= 1) {
+      const use = uses[one]
+      if (use?.tool === 'Skill' && ran(String(use.input?.skill ?? '').replace(/^\//, ''), use.input?.args)) return { pin, stage }
+      if (use?.tool === 'Write' || use?.tool === 'Edit') write = planPathIn(use.input?.file_path) ?? write
+    }
     if (message?.role === 'user') {
       const text = String(message.text ?? '')
       const named = /<command-name>\/?(wb:[\w-]+)<\/command-name>/.exec(text) ?? /^\s*\/(wb:[\w-]+)\b/.exec(text)
-      const pin = named === null ? null : pinFrom(named[1], text.slice(named.index + named[0].length), at)
-      if (pin !== null) found = pin
-    }
-    for (const use of message?.toolUses ?? []) {
-      if (use?.tool !== 'Skill') continue
-      const skill = String(use.input?.skill ?? '').replace(/^\//, '')
-      const pin = pinFrom(skill, use.input?.args, at)
-      if (pin !== null) found = pin
+      if (named !== null && ran(named[1], text.slice(named.index + named[0].length))) return { pin, stage }
     }
   }
-  return found
+  return { pin, stage }
 }
 
 /** Worktree roots from `git worktree list --porcelain`, the main one first. */
@@ -738,7 +823,7 @@ export function newestByName(candidates) {
 /** Whether the read-out should mark the plan as guessed. */
 export function isGuessed(model) {
   const kind = model?.selection?.kind
-  return kind === 'beads' || kind === 'directory'
+  return kind === 'beads' || kind === 'directory' || kind === 'recent-file'
 }
 
 function clockTime(at) {
@@ -763,8 +848,504 @@ export function selectionWords(selection) {
     rows.push(`Guessed from beads activity: ${why}.`)
   } else if (selection.kind === 'directory') {
     rows.push('Guessed from the newest plan directory name: no plan has beads activity.')
+  } else if (selection.kind === 'recent-file') {
+    const date = new Date(Number(selection.at))
+    const day = Number.isNaN(date.getTime()) ? '' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const time = clockTime(selection.at)
+    rows.push(`Guessed from the most recently changed plan file: ${selection.file}${day ? `, changed ${day} ${time}` : ''}; no plan has beads work in progress.`)
   }
   if (selection.missing) rows.push(`No tasks.md found for the pinned ${selection.missing}, so this plan was guessed.`)
   rows.push('/wb-status <plan dir> pins a plan; /wb-status auto goes back to guessing.')
+  return rows
+}
+
+// ── Planning stages ───────────────────────────────────────────────────────
+//
+// Before a plan has beads tasks, the band shows where it stands in the
+// workflow chain, read from the plan's own files: each stage done, current or
+// not started, and the current stage's key signals. Markdown is read cheaply:
+// headings, simple lists and tables, no full parse.
+
+/** The workflow chain, in help's order; explore is shown only when the plan has explored. */
+export const STAGES = [
+  { key: 'project', label: 'Project', symbol: 'P', command: '/wb:create_project', doc: 'README.md' },
+  { key: 'research', label: 'Research', symbol: 'R', command: '/wb:create_research', doc: 'research.md' },
+  { key: 'explore', label: 'Explore', symbol: 'E', command: '/wb:explore_design', doc: 'thoughts/', isOptional: true },
+  { key: 'design', label: 'Design', symbol: 'D', command: '/wb:create_design', doc: 'design.md' },
+  { key: 'tasks', label: 'Tasks', symbol: 'T', command: '/wb:create_tasks', doc: 'tasks.md' },
+  { key: 'implement', label: 'Implement', symbol: 'I', command: '/wb:implement', doc: 'tasks.md' },
+  { key: 'validate', label: 'Validate', symbol: 'V', command: '/wb:validate_execution', doc: 'README.md' },
+]
+
+const STAGE_OF = {
+  'wb:create_project': 'project',
+  'wb:create_research': 'research',
+  'wb:create_product_research': 'research',
+  'wb:explore_design': 'explore',
+  'wb:create_design': 'design',
+  'wb:create_tasks': 'tasks',
+  'wb:implement': 'implement',
+  'wb:implement_inline': 'implement',
+  'wb:validate_execution': 'validate',
+}
+
+// design.md statuses that mean the design was accepted: update_status writes
+// ready and implementing; older plans wrote approved.
+const DESIGN_DONE = new Set(['ready', 'approved', 'implementing', 'complete', 'completed', 'done'])
+
+/** The stage a wb command works on (`/wb:create_design` → design), or null. */
+export function stageOfCommand(by) {
+  return STAGE_OF[String(by ?? '').replace(/^\//, '')] ?? null
+}
+
+/** Whether a tasks.md frontmatter (or none) belongs to an unfinished plan with no beads tasks yet. */
+export function isPlanningPlan(fm) {
+  if (fm !== null && typeof fm === 'object') {
+    if (FINISHED.has(String(fm.status ?? '').toLowerCase())) return false
+    const tasks = fm.beads_tasks
+    if (tasks !== null && typeof tasks === 'object' && Object.keys(tasks).length > 0) return false
+  }
+  return true
+}
+
+/** A markdown text's `##` and `###` sections by lowercased heading, outside code fences; the first of a name wins. */
+export function sections(text) {
+  const out = new Map()
+  let key = null
+  let buf = []
+  let isFenced = false
+  const close = () => {
+    if (key !== null && !out.has(key)) out.set(key, buf.join('\n'))
+  }
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    if (/^\s*(```|~~~)/.test(line)) isFenced = !isFenced
+    const heading = isFenced ? null : /^(#{2,3})\s+(.+?)\s*#*\s*$/.exec(line)
+    if (heading) {
+      close()
+      key = heading[2].toLowerCase()
+      buf = []
+    } else if (key !== null) {
+      buf.push(line)
+    }
+  }
+  close()
+  return out
+}
+
+const isPlaceholder = text => /^\s*\[[^\]]*\]\s*$/.test(String(text)) || /\[(to be|tbd)/i.test(String(text))
+
+/** The top-level list items that follow a `**Label**` line, until the next bold label or heading. */
+function labelledList(body, label) {
+  const lines = String(body ?? '').split(/\r?\n/)
+  const start = lines.findIndex(one => new RegExp(`^\\s*\\*\\*${label}\\*\\*`, 'i').test(one))
+  if (start < 0) return []
+  const items = []
+  for (const one of lines.slice(start + 1)) {
+    if (/^\s*\*\*/.test(one) || /^#/.test(one)) break
+    const item = /^[-*]\s+(.*)$/.exec(one)
+    if (item) items.push(item[1].trim())
+  }
+  return items
+}
+
+/**
+ * The README's Intent: its goal, its "Success looks like" statements, each
+ * with the verdict validate_execution appended (`→ PASS (date)`), and its
+ * non-goals. Null when the README has no Intent section.
+ */
+export function readIntent(readmeText) {
+  const body = sections(readmeText).get('intent')
+  if (body === undefined) return null
+  const goal = /\*\*Goal\*\*:?\s*(.+)/i.exec(body)?.[1]?.trim() ?? ''
+  const statements = labelledList(body, 'Success looks like')
+    .filter(text => !isPlaceholder(text))
+    .map(text => {
+      const verdict = /→\s*(PASS|FAIL|DEFERRED)\b/.exec(text)?.[1] ?? null
+      return { text: text.replace(/\s*→\s*(PASS|FAIL|DEFERRED)\b.*$/, ''), verdict }
+    })
+  const nonGoals = labelledList(body, 'Non-goals').filter(text => !isPlaceholder(text))
+  return { goal: isPlaceholder(goal) ? '' : goal, statements, nonGoals }
+}
+
+function docStatus(text) {
+  return String(parseFrontmatter(text)?.status ?? '').trim()
+}
+
+/**
+ * What research.md says: its status, whether it is still the skeleton
+ * create_project wrote, whether it has a filled Testing Conventions section,
+ * and how many Intent statements its Intent Coverage lists as borne on.
+ */
+export function readResearch(text) {
+  if (text === null || text === undefined) return null
+  const all = sections(text)
+  const testing = all.get('testing conventions')
+  const hasTesting = testing !== undefined && /^\s*[-*]\s+\*\*[^*]+\*\*:?\s*(?!\[)\S/m.test(testing)
+  const coverage = all.get('intent coverage')
+  let covered = null
+  if (coverage !== undefined) {
+    const lines = coverage.split(/\r?\n/)
+    const from = lines.findIndex(one => /bear on/i.test(one))
+    if (from >= 0) {
+      const to = lines.findIndex((one, at) => at > from && /not touch/i.test(one))
+      const between = lines.slice(from + 1, to < 0 ? undefined : to)
+      const nested = between.filter(one => /^\s+[-*]\s+\S/.test(one) && !isPlaceholder(one.replace(/^\s+[-*]\s+/, ''))).length
+      const inline = (/\*\*[^*]*bear on[^*]*\*\*:?\s*(.*)$/i.exec(lines[from])?.[1] ?? '').trim()
+      covered = nested > 0 ? nested : inline !== '' && !/^none\b/i.test(inline) && !isPlaceholder(inline) ? 1 : 0
+    }
+  }
+  return {
+    status: docStatus(text),
+    isTemplate: /to be filled by \/wb:create_research|research findings will be documented here/i.test(text),
+    hasTesting,
+    covered,
+    hasCoverage: coverage !== undefined,
+  }
+}
+
+/**
+ * What design.md says: its status, its acceptance criteria and how many
+ * carry a concrete Example line, its Harness Decisions rows and how many are
+ * decided, and its Success Metrics and how many cite an Intent statement.
+ */
+export function readDesign(text) {
+  if (text === null || text === undefined) return null
+  const lines = String(text).split(/\r?\n/)
+  let criteria = 0
+  let withExample = 0
+  let inCriterion = false
+  let hasExample = false
+  const endCriterion = () => {
+    if (inCriterion && hasExample) withExample += 1
+    inCriterion = false
+    hasExample = false
+  }
+  for (const one of lines) {
+    if (/^\s*[-*]\s+\*\*AC-\d+/.test(one)) {
+      endCriterion()
+      inCriterion = true
+      criteria += 1
+    } else if (/^#/.test(one) || (/^[-*]\s/.test(one) && inCriterion)) {
+      endCriterion()
+    } else if (inCriterion) {
+      const example = /^\s*[-*]\s+Example\b[^:]*:\s*(.*)$/i.exec(one)
+      if (example && example[1].trim() !== '' && !isPlaceholder(example[1])) hasExample = true
+    }
+  }
+  endCriterion()
+
+  const all = sections(text)
+  const rows = String(all.get('harness decisions') ?? '').split(/\r?\n/)
+    .filter(one => /^\s*\|/.test(one))
+    .slice(1)
+    .filter(one => !/^\s*\|[\s:|-]+\|\s*$/.test(one))
+    .map(one => one.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim()))
+    .filter(cells => !cells.every(cell => cell === '' || isPlaceholder(cell)))
+  const decided = rows.filter(cells => {
+    const decision = cells.at(-1) ?? ''
+    return decision !== '' && !isPlaceholder(decision) && !/^(tbd|todo|\?|undecided|open|pending)\b/i.test(decision)
+  }).length
+
+  const metrics = []
+  for (const one of String(all.get('success metrics') ?? '').split(/\r?\n/)) {
+    if (/^[-*]\s+/.test(one)) metrics.push(one)
+    else if (metrics.length > 0 && /^\s+\S/.test(one)) metrics[metrics.length - 1] += `\n${one}`
+  }
+  const real = metrics.filter(one => !/^[-*]\s+Deferred\b/i.test(one) && !isPlaceholder(one.replace(/^[-*]\s+(\[[ x]\]\s+)?/, '')))
+
+  return {
+    status: docStatus(text),
+    isTemplate: criteria === 0 && /\[to be defined\]/i.test(text),
+    criteria,
+    withExample,
+    harness: { rows: rows.length, decided },
+    metrics: { count: real.length, citing: real.filter(one => /\(?refines:/i.test(one)).length },
+  }
+}
+
+/**
+ * What tasks.md says: its status, its phases and planned tasks, the criteria
+ * that have an outer-test step (`- AC-n: …`), and the beads epic and tasks its
+ * frontmatter names.
+ */
+export function readTasks(text) {
+  if (text === null || text === undefined) return null
+  const fm = parseFrontmatter(text) ?? {}
+  const phases = (String(text).match(/^##\s+Phase\s+\d+/gm) ?? []).length
+  const markers = new Set(String(text).match(/\[beads:[\w.-]+\]/g) ?? []).size
+  const outer = new Set()
+  for (const match of String(text).matchAll(/^\s*[-*]\s+(AC-\d+)\s*:/gm)) outer.add(match[1])
+  const beadsTasks = fm.beads_tasks !== null && typeof fm.beads_tasks === 'object' ? Object.keys(fm.beads_tasks).length : 0
+  return {
+    status: String(fm.status ?? '').trim(),
+    // No phase, no task marker and no beads tasks: the skeleton create_project wrote, whatever its wording.
+    isTemplate: phases === 0 && markers === 0 && beadsTasks === 0,
+    phases,
+    tasks: markers > 0 ? markers : beadsTasks,
+    outer: outer.size,
+    hasEpic: typeof fm.beads_epic === 'string' && fm.beads_epic !== '',
+    beadsTasks,
+  }
+}
+
+/** The closed `Decide:` issues that record this plan's exploration: the close reason or description names the plan directory or one of its thoughts docs. */
+export function decidesFor(issues, planDirName, thoughts) {
+  const names = [planDirName, ...(thoughts ?? [])].filter(one => typeof one === 'string' && one !== '')
+  return (issues ?? []).filter(issue => {
+    if (!/^Decide:/.test(String(issue?.title ?? '')) || issue.status !== 'closed') return false
+    const text = `${issue.close_reason ?? ''}\n${issue.description ?? ''}`
+    return names.some(name => text.includes(name))
+  })
+}
+
+/**
+ * Each stage's state from the plan's files: done, current or not started.
+ * A stage is done when its document says so, or when a later stage is done.
+ * The current stage is the one the session's latest wb command ran (`last`),
+ * else the first stage that is not done. Explore is listed only when the plan
+ * has a thoughts doc or a recorded decision (`explore` not null).
+ */
+export function stageStates({ intent, research, design, tasks, explore, isImplemented, last }) {
+  const isDesigned = design !== null && design !== undefined && DESIGN_DONE.has(String(design.status).toLowerCase())
+  const statements = intent?.statements ?? []
+  const done = {
+    project: true,
+    research: !!research && String(research.status).toLowerCase() === 'complete',
+    explore: !!explore && explore.isDecided,
+    design: isDesigned,
+    tasks: (tasks?.beadsTasks ?? 0) > 0,
+    implement: isImplemented === true,
+    validate: statements.length > 0 && statements.every(one => one.verdict !== null),
+  }
+  const visible = STAGES.filter(stage => !stage.isOptional || !!explore || last === stage.key)
+  for (let at = visible.length - 1, isLaterDone = false; at >= 0; at -= 1) {
+    const key = visible[at].key
+    if (isLaterDone) done[key] = true
+    if (done[key] && !visible[at].isOptional) isLaterDone = true
+  }
+  const status = {
+    research: research?.status ?? '',
+    explore: !explore ? '' : explore.isDecided ? 'decided' : 'open',
+    design: design?.status ?? '',
+    tasks: tasks?.status ?? '',
+  }
+  const chosen = visible.some(stage => stage.key === last) ? last : null
+  const current = chosen ?? visible.find(stage => !stage.isOptional && !done[stage.key])?.key ?? null
+  return visible.map(stage => ({
+    key: stage.key,
+    label: stage.label,
+    symbol: stage.symbol,
+    command: stage.command,
+    doc: stage.doc,
+    isOptional: stage.isOptional === true,
+    state: stage.key === current ? 'current' : done[stage.key] ? 'done' : 'todo',
+    isDone: done[stage.key],
+    status: status[stage.key] ?? '',
+  }))
+}
+
+const plural = (count, word, many = `${word}s`) => `${count} ${count === 1 ? word : many}`
+
+/** Each stage's key signals, in plain words, most important first. */
+export function stageSignals({ intent, research, design, tasks, explore, openAsks }) {
+  const questions = (openAsks ?? []).filter(one => one.kind === 'question').length
+  const decisions = (openAsks ?? []).filter(one => one.kind === 'decision').length
+  const total = intent?.statements.length ?? 0
+  const out = {}
+  out.project = !intent
+    ? ['no Intent section in README.md']
+    : [`Intent: ${plural(total, 'success statement')}`, plural(intent.nonGoals.length, 'non-goal')]
+  if (!research || research.isTemplate) {
+    out.research = ['research.md not written yet']
+  } else {
+    const coverage = !research.hasCoverage
+      ? 'no Intent Coverage section'
+      : total > 0 && research.covered !== null ? `Intent ${Math.min(research.covered, total)}/${total} covered` : `Intent ${research.covered ?? 0} covered`
+    out.research = [`testing conventions ${research.hasTesting ? 'yes' : 'no'}`, coverage, plural(questions, 'open question')]
+  }
+  out.explore = !explore
+    ? []
+    : [plural(explore.thoughts, 'thoughts doc'), explore.isDecided ? 'decision recorded' : 'no decision recorded']
+  if (!design || design.isTemplate) {
+    out.design = ['design.md not written yet']
+  } else {
+    out.design = [
+      `${plural(design.criteria, 'criterion', 'criteria')}, ${design.withExample} with examples`,
+      design.harness.rows === 0 ? 'no harness decisions' : `harness ${design.harness.decided}/${design.harness.rows} decided`,
+      design.metrics.count === 0 ? 'no success metrics' : `${design.metrics.citing}/${design.metrics.count} metrics cite Intent`,
+      plural(decisions, 'open decision'),
+    ]
+  }
+  if (!tasks || tasks.isTemplate) {
+    out.tasks = ['tasks.md not written yet']
+  } else {
+    const criteria = design?.criteria ?? 0
+    const beads = tasks.beadsTasks > 0
+      ? `beads epic and ${plural(tasks.beadsTasks, 'task')} created`
+      : tasks.hasEpic ? 'beads epic created, no tasks yet' : 'beads not created yet'
+    out.tasks = [
+      `${plural(tasks.phases, 'phase')}, ${plural(tasks.tasks, 'task')}`,
+      ...(criteria > 0 ? [`outer tests for ${Math.min(tasks.outer, criteria)}/${criteria} criteria`] : []),
+      beads,
+    ]
+  }
+  out.implement = (tasks?.beadsTasks ?? 0) > 0 ? [] : ['no beads tasks yet']
+  const verdicts = (intent?.statements ?? []).filter(one => one.verdict !== null).length
+  out.validate = total > 0 ? [`verdicts on ${verdicts}/${total} Intent statements`] : []
+  return out
+}
+
+/** The next command, from help's chain: the current stage's own while it is unfinished, else the first unfinished stage. */
+export function nextCommand(stages, isDesignWaiting) {
+  const current = stages.find(stage => stage.state === 'current') ?? null
+  if (isDesignWaiting && current?.key === 'design') return { before: 'approve design.md, then ', command: '/wb:create_tasks' }
+  if (current !== null && !current.isDone) return { before: '', command: current.command }
+  const firstOpen = stages.find(stage => !stage.isDone && !stage.isOptional) ?? null
+  return firstOpen === null ? null : { before: '', command: firstOpen.command }
+}
+
+/**
+ * The read-out for a plan that has no beads tasks yet: its stage chain, the
+ * current stage's signals, and what needs the person (a stage waiting on
+ * their approval first, then open Q: and Decide: issues).
+ */
+export function buildPlanningModel({ planName, intent = null, research = null, design = null, tasks = null, explore = null, openIssues = [], since = '', epic = null, last = null }) {
+  const stages = stageStates({ intent, research, design, tasks, explore, isImplemented: false, last })
+  const current = stages.find(stage => stage.state === 'current') ?? null
+  const members = new Set(typeof epic === 'string' && epic !== '' ? [epic] : [])
+  const asks = asksFor(openIssues, members, since ?? '')
+  const blocking = []
+  const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && !DESIGN_DONE.has(String(design.status).toLowerCase())
+  if (current?.key === 'design' && isDesignWaiting) {
+    blocking.push({ kind: 'approval', id: null, title: 'design.md', why: 'design.md waiting for your approval' })
+  }
+  if (current?.key === 'explore' && explore && !explore.isDecided) {
+    blocking.push({ kind: 'approval', id: null, title: 'exploration', why: 'exploration has no recorded decision yet' })
+  }
+  blocking.push(...asks)
+  return {
+    kind: 'planning',
+    planName: String(planName ?? 'plan'),
+    stages,
+    current: current?.key ?? null,
+    blocking,
+    signals: stageSignals({ intent, research, design, tasks, explore, openAsks: asks }),
+    next: nextCommand(stages, isDesignWaiting),
+  }
+}
+
+// ── Drawing the planning stages ──
+
+const MARK_OF = { done: '✓', current: '●', todo: '○' }
+const TONE_OF = { done: 'ok', current: 'accent', todo: 'track' }
+
+/** `Project ✓ → Research ✓ → Design ● draft → Tasks ○ …`, with or without the current stage's status. */
+export function wordChain(stages, isWithStatus = true) {
+  const out = []
+  stages.forEach((stage, at) => {
+    if (at > 0) out.push(seg(' → ', 'dim'))
+    out.push(seg(`${stage.label} `), seg(MARK_OF[stage.state], TONE_OF[stage.state]))
+    if (isWithStatus && stage.state === 'current' && stage.status) out.push(seg(` ${stage.status}`, 'dim'))
+  })
+  return out
+}
+
+/** `P✓ R✓ Design ● draft T○ …`: the current stage in words, the others as symbols. */
+function mixedChain(stages, isWithStatus) {
+  const out = []
+  stages.forEach((stage, at) => {
+    if (at > 0) out.push(seg(' '))
+    if (stage.state === 'current') {
+      out.push(seg(`${stage.label} `), seg(MARK_OF.current, TONE_OF.current))
+      if (isWithStatus && stage.status) out.push(seg(` ${stage.status}`, 'dim'))
+    } else {
+      out.push(seg(stage.symbol), seg(MARK_OF[stage.state], TONE_OF[stage.state]))
+    }
+  })
+  return out
+}
+
+/** `P✓ R✓ D● T○ I○ V○`: the narrow form. */
+export function symbolChain(stages) {
+  const out = []
+  stages.forEach((stage, at) => {
+    if (at > 0) out.push(seg(' '))
+    out.push(seg(stage.symbol), seg(MARK_OF[stage.state], TONE_OF[stage.state]))
+  })
+  return out
+}
+
+/** The plan's name as the band shows it: guessed or not, and its worktree while there is room. */
+function planHead(model) {
+  const name = [seg(model.planName), ...(isGuessed(model) ? [seg(' (guessed)', 'warn')] : [])]
+  const head = [seg('Plan: ', 'dim'), ...name]
+  const worktree = model.selection?.worktree
+  const headInWorktree = worktree && worktree !== model.planName ? [...head, seg(` (worktree ${worktree})`, 'dim')] : null
+  return { name, head, headInWorktree }
+}
+
+/**
+ * The band during planning. Line 1 is the stage chain; words go before
+ * symbols as it narrows. Line 2 is the current stage: what needs you first,
+ * then its signals, dropped from the last as it narrows.
+ */
+function planningBandLines(model, columns) {
+  const { name, head, headInWorktree } = planHead(model)
+  const stages = model.stages
+  const progress = firstFitting([
+    ...(headInWorktree === null ? [] : [line(headInWorktree, wordChain(stages, true))]),
+    line(head, wordChain(stages, true)),
+    line(head, wordChain(stages, false)),
+    line(head, mixedChain(stages, true)),
+    line(head, mixedChain(stages, false)),
+    line(head, symbolChain(stages)),
+    line(name, symbolChain(stages)),
+    symbolChain(stages),
+  ], columns)
+
+  const stage = stages.find(one => one.key === model.current) ?? null
+  const label = [seg(`${stage?.label ?? 'Plan'}: `, 'dim')]
+  const attention = attentionWords(model.blocking)
+  const signals = model.signals[model.current] ?? []
+  const variants = []
+  for (let count = signals.length; count >= 0; count -= 1) {
+    const shown = signals.slice(0, count).map(text => [seg(text)])
+    variants.push([...label, ...line([attentionSegment(attention)], ...shown)])
+    // A long question title is shortened, down to a readable stub, before a
+    // signal goes.
+    const room = columns - width([...label, ...line([seg('')], ...shown)])
+    if (room >= 32) variants.push([...label, ...line([attentionSegment(attentionWords(model.blocking, room))], ...shown)])
+  }
+  variants.push([attentionSegment(attention)], [attentionSegment(attention, columns)])
+  const tests = firstFitting(variants, columns)
+  return { progress, tests, attention, text: { progress: joined(progress), tests: joined(tests) } }
+}
+
+/** The one-line status during planning, for surfaces with no band. */
+function planningStatusLine(model) {
+  const stage = model.stages.find(one => one.key === model.current)
+  const where = stage ? `${stage.label.toLowerCase()}${stage.status ? ` (${stage.status})` : ''}` : 'planned'
+  const attention = model.blocking.length === 0 ? '✓' : `⚠ ${model.blocking.length}`
+  const guessed = isGuessed(model) ? ' (guessed)' : ''
+  return `wb ${model.planName}${guessed}: ${where} · ${joined(symbolChain(model.stages))} · ${attention}`
+}
+
+function decisionRows(blocking) {
+  return blocking.length === 0
+    ? ['Nothing needs you.']
+    : blocking.map(item => (item.id === null ? `⚠ ${item.why}` : `⚠ ${item.why}: ${item.title} (${item.id})`))
+}
+
+/** The pane's Planning rows: each stage with its status, document and signals; then the next command. */
+function planningRows(model) {
+  const dir = model.selection?.dir ?? ''
+  const rows = model.stages.map(stage => {
+    const status = stage.status ? ` (${stage.status})` : ''
+    const doc = stage.doc ? ` · ${dir ? `${dir}/` : ''}${stage.doc}` : ''
+    const signals = (model.signals?.[stage.key] ?? []).map(text => ` · ${text}`).join('')
+    return `${MARK_OF[stage.state]} ${stage.label}${status}${doc}${signals}`
+  })
+  if (model.next) rows.push(`Next: ${model.next.before}${model.next.command}${dir ? ` ${dir}` : ''}`)
+  else if (model.stages.every(stage => stage.isDone)) rows.push('Every stage is done.')
   return rows
 }

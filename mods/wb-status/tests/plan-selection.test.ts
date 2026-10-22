@@ -224,6 +224,34 @@ describe('pinning a plan', () => {
   })
 })
 
+describe('a hot reload', () => {
+  test('with no session.start and no pin ever written, the first reading restores the pin from the transcript', async ($, on) => {
+    stage(on, {
+      ...twoPlans(),
+      messages: [
+        { role: 'user', text: '/wb:implement docs/plans/2026-01-01-older/ 2', toolUses: [] },
+        { role: 'assistant', text: 'Working on phase 2.', toolUses: [{ tool_use_id: 'u1', tool: 'Bash', input: { command: 'bd ready' } }] },
+        { role: 'user', text: 'keep going', toolUses: [] },
+      ],
+    })
+    // /reload-plugins loads the module into the running session: the band
+    // draws, and session.start never fires.
+    const band = await $.ui.mount({ plugin: 'wb-status', surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS })
+    await band.unmount()
+    await read($)
+    const seen = await look($)
+    expect(seen.band).toMatch(/Plan: older-plan · Phase 1\/1/)
+    expect(seen.band.includes('(guessed)')).toBe(false)
+    expect(seen.pane.some(row => /^Pinned by \/wb:implement at \d\d:\d\d\.$/.test(row))).toBe(true)
+  })
+
+  test('a pin cleared with /wb-status auto is not restored', async ($, on) => {
+    stage(on, { ...twoPlans(), messages: [{ role: 'user', text: '/wb:implement docs/plans/2026-01-01-older 2', toolUses: [] }] })
+    await $.command.run({ command: 'wb-status', args: 'auto' })
+    expect((await look($)).band).toMatch(/Plan: newer-plan \(guessed\)/)
+  })
+})
+
 describe('guessing a plan', () => {
   test('with no pin, the plan with an issue in progress under its epic wins, marked guessed', async ($, on) => {
     const world = twoPlans()
