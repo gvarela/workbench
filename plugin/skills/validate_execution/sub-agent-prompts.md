@@ -33,6 +33,7 @@ Task({
   Red commits: [this plan's red(AC-n) commits in the range, the latest per criterion, per Step 2]
   Test-writer reports: [the reports from the plan tasks' comments, per Step 2, or "none recorded" with the reason]
   Support files: [the paths in each harness task's support files: records, by task with its type, per Step 2, or "none"]
+  Setup files: [the paths in each setup task's setup files: records, by task with its Setup files: line, per Step 2, or "none"]
   Conventions source: [research.md Testing Conventions]
   Mode: inline
 

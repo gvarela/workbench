@@ -118,7 +118,7 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 ### Case B: Genuine failure (crash or blocker)
 
-**Signature**: little or nothing landed, and/or the worker explicitly reported errors or blockers it could not resolve.
+**Signature**: little or nothing landed, and/or the worker explicitly reported errors or blockers it could not resolve. A Blockers line that begins `no route:` goes to the "Rule-Gap Halt" below instead, because the worker stopped at a wb rule, not at a fault in its work.
 
 Present, writing each line as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, with the four parts of its "Decision and halt messages" section: quality question, judgment or friction, options with their trade-offs, and a recommendation with a paste-ready reply. This applies to every halt message in this file and to the handoff question. The options each template lists are the usual ones: offer only those that are real choices for this halt, and name the actual ones when they differ. Each paste-ready reply is a form that halt's reply handling accepts, because a reply the handling does not recognize stalls the phase a second time; a reply that takes an option named in place of the usual ones is handled as the Failed Re-verification Halt's reply handling says for such an option. The `halted:` comments recorded in beads keep their fixed form.
 
@@ -156,6 +156,8 @@ For verification FAILs where the task cannot succeed as specified — the design
 - The verifier cites a requirement the codebase cannot satisfy (missing interface, contradicted constraint, false precondition)
 - The worker followed the spec exactly and tests still fail on the specified behavior
 - The fix would change design.md, not code
+
+**Not a plan defect**: the design is sound and a wb rule left the task no route for a change it needs, such as setup added to existing test files on a task planned without a `Setup files:` line. Use the "Rule-Gap Halt" below, not this protocol: a design revision would change nothing in a design that is right, and the person would be asked to revise a plan that needs no revision.
 
 **Protocol**:
 
@@ -226,7 +228,7 @@ When the re-verification after the one fix attempt fails, the failed task's chan
 
 The worker and fix-worker reports live only in the task's comments once the session ends, so every reply below reads them from there ("Evidence in Beads"), never from memory.
 
-- **Continue** (`continue`, or `continue: <guidance>`): when the reply carries guidance after `continue:`, such as the verifier's checked class fix, first run a fix worker from the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), adding the guidance as one line: `Guidance from the user: <guidance>`. The user asked for this attempt, so the one automatic fix attempt in Step 6 does not limit it. Then re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits. The verifier reads the worker reports, the test-writer reports, and on a harness task the `support files:` records from the task's comments itself; with the comments missing, every inner-test change and every support file reads as undeclared. On PASS, close the issue again unless the fix worker already did, commit the task, and resume at Step 5. On FAIL, reopen the issue as halt action 2 does if the fix worker closed it, and present the halt message again.
+- **Continue** (`continue`, or `continue: <guidance>`): when the reply carries guidance after `continue:`, such as the verifier's checked class fix, first run a fix worker from the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), adding the guidance as one line: `Guidance from the user: <guidance>`. The user asked for this attempt, so the one automatic fix attempt in Step 6 does not limit it. Then re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits. The verifier reads the worker reports, the test-writer reports, and on a harness or setup task the `support files:` or `setup files:` records from the task's comments itself; with the comments missing, every inner-test change and every support or setup file reads as undeclared. On PASS, close the issue again unless the fix worker already did, commit the task, and resume at Step 5. On FAIL, reopen the issue as halt action 2 does if the fix worker closed it, and present the halt message again.
 - **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete with `rm -f` the untracked files that `git status --short` lists and that the task's `created files:` comments name; ask before deleting an untracked file no comment names, since it may be the user's. Post the `discarded:` comment. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
 - **Plan defect**: follow the protocol above; the reopened issue stays open.
 - **An option the message named in place of the generic three**: do what that option's line said it would do, because that line is what the user agreed to. When the option drops the task's changes, discard them as Discard and retry does, asking before deleting an untracked file no comment names, and post the `discarded:` comment. Ask before committing a task whose last verification failed, naming the failing findings the commit would carry, because a commit makes the task look done to every later reader.
@@ -253,14 +255,15 @@ git and the verifier decide whether a test is red or green. Beads keeps the evid
   - **Failed post**: an agent whose post failed returns the whole report and says what was not posted: a worker or `wb:test-writer` on its `Full report: not posted` line, a verifier on a first `Not posted:` line. Post what it names, in the same heredoc form: the report with the first line it carries, and for a verifier's `test integrity`, its Test Integrity section with `test integrity:` as the first line.
 - **Created files**: the worker posts one comment beginning `created files:` that lists every file created during the task, its own and `wb:test-writer`'s.
 - **Support files**: on a harness task, the worker posts a comment whose first line is `support files:`, followed by each support file it wrote, one repository-relative path per line, in the heredoc form above. A fix worker that writes more posts its own. The declared support files are every path in the task's `support files:` records, and they count as declared on harness tasks only.
+- **Setup files**: on a setup task whose description carries a `Setup files:` line, the worker posts a comment whose first line is `setup files:`, followed by each test file whose setup it edited, in the same form. They count as declared only on such a task, and only the files its line names.
 - **Halt kind**: when a phase halts on a task, record why, so Resume can find the task and tell the halts apart:
 
   ```bash
-  bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect", "halted: missing context"
+  bd comments add [task-id] "halted: re-verification failed"   # or "halted: plan defect", "halted: missing context", "halted: rule gap"
   ```
 
-- **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports, worker reports, created files, and support files no longer apply`. Readers skip the inner reports, worker reports, created-file lists, and support-file lists posted before it; the outer reports still apply, because the red commits stay.
-- **Reading**: `bd comments [task-id] --json`, taking each comment's `text` field. The plain `bd comments` and `bd show` render the text as markdown and drop backticks and `<...>` spans, which loses parts of a report. A comment that begins with `worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `halted:`, or `discarded:` is that record, not a test-writer report. A test-writer report is a comment with a Mode field: the outer reports first, then the inner reports in the order posted, skipping the inner reports, worker reports, `created files:` lists, and `support files:` lists posted before the latest `discarded:` comment.
+- **Discarded attempt**: when a halted task's uncommitted changes are discarded, post `discarded: earlier inner reports, worker reports, created files, support files, and setup files no longer apply`. Readers skip the inner reports, worker reports, created-file lists, support-file lists, and setup-file lists posted before it; the outer reports still apply, because the red commits stay.
+- **Reading**: `bd comments [task-id] --json`, taking each comment's `text` field. The plain `bd comments` and `bd show` render the text as markdown and drop backticks and `<...>` spans, which loses parts of a report. A comment that begins with `worker report:`, `verification report:`, `test integrity:`, `created files:`, `support files:`, `setup files:`, `halted:`, or `discarded:` is that record, not a test-writer report. A test-writer report is a comment with a Mode field: the outer reports first, then the inner reports in the order posted, skipping the inner reports, worker reports, `created files:` lists, `support files:` lists, and `setup files:` lists posted before the latest `discarded:` comment.
 - **Review findings that outlive the checkpoint**: after the majority settling in Step 8, file each escalated integrity finding and each finding a majority promoted as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did. The `discovered-from` link records where it came from without blocking anything:
 
   ```bash
@@ -321,6 +324,49 @@ An agent that cannot find its task or a criterion it was told to read stops rath
    ```
 
    On the reply: `continue` runs this check again from item 1 and then spawns the agent that stopped from the same prompt template; `plan defect` follows the Plan-Defect Deviation Protocol; an option named in place of these does what its line said, as the Failed Re-verification Halt's reply handling says for such an option.
+
+## Rule-Gap Halt (Steps 5 and 6, and Resume)
+
+A task can need a change the design allows and no wb rule gives a route for. The usual case is setup added to existing test files (fixtures, factories, `let`/`let!` lines, `before` blocks, test data) on a task planned without a `Setup files:` line: the worker reports `no route: <file>, <the change it needs>` under Blockers instead of making the edit, or a verifier fails an edit the worker made anyway, and every failing finding is an undeclared test change whose hunks add setup and change no example, test function, or assertion. This is neither a plan defect nor an implementation defect: the design is sound, so a design revision would change nothing, and a fix worker cannot make an undeclared edit declared, so the one fix attempt would be spent for nothing.
+
+1. Start no further task and commit nothing. If the task is closed, reopen it as the Failed Re-verification Halt's action 2 does, so its dependents stay blocked.
+2. Record `halted: rule gap` on the task ("Evidence in Beads").
+3. Present:
+
+   ```
+   ⚠️ Phase halted: wb has no route for a change this task needs (${taskId})
+
+   Task: ${what the task builds, in plain words} (${taskId}; ${still in_progress, or issue reopened}; changes left uncommitted)
+   Change needed: ${the change and its files, in plain words, such as: add the product records that existing order tests need to stay valid under the new filter, in two spec files}
+   Why wb stopped: ${the rule in plain words, such as: the worker that writes the code does not edit test files, so that nobody shapes the check on their own code; a planned route lets it add setup, which holds no check, but this task was planned without one}
+
+   Quality question: ${when the change adds setup only and changes no example or assertion: "No product behavior is at risk: the design is sound, and this is about how the test change gets recorded and checked." Otherwise, the behavior the changed check guards}
+   Judgment or friction: friction: a wb rule left this change no route, so the decision is about unblocking. The plugin should have ${what, such as: given the task a Setup files: line when it was planned}; worth reporting as a wb gap.
+
+   **Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
+   1. Declare the setup route and rerun the task: I add a `Setup files:` line to the task naming ${files} and ${the setup}, discard this attempt, and run the task again. The worker edits only that setup, and the verifier checks that every changed line is setup and that the affected tests pass before and after. Cost: one more worker and verification. Undo: remove the line.
+   2. ${when the change touches an example or assertion: rerun the task with the change routed through the test-writer, which writes and shows red for every test case}
+   3. Treat it as a plan defect: only if the design itself has to change; I follow the Plan-Defect Deviation Protocol.
+
+   Recommendation: ${option and the reason}. How should I proceed?
+   Paste-ready reply: ${the exact reply that takes the recommended option: "declare setup files", "retry: <context>", "plan defect", or the words of an option named above}
+   ```
+
+**On the reply**:
+
+- **Declare setup files**: the reply is the person's approval, so you write the line; no worker or agent does, as with a `Sanctioned rewrite:` line. The line reads `Setup files: <path> (<setup to add>); <path> (<setup to add>); no example or assertion changes`. Read the description from `bd show [task-id] --json` and write it back with the line appended, in one Bash call with every line at column 0:
+
+  ```bash
+  bd update [task-id] --body-file - <<'WB_REPORT_END'
+  <the current description>
+  Setup files: <path> (<setup to add>); no example or assertion changes
+  WB_REPORT_END
+  ```
+
+  Then discard the attempt as the Failed Re-verification Halt's Discard and retry does, posting the `discarded:` comment, and run the task again from Step 5 item 7 with the same `taskTestContext`.
+- **Retry** (`retry: <context>`): as the Worker Failure Playbook's Retry does, with the context naming the test-writer route for the change.
+- **Plan defect**: follow the Plan-Defect Deviation Protocol.
+- **An option the message named in place of these**: as the Failed Re-verification Halt's reply handling says for such an option.
 
 ## Handoff Decision (Steps 5 and 8, and Resume)
 

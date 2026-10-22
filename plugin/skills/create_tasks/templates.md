@@ -107,6 +107,9 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - Create new directory structure at `path/to/new/` → `[beads:phase1_setup_1]`
 - Install dependencies: `npm install [package]` → `[beads:phase1_setup_2]`
 - Set up configuration in `config/feature.json` → `[beads:phase1_setup_3]`
+- Add the setup existing tests need to stay valid under [the change] → `[beads:phase1_setup_4]`
+  - Setup files: `[path/to/existing_test]` ([the setup to add: a fixture, factory, `let`/`let!` line, `before` block, or test data]); `[path/to/other_test]` ([the setup to add]); no example or assertion changes
+  - (Only for setup added to existing test files. The beads description carries this line as written, because it is the worker's route to edit that setup itself and the verifier's check that only setup changed and the affected tests pass before and after. Examples and assertions still go through `wb:test-writer`.)
 
 #### Harness Tasks
 (One for each boundary design marks "add harness"; place it before the first outer test at that boundary. "Manual" and "lower proxy" decisions get no harness task. Omit when no boundary needs one.)

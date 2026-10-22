@@ -83,7 +83,7 @@ Provide the agent with:
 - Starting Commit: ${taskTestContext.startingCommit}
 - Red Commits: ${redCommits}  (each taskTestContext.criteria[].redCommit with its criterion id and testFile)
 
-The agent reads the task from beads and the cited criteria from the plan, and the worker report, the test-writer reports, and on a harness task the support files from the task's comments, so none of them is pasted here.
+The agent reads the task from beads and the cited criteria from the plan, and the worker report, the test-writer reports, and on a harness or setup task the support or setup files from the task's comments, so none of them is pasted here.
 
 The agent will run tests, check scope adherence, post its full report and
 its Test Integrity section on the task, and return a short block with
@@ -107,6 +107,6 @@ Provide:
 - Instructions: Read the task and its cited criteria as your agent definition's Inputs says, then fix the specific issues the verification report names. Where it names a class of failure, such as the cases a rewrite of an outer test stopped catching, fix the whole class, not only the instances it lists: the re-verification checks the class again, and there is no second fix attempt. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter. It reads the test-writer reports and, on a harness task, the support files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
+**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
 
 **If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.

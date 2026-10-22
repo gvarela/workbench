@@ -201,7 +201,7 @@ Read the "Task Creation Examples (Step 5d)" section of [examples.md](examples.md
 **Task Creation Guidelines**:
 
 - Title should match the task description from tasks.md
-- Description includes phase, task type (setup/harness/outer-test/implementation/integration), the criterion ids it serves, and key details
+- Description includes phase, task type (setup/harness/outer-test/implementation/integration), the criterion ids it serves, and key details. A setup task that must add setup to existing test files also carries a `Setup files:` line naming each file and the setup to add, and saying no example or assertion changes (the form is under Setup Tasks in [templates.md](templates.md)), because workers edit test files only through a planned route, and without the line the worker has none and the verifier fails the edit
 - All tasks start with priority 2 (medium)
 - Use --type=task for all granular tasks
 
@@ -236,7 +236,7 @@ TASK1 ──► TASK2 ──► TASK3
 - The test is concrete: name the artifact of A that B consumes. If you cannot name one, there is no edge
 - Listing order alone NEVER creates an edge — a near-linear chain over 4+ tasks is a signal you encoded authoring order, not data flow; re-examine it
 - **File-overlap exception**: two data-independent tasks that modify the same file will collide if drawn in parallel — pick an order, add the edge, and say in the dependent task's description that it serializes file access (so a future planner doesn't mistake it for data flow)
-- **Structure-before-behavior exception**: when a phase includes a structural task (pure refactoring/moving, no behavior change), every behavioral task in that phase takes an edge to it — the tidying lands first, behavior builds on the tidied code
+- **Structure-before-behavior exception**: when a phase includes a structural task (pure refactoring/moving, no behavior change), every behavioral task in that phase takes an edge to it — the tidying lands first, behavior builds on the tidied code. A structural task that keeps existing tests valid by adding setup to them (fixtures, factories, `let`/`let!` lines, `before` blocks, test data) carries a `Setup files:` line, as the task description guideline above says
 - Phase milestone depends on ALL phase tasks
 - Next phase milestone depends on previous phase milestone
 
