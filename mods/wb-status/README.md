@@ -2,7 +2,7 @@
 
 A read-only [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/overview) for the wb workflow. It shows where the active plan stands and, on a separate line, whether its tests can be trusted, without you running `/wb:help` or `bd` yourself.
 
-It is a separate plugin from `wb` while it is a prototype. It never writes to the repository, to beads, or to any file, and it never approves or denies a tool call.
+It is a separate plugin from `wb` while it is a prototype. It never writes to the repository, to beads, or to any file, and it never approves or denies a tool call. The one thing it keeps is the session's pinned plan, in the session's own state.
 
 Tested with Claude Code 2.1.306. The mods API is early access and can change between releases.
 
@@ -21,6 +21,20 @@ claude --plugin-dir ./mods/wb-status
 ```
 
 Start the session in a repository with a wb plan: a `docs/plans/<dir>/tasks.md` whose frontmatter has `beads_tasks` and a `status` other than `complete`, and a working `bd`. With no such plan, or when `bd` fails, the mod shows nothing.
+
+## Which plan it shows
+
+A repository can hold several plans, in the main checkout and in each git worktree (a worktree has its own `docs/plans`). The mod picks one, in this order:
+
+1. **The plan this session pinned.** A `/wb:*` command that names a plan directory pins it: typed (`/wb:implement docs/plans/<dir>/ 2`) or run through the Skill tool. The latest one wins. The path is kept as given; a relative path is looked for under the session's directory, its project root, then each worktree of the repository (`git worktree list`), so a plan that lives only in `.claude/worktrees/<name>/` is found from a session started in the main checkout. The pin lasts for the session: a compaction keeps it, and a resumed session takes the latest `/wb:*` invocation from its transcript.
+2. **Guessed from beads activity.** Among the unfinished beads plans of every worktree (up to 12 per worktree, newest names first), the one with an issue in progress under its epic or named in its frontmatter; with none in progress, the one whose issue was updated last.
+3. **Guessed from the newest directory name.** Only when no plan has any beads issue with a time on it.
+
+A guessed plan says so: `Plan: <name> (guessed)` on the band, `wb <name> (guessed):` on the status line. The pane's **Plan** section says how the plan was chosen (`Pinned by /wb:implement at 14:05.`, `Guessed from beads activity: …`, `Guessed from the newest plan directory name: …`), its directory, and its worktree.
+
+To choose by hand: `/wb-status <plan dir>` pins that plan (`docs/plans/<dir>`, or a path through `.claude/worktrees/<name>/`); `/wb-status auto` clears the pin and goes back to guessing.
+
+Everything about the chosen plan is read in that plan's own worktree: its tasks.md and design.md, and `git log` for its red commits run from that worktree's top level (`git rev-parse --show-toplevel`). Beads is one database across worktrees.
 
 ## What it shows
 
@@ -44,7 +58,7 @@ The rule: a dim `── wb plan ──` line across the band's width, so the ban
 
 Line 1, progress:
 
-- **Plan**: the `project` field of the active plan's tasks.md.
+- **Plan**: the `project` field of the chosen plan's tasks.md, then `(guessed)` when it was not pinned, then `(worktree <name>)` when it lives in a linked worktree and the band has room (the worktree is the first thing a narrow band drops).
 - **Phase N/M**: the lowest phase whose milestone (the frontmatter's `beads_phases`) is still open in beads, not the frontmatter's `current_phase`, which only `/wb:update_status` writes. `at checkpoint` when that phase's tasks are all closed: the phase is waiting for you to accept it. `done` when every milestone is closed. With no milestones, the lowest phase that still has an unclosed task.
 - **Bar and closed/total**: that phase's planned tasks (the frontmatter's `beads_tasks` keys, `phaseN_...`) that beads shows closed. Follow-ups are not counted here.
 - **follow-ups open**: unclosed issues that belong to the plan but are not planned tasks: every other issue under the plan's epic (a fix task, a test gap, a review finding), and anything filed `discovered-from` one of the plan's issues. `Q:` and `Decide:` issues are not follow-ups; they show on line 2.
@@ -81,8 +95,9 @@ wb <plan>: phase 2/3 3/5 · red-first 1/2 · verifier 3✓ · ✓
 
 ### The `/wb-status` pane
 
-`/wb-status` takes a fresh reading and opens a pane with four sections:
+`/wb-status` takes a fresh reading and opens a pane with five sections:
 
+- **Plan**: the plan's name and worktree, its directory, how it was chosen (pinned by which command and when, or guessed from what), and how to pin or unpin.
 - **Needs your decision**: each blocking item, with why it is blocking.
 - **What phase N delivered**: the phase's tasks grouped by the criterion each one names (`AC-n` in its title or description), then the tasks that name none. `✓` closed, `…` in progress, `○` open.
 - **Test integrity**: per criterion, its red commit (or none), its latest verifier verdict and the task or follow-up it came from, and the integrity findings count from the `test integrity:` comment.
@@ -96,8 +111,9 @@ Close it with ctrl+x x, or the close mark on its frame.
 - After a Bash call (the main session's or a subagent's) that runs `bd close`, `bd update`, `bd reopen`, `bd create`, `bd comments add`, `git commit`, `git revert` or `git cherry-pick`, once the burst settles.
 - Every 60 seconds.
 - When you run `/wb-status`.
+- Shortly after a `/wb:*` command pins a plan.
 
-Each reading runs three `bd list` calls (the frontmatter's ids, the epic's children, every unclosed issue), one `git log`, and `bd comments` for the issues that have comments: every one in this phase's verifier window, and up to 10 others per reading, so the pane's per-criterion verdicts fill in over a few readings. A comment read is reused until the issue's comment count or update time changes, so a settled plan costs only the three lists and the log. Drawing reads only that cache. `bd` runs with `--readonly`.
+When nothing is pinned, choosing the plan adds a `git worktree list`, a read of each worktree's plan frontmatter, and two `bd list` calls (every unclosed issue, and the candidate plans' named issues). A pinned plan skips those. Each reading of the chosen plan runs three `bd list` calls (the frontmatter's ids, the epic's children, every unclosed issue), one `git log`, and `bd comments` for the issues that have comments: every one in this phase's verifier window, and up to 10 others per reading, so the pane's per-criterion verdicts fill in over a few readings. A comment read is reused until the issue's comment count or update time changes, so a settled plan costs only the three lists and the log. Drawing reads only that cache. `bd` runs with `--readonly`.
 
 ## Turn it off
 
@@ -116,7 +132,8 @@ claude plugin test ./mods/wb-status
 
 ## Known limits
 
-- The active plan is the newest `docs/plans/*/tasks.md` (by directory name) that is unfinished and lists beads tasks; only the session's project root is searched.
+- With no pin, the plan is a guess. A session that implements a plan without a `/wb:*` command naming its directory (work started by hand, or a command given no path) is guessed from beads activity; `/wb-status <plan dir>` fixes it.
+- A Bash `cd` into a worktree does not move the pin; only a `/wb:*` command or `/wb-status <plan dir>` does.
 - A task serves a criterion when its title or description mentions `AC-n`, so a task that mentions a criterion in passing is listed under it.
 - `red(AC-n)` commits are matched by id since the plan's creation date; another plan's commit with the same id in that window would count.
 - The band's verifier count covers this phase only; the pane's per-criterion verdicts for earlier phases fill in over the first few readings after a load.

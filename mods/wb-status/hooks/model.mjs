@@ -472,7 +472,12 @@ function attentionSegment(attention, max = Infinity) {
  * verifier, then its label.
  */
 export function bandLines(model, columns = Infinity) {
-  const head = [seg('Plan: ', 'dim'), seg(model.planName)]
+  // A guessed plan says so wherever its name shows; the worktree is the
+  // first thing to go when the band is narrow.
+  const name = [seg(model.planName), ...(isGuessed(model) ? [seg(' (guessed)', 'warn')] : [])]
+  const head = [seg('Plan: ', 'dim'), ...name]
+  const worktree = model.selection?.worktree
+  const headInWorktree = worktree && worktree !== model.planName ? [...head, seg(` (worktree ${worktree})`, 'dim')] : null
   const where = model.isDone ? ' done' : model.isAtCheckpoint ? ' at checkpoint' : ''
   const filled = model.total === 0 ? 0 : Math.round((model.closed / model.total) * 10)
   const phase = [seg(`Phase ${model.phase}/${model.phaseCount}${where}`), seg(' '), seg('█'.repeat(filled), 'accent'), seg('░'.repeat(10 - filled), 'track'), seg(` ${model.closed}/${model.total} tasks`)]
@@ -487,12 +492,13 @@ export function bandLines(model, columns = Infinity) {
   const room = columns - width(fixed) - cells(' · now: ') - cells(` (${model.now?.id ?? ''})`)
   const nowShort = model.now === null || room < 8 ? null : `${shorten(model.now.title, room)} (${model.now.id})`
   const progressVariants = [
+    ...(headInWorktree === null ? [] : [line(headInWorktree, phase, follow, nowOf(nowFull))]),
     line(head, phase, follow, nowOf(nowFull)),
     ...(nowShort === null ? [] : [line(head, phase, follow, nowOf(nowShort))]),
     line(head, phase, follow),
     line(head, phase),
     line(head, phaseNoBar),
-    line([seg(model.planName)], phaseNoBar),
+    line(name, phaseNoBar),
   ]
   const progress = firstFitting(progressVariants, columns)
 
@@ -531,7 +537,8 @@ export function statusLine(model) {
   const attention = model.blocking.length === 0 ? '✓' : `⚠ ${model.blocking.length}`
   const where = model.isAtCheckpoint ? ' at checkpoint' : ''
   const verifier = joined(verifierSegments(model.verdicts))
-  return `wb ${model.planName}: phase ${model.phase}/${model.phaseCount}${where} ${model.closed}/${model.total} · red-first ${model.redCount}/${model.criteria.length} · ${verifier} · ${attention}`
+  const guessed = isGuessed(model) ? ' (guessed)' : ''
+  return `wb ${model.planName}${guessed}: phase ${model.phase}/${model.phaseCount}${where} ${model.closed}/${model.total} · red-first ${model.redCount}/${model.criteria.length} · ${verifier} · ${attention}`
 }
 
 const MARK = { closed: '✓', in_progress: '…', blocked: '⊘' }
@@ -573,7 +580,9 @@ export function paneSections(model) {
     ? ['No open follow-ups.']
     : model.followUps.map(item => `${MARK[item.status] ?? '○'} ${item.title} (${item.id}${item.from ? `, from ${item.from}` : ''})`)
 
+  const plan = model.selection ? [{ heading: 'Plan', rows: selectionWords(model.selection) }] : []
   return [
+    ...plan,
     { heading: 'Needs your decision', rows: decide },
     { heading: `What phase ${model.phase} delivered`, rows: delivered.length === 0 ? ['No tasks in this phase.'] : delivered },
     { heading: 'Test integrity', rows: integrity },
@@ -598,4 +607,164 @@ export function parseJsonArray(stdout) {
   } catch {
     return null
   }
+}
+
+// ── Which plan ────────────────────────────────────────────────────────────
+//
+// The session pins a plan when a /wb:* command runs with a plan directory
+// (typed, or through the Skill tool); with no pin, the plan is guessed from
+// beads activity, then from the newest directory name. The hooks module does
+// the reads; these helpers only parse and choose.
+
+const PLAN_PATH = /((?:[^\s'"`<>()]*\/)?docs\/plans\/[^\s/'"`<>()]+)/
+
+/** The first `docs/plans/<dir>` path in a text, with whatever leads it (absolute, or `.claude/worktrees/<x>/`). */
+export function planPathIn(text) {
+  const match = PLAN_PATH.exec(String(text ?? ''))
+  if (match === null) return null
+  return match[1].replace(/^\.\//, '')
+}
+
+/** Whether a command or skill name is one of wb's (`wb:implement`). */
+export function isWbName(name) {
+  return /^wb:[\w-]+$/.test(String(name ?? ''))
+}
+
+/** A pin from a wb command and its arguments, or null when it names no plan. */
+export function pinFrom(name, args, at) {
+  if (!isWbName(name)) return null
+  const path = planPathIn(args)
+  return path === null ? null : { path, by: `/${name}`, at }
+}
+
+/** A pin from a `prompt.submit` input: its `command`, else a typed `/wb:<name> args` line. */
+export function pinFromPrompt(e, at) {
+  if (e?.command && typeof e.command.name === 'string') return pinFrom(e.command.name, e.command.args, at)
+  const typed = /^\s*\/(wb:[\w-]+)(?:\s+([\s\S]*))?$/.exec(String(e?.text ?? ''))
+  return typed === null ? null : pinFrom(typed[1], typed[2] ?? '', at)
+}
+
+/**
+ * The latest wb invocation in a transcript (`$.session.messages()` rows): a
+ * user row that ran `/wb:<name>` (typed, or recorded as `<command-name>`), or
+ * an assistant's Skill tool use. Restores the pin in a process that starts
+ * with the transcript already written (a resume).
+ */
+export function latestPin(messages, at) {
+  let found = null
+  for (const message of messages ?? []) {
+    if (message?.role === 'user') {
+      const text = String(message.text ?? '')
+      const named = /<command-name>\/?(wb:[\w-]+)<\/command-name>/.exec(text) ?? /^\s*\/(wb:[\w-]+)\b/.exec(text)
+      const pin = named === null ? null : pinFrom(named[1], text.slice(named.index + named[0].length), at)
+      if (pin !== null) found = pin
+    }
+    for (const use of message?.toolUses ?? []) {
+      if (use?.tool !== 'Skill') continue
+      const skill = String(use.input?.skill ?? '').replace(/^\//, '')
+      const pin = pinFrom(skill, use.input?.args, at)
+      if (pin !== null) found = pin
+    }
+  }
+  return found
+}
+
+/** Worktree roots from `git worktree list --porcelain`, the main one first. */
+export function parseWorktrees(stdout) {
+  return String(stdout ?? '')
+    .split('\n')
+    .filter(one => one.startsWith('worktree '))
+    .map(one => one.slice('worktree '.length).trim())
+    .filter(one => one.startsWith('/'))
+}
+
+/** The worktree's name when a root is a linked worktree, else null. */
+export function worktreeName(root, mainRoot) {
+  const text = String(root ?? '')
+  const nested = /\/\.claude\/worktrees\/([^/]+)\/?$/.exec(text)
+  if (nested) return nested[1]
+  if (mainRoot === undefined || mainRoot === null || text === mainRoot) return null
+  return text.split('/').filter(Boolean).at(-1) ?? null
+}
+
+/** The root a plan directory sits in: what leads its `/docs/plans/`. */
+export function rootOfPlanDir(dir) {
+  const at = String(dir).lastIndexOf('/docs/plans/')
+  return at < 0 ? null : String(dir).slice(0, at)
+}
+
+/** Whether a tasks.md frontmatter names beads work at all: tasks or an epic. */
+export function isBeadsPlan(fm) {
+  if (fm === null || typeof fm !== 'object') return false
+  const tasks = fm.beads_tasks
+  const hasTasks = tasks !== null && typeof tasks === 'object' && Object.keys(tasks).length > 0
+  return hasTasks || (typeof fm.beads_epic === 'string' && fm.beads_epic !== '')
+}
+
+function belongsTo(issue, fm) {
+  const ids = new Set(planIds(fm))
+  if (ids.has(issue.id)) return issue.issue_type !== 'epic'
+  return typeof issue.parent === 'string' && ids.has(issue.parent)
+}
+
+/**
+ * The plan beads shows work on: one with an issue in progress under its epic
+ * (or named in its frontmatter), the most recently moved such issue winning;
+ * else the plan whose issue moved last. Null when no candidate has an issue
+ * with a time on it.
+ * `candidates` are `{ fm, ... }`; `issues` any bd list rows.
+ */
+export function chooseByActivity(candidates, issues) {
+  let busy = null
+  let recent = null
+  for (const candidate of candidates) {
+    for (const issue of issues ?? []) {
+      if (!issue || !belongsTo(issue, candidate.fm)) continue
+      const at = String(issue.updated_at ?? issue.closed_at ?? issue.created_at ?? '')
+      if (issue.status === 'in_progress' && (busy === null || at > busy.at)) busy = { candidate, at, id: issue.id }
+      if (at !== '' && (recent === null || at > recent.at)) recent = { candidate, at, id: issue.id }
+    }
+  }
+  if (busy !== null) return { candidate: busy.candidate, why: 'in-progress', id: busy.id }
+  if (recent !== null) return { candidate: recent.candidate, why: 'recent', id: recent.id }
+  return null
+}
+
+/** The candidate with the newest directory name; the earlier one on a tie. */
+export function newestByName(candidates) {
+  return candidates.reduce((best, one) => (best === null || one.name > best.name ? one : best), null)
+}
+
+/** Whether the read-out should mark the plan as guessed. */
+export function isGuessed(model) {
+  const kind = model?.selection?.kind
+  return kind === 'beads' || kind === 'directory'
+}
+
+function clockTime(at) {
+  const date = new Date(Number(at))
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** How the plan was chosen, in words for the pane. */
+export function selectionWords(selection) {
+  if (!selection) return []
+  const rows = []
+  const where = selection.worktree ? ` (worktree ${selection.worktree})` : ''
+  rows.push(`${selection.planName}${where}`)
+  if (selection.dir) rows.push(selection.dir)
+  if (selection.kind === 'pinned') {
+    const time = clockTime(selection.at)
+    rows.push(`Pinned by ${selection.by}${time ? ` at ${time}` : ''}.`)
+  } else if (selection.kind === 'beads') {
+    const why = selection.why === 'in-progress' ? `an issue in progress under its epic (${selection.id})` : `the most recently updated issue under its epic (${selection.id})`
+    rows.push(`Guessed from beads activity: ${why}.`)
+  } else if (selection.kind === 'directory') {
+    rows.push('Guessed from the newest plan directory name: no plan has beads activity.')
+  }
+  if (selection.missing) rows.push(`No tasks.md found for the pinned ${selection.missing}, so this plan was guessed.`)
+  rows.push('/wb-status <plan dir> pins a plan; /wb-status auto goes back to guessing.')
+  return rows
 }

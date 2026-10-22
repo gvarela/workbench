@@ -1,6 +1,7 @@
 {
   "name": "wb-status",
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "types": "./types/index.d.ts",
   "description": "Prototype mod for the wb workflow: a read-only band above the prompt with plan progress and test integrity, a status line, and a /wb-status pane",
   "author": {
     "name": "Gabriel Varela"
