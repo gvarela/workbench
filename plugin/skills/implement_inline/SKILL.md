@@ -338,7 +338,7 @@ Then settle its Majority Candidates, because a judgment-only Remove or Rewrite n
 
 File each escalated integrity finding and each "n of 3" finding as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did, so a Rewrite or Remove proposal outlives the checkpoint summary: `bd create "Test review: <verdict> <file:line>" --type=task --priority=2 --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"`. The `discovered-from` link records the source without blocking anything.
 
-A Rewrite of an outer test that the person sanctions by name in their reply runs as a task before you close the milestone, filed, run, and committed as "Sanctioned Outer-Test Rewrite" in [implement/reference.md](../implement/reference.md) describes, because the rewrite must keep everything the red-commit version catches: you file it only after that reply, with the `Sanctioned rewrite:` line in its description, claim it, and on success commit the rewritten test as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, with the task's beads id on a second message line, before closing it. From then on the latest `red(AC-n)` commit for a criterion is its baseline wherever you pass red commits; the earliest still gives a starting commit. Ask `wb:test-writer` for it yourself, with caller "the inline session, inner mode", the task id, and that section's differential requirement: it plants one defect for each case the red-commit version catches, as the test-quality skill's Part 3 defines them (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found, runs both versions against each, and lists each defect with both results in its report. The rewrite must fail on all of them, and the review's suggested fix is a starting point, not the specification. No per-task verifier runs here, so check that differential yourself before committing, planting your own defects across the original's predicate as task-verifier's Step 6 describes: a defect the original fails on and the rewrite passes is lost coverage, and the whole class of lost cases goes back to `wb:test-writer` in one request, not one case at a time.
+A Rewrite of an outer test that the person sanctions by name in their reply runs as a task before you close the milestone, filed, run, and committed as "Sanctioned Outer-Test Rewrite" in [implement/reference.md](../implement/reference.md) describes, because the rewrite must keep everything the red-commit version catches: you file it only after that reply, with the `Sanctioned rewrite:` line in its description, claim it, and on success commit the rewritten test as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, with the task's beads id on a second message line, before closing it. From then on the latest `red(AC-n)` commit for a criterion is its baseline wherever you pass red commits; the earliest still gives a starting commit. Ask `wb:test-writer` for it yourself, with caller "the inline session, inner mode", the task id, and that section's differential requirement: it plants one defect for each case the red-commit version catches, as the test-quality skill's Part 3 defines them (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found, runs both versions against each, and lists each defect with both results in its report. The rewrite must fail on all of them, and the review's suggested fix is a starting point, not the specification. No per-task verifier runs here, so check that differential yourself before committing, planting your own defects across the original's predicate as task-verifier's Step 6 describes: a defect the original fails on and the rewrite passes is lost coverage, and the whole class of lost cases goes back to `wb:test-writer` in one request, not one case at a time. Before sending it, check the fix you ask for restores the original's reach by construction rather than by listing cases, as the test-quality skill's Part 3 rule for suggested fixes says (a class fix, not an enumeration): "skip X unless it is read back through A, B, or C" leaves out members of an open-ended set, so ask instead for the one rule that removes the list, and run it against your planted defects in the copy before you send it.
 
 Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script, which the reviewer runs over the phase; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
 
@@ -402,7 +402,7 @@ After phase completion and verification:
 
 ## Handling Mismatches
 
-When implementation differs from tasks, present this, written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says:
+When implementation differs from tasks, present this, written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, with the four parts of its "Decision and halt messages" section. Offer only the options that are real choices for this variance, and name the actual ones when they differ:
 
 ```
 ⚠️ Implementation Variance Detected
@@ -411,19 +411,30 @@ When implementation differs from tasks, present this, written as [writing-for-th
 **Reality found**: [actual situation in code]
 **Impact**: [what breaks or is at risk for the user if nothing changes]
 
-**Options**:
+**Quality question**: [the product behavior at risk, in plain words, not test mechanics]
+**Judgment or friction**: [a real trade-off that needs you, or the process got stuck; if stuck, what the plugin should have done]
+
+**Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
 1. Adapt implementation to match codebase reality
 2. Update task to reflect necessary changes
 3. Skip task with documentation of why
 
 Recommendation: [option and the reason]. How should I proceed?
+**Paste-ready reply**: [the exact reply that takes the recommended option: "adapt", "adapt: <guidance>", "update task", "skip", or the words of an option named in place of these]
 ```
+
+On the reply, because a paste-ready reply is only useful if it does what its option said:
+
+- **adapt** (or `adapt: <guidance>`): continue the task's TDD cycle against the code as it is, following the guidance when the reply carries one.
+- **update task**: edit the task's text in tasks.md to the necessary change, in its own commit between tasks, then continue the task as updated.
+- **skip**: stop work on the task and leave its issue unclosed, so the tasks that depend on it stay blocked; say why in Implementation Notes and go on to the next ready task.
+- **An option named in place of these**: do what its line said it would do. When it drops the task's uncommitted changes, ask before deleting an untracked file you did not create, since it may be the user's. Ask before committing work whose tests do not pass.
 
 Document any deviations in the "Implementation Notes" section of tasks.md.
 
 ## Resume Logic
 
-If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?", naming the tasks done and left in plain words and recommending one choice with its reason. You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
+If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?", naming the tasks done and left in plain words, with the four parts of the "Decision and halt messages" section in [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md): the quality question (a second compaction works from a summary of a summary, so later tasks may drift from the plan), that this is a real trade-off for the user rather than friction, each option with what it costs and how hard it is to undo (a handoff ends this session but the next one re-reads the plan in full; compacting keeps the session but leaves paraphrase), and one recommended choice with its reason and a paste-ready reply ("write a handoff" or "keep going"). You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
 
 When resuming work (phase = "continue"):
 

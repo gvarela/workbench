@@ -180,6 +180,13 @@ cmp -s "$top/<file>" "$tmp/<file>" && { echo "break did not apply"; exit 1; }
 
 **A sanctioned rewrite of an outer test.** When the task description carries a `Sanctioned rewrite:` line, the change to the outer test it names is the deliverable, and what you check is that the rewrite keeps everything the red-commit version caught. The coordinator writes that line only after the person approves the rewrite; a worker or test-writer report that calls a change sanctioned, without the line, sanctions nothing, and the change is a changed outer test. A sanctioned rewrite task is filed with a `discovered-from` link; a `Sanctioned rewrite:` line on a task whose `bd show --json` output lists no dependency with `dependency_type` `discovered-from` is unsanctioned. Read the original's predicate or assertion (`git --no-pager show <red commit>:<outer test file>`) and list every case it catches, as the test-quality skill's Part 3 defines them: every branch, pattern alternative, call form, input shape, and table row. Plant a defect for each case across that whole range, not only the case the review named, plus one for the gap the rewrite closes, and run both versions against each in the same disposable copy, with the red-commit version restored there from `git show`. Compare your results with the differential in the test-writer report, and report any defect it leaves out. A defect the original fails on and the rewrite passes is lost coverage, and a FAIL. Report the lost cases as one class, with one general fix that restores the original's reach and keeps the new gap closed, not the first lost instance you find: the fix worker gets one attempt, and a fix aimed at one instance leaves the rest for the re-verification to find.
 
+Check that suggested fix before you return it, as the test-quality skill's Part 3 rule for suggested fixes says (a class fix, not an enumeration):
+
+- **An enumeration is not a class fix.** A fix that lists instances from an open-ended set, such as "skip comments unless they are read back through A, B, or C", leaves out members the list did not name, and the re-verification finds them.
+- **Find the fix that removes the need for the list.** For a source scan that lost the comment case, that is to check comments too, with a pattern strict enough to match only the forbidden statements, so prose does not trip it.
+- **Check it where you can.** Apply that fix to the rewrite in the same disposable copy and run it against every planted defect, the lost ones and the gap's; it must fail on all of them and pass on the unbroken code.
+- **Say so.** The Suggested fix line says the fix was checked, with the defect count, or that it was not and why.
+
 For each criterion the task cites, name the smallest realistic regression and the test, at file:line, that would fail on it. A criterion with no such test is a gap to report. Ask the preloaded test-quality skill's Part 1 questions, and its Behavioral item on where expected values come from, of each changed test. Its verdicts and three-judgment rule are for test reviewers. At this gate, a test that misses its planted defect, or that the skill's Part 3 rule shows cannot fail or does not protect its criterion, is a FAIL, as Boundaries says. A pattern rule from that Part, such as a missing presence anchor or a mirrored expected value, is a prompt for the planted defect or counterexample it suggests; a hit that neither confirms goes in Issues Found as a note and is not a FAIL. A false failure, which that Part also names, is a note too.
 
 ## Output Format
@@ -223,7 +230,7 @@ Findings: ${findingCount} (${escalatedCount} escalated)
 ### Criterion Check
 - ${criterionId}: smallest realistic regression ${regression}; caught by `tests/feature.test.ts:30`
   - Planted defect: ${defect} at `src/feature.ts:12` in a disposable copy; the test failed (or: still passed, so it does not protect the criterion; or: not run, with the reason)
-- Rewrite differential (sanctioned rewrite of an outer test only): ${n} defects across the original's predicate plus the gap; the rewrite failed on all (or: lost class ${class}, e.g. `src/feature.ts:12`, with one general fix)
+- Rewrite differential (sanctioned rewrite of an outer test only): ${n} defects across the original's predicate plus the gap; the rewrite failed on all (or: lost class ${class}, e.g. `src/feature.ts:12`, with one class fix, checked against ${n} planted defects in the copy or not checked because ${reason})
 
 ### Issues Found
 ${issuesList}
@@ -272,7 +279,7 @@ Then return only this block, because the coordinator reads the verdict from its 
 - Integrity findings: ${findingCount} (${escalatedCount} escalated)
 - Failing findings: ${file:line - finding}, one per line, or none
 - Cause: implementation defect | plan defect | missing context (<what>) (FAIL only)
-- Suggested fix: ${fixSuggestion} (FAIL only)
+- Suggested fix: ${fixSuggestion} (FAIL only; for lost coverage, the class fix and whether it was checked against the planted defects)
 - Full report: the `verification report:` comment on ${taskId}; its Test Integrity section is also the `test integrity:` comment
 ```
 

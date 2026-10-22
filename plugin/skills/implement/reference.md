@@ -120,7 +120,7 @@ Subagents stop when they exhaust their tool-call budget (observed as a hard stop
 
 **Signature**: little or nothing landed, and/or the worker explicitly reported errors or blockers it could not resolve.
 
-Present, writing each line as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says (this applies to every halt message in this file and to the handoff question; the `halted:` comments recorded in beads keep their fixed form):
+Present, writing each line as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, with the four parts of its "Decision and halt messages" section: quality question, judgment or friction, options with their trade-offs, and a recommendation with a paste-ready reply. This applies to every halt message in this file and to the handoff question. The options each template lists are the usual ones: offer only those that are real choices for this halt, and name the actual ones when they differ. Each paste-ready reply is a form that halt's reply handling accepts, because a reply the handling does not recognize stalls the phase a second time; a reply that takes an option named in place of the usual ones is handled as the Failed Re-verification Halt's reply handling says for such an option. The `halted:` comments recorded in beads keep their fixed form.
 
 ```
 ⚠️ Worker Did Not Complete Task
@@ -129,13 +129,23 @@ Task: ${what the task builds, in plain words} (${taskId}); still in_progress
 Worker reported: ${workerError, in plain words: what it could not do and why}
 Landed changes: ${gitStatusSummary}
 
-**Options**:
-1. Retry worker with additional context
+Quality question: ${the behavior this task delivers, and what stays at risk while it is unfinished}
+Judgment or friction: ${whether a real trade-off needs you, or the process got stuck; if stuck, what the plugin should have done}
+
+**Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
+1. Retry worker with additional context: ${the context it would get}
 2. Mark task as blocked, investigate
-3. Manual intervention required
+3. Manual intervention required: you make the change, then say "continue"
 
 Recommendation: ${option and the reason}. How should I proceed?
+Paste-ready reply: ${the exact reply that takes the recommended option: "retry: <context>", "investigate", "continue", or the words of an option named above}
 ```
+
+**On the reply**:
+
+- **Retry** (`retry: <context>`): discard what the worker landed as the Failed Re-verification Halt's Discard and retry does, posting the `discarded:` comment, so the retried worker and its verifier see only this attempt. Then spawn the worker again from the Worker Prompt Template with the context as one added line, and the same `taskTestContext`.
+- **Investigate**: start no further task, leave the task `in_progress` with its changes in the working tree, and report what you find; Resume treats it as unfinished work.
+- **Continue** after manual intervention: post a `worker report:` comment naming the files the user changed, so the verifier and a later session have a report for the work, close the task's issue, and run verification (Step 6) on the working tree.
 
 ## Plan-Defect Deviation Protocol (Step 6)
 
@@ -159,9 +169,27 @@ For verification FAILs where the task cannot succeed as specified — the design
 
 2. **Block dependents**: `bd dep add [dependent-task-id] [revision-issue-id]` for every not-yet-run task that builds on the failed assumption
 
-3. **Halt the phase**: stop spawning workers; record `halted: plan defect` on the failed task ("Evidence in Beads"); present a checkpoint to the user with the failed task and the design assumption that failed, each in plain words, what the verifier evidence shows, which later tasks are now blocked, and the revision issue ID in parentheses
+3. **Halt the phase**: stop spawning workers; record `halted: plan defect` on the failed task ("Evidence in Beads"); present:
 
-4. **Route the fix**: the revision goes through `/wb:create_design` (preceded by `/wb:explore_design` if it reopens an architectural choice) — never through fix workers
+   ```
+   ⚠️ Plan Defect: Phase Halted
+
+   Task: ${what the task builds, in plain words} (${taskId})
+   Assumption that failed: ${the design assumption, in plain words} (${design.md section}); evidence: ${what the verifier found}
+   Now blocked: ${each later task, in plain words}; revision issue (${revisionIssueId})
+
+   Quality question: ${the product behavior the plan promised that the code cannot deliver as specified}
+   Judgment or friction: ${a real design trade-off for you, or a gap the plan should have caught; if a gap, what the plugin should have checked earlier}
+
+   **Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
+   1. Revise the design through /wb:create_design, then resume the phase
+   2. ${an alternative that is a real choice here, such as narrowing the criterion, or none}
+
+   Recommendation: ${option and the reason}. How should I proceed?
+   Paste-ready reply: ${the exact reply or command that takes the recommended option, such as /wb:create_design ${planDir}}
+   ```
+
+4. **Route the fix**: the revision goes through `/wb:create_design` (preceded by `/wb:explore_design` if it reopens an architectural choice) — never through fix workers. A reply that takes a named alternative instead does what its option's line said, as the Failed Re-verification Halt's reply handling says for such an option.
 
 ## Failed Re-verification Halt (Step 6)
 
@@ -182,21 +210,26 @@ When the re-verification after the one fix attempt fails, the failed task's chan
    Cause: ${causeLabel, explained in one plain sentence}
    Fix attempt changed: ${fixAttemptSummary}
 
-   **Options**:
-   1. Fix it or give guidance, then say "continue". I re-verify the working tree, commit on PASS, and resume the phase.
+   Quality question: ${the product behavior the failing check guards, and what could ship broken if the phase went on}
+   Judgment or friction: ${a real trade-off for you, or the process got stuck (for example, the one fix attempt went on a fix that listed cases); if stuck, what the plugin should have done}
+
+   **Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
+   1. Fix it yourself and say "continue", or give guidance as "continue: <guidance>" and a fix worker applies it. I re-verify the working tree, commit on PASS, and resume the phase. ${the guidance that would make it pass, such as the verifier's checked class fix}
    2. Discard the task's uncommitted changes, back to its starting commit (${startingCommit}) plus its committed red(AC-n) tests, and retry the task.
    3. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
 
    Recommendation: ${option and the reason}. How should I proceed?
+   Paste-ready reply: ${the exact reply that takes the recommended option, in one of the forms the reply handling accepts: "continue", "continue: <guidance>", "discard and retry", "plan defect", or the words of an option named above}
    ```
 
 **On the reply**:
 
 The worker and fix-worker reports live only in the task's comments once the session ends, so every reply below reads them from there ("Evidence in Beads"), never from memory.
 
-- **Continue**: re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits. The verifier reads the worker reports, the test-writer reports, and on a harness task the `support files:` records from the task's comments itself; with the comments missing, every inner-test change and every support file reads as undeclared. On PASS, close the issue again, commit the task, and resume at Step 5. On FAIL, present the halt message again.
+- **Continue** (`continue`, or `continue: <guidance>`): when the reply carries guidance after `continue:`, such as the verifier's checked class fix, first run a fix worker from the "Fix Worker Prompt" in [sub-agent-prompts.md](sub-agent-prompts.md), adding the guidance as one line: `Guidance from the user: <guidance>`. The user asked for this attempt, so the one automatic fix attempt in Step 6 does not limit it. Then re-verify the working tree with the "Verification Agent Prompt", using the same starting commit and red commits. The verifier reads the worker reports, the test-writer reports, and on a harness task the `support files:` records from the task's comments itself; with the comments missing, every inner-test change and every support file reads as undeclared. On PASS, close the issue again unless the fix worker already did, commit the task, and resume at Step 5. On FAIL, reopen the issue as halt action 2 does if the fix worker closed it, and present the halt message again.
 - **Discard and retry**: discard only the uncommitted changes: `git restore --staged --worktree :/` (the `:/` pathspec covers the whole repository even when the session runs from a subdirectory), then delete with `rm -f` the untracked files that `git status --short` lists and that the task's `created files:` comments name; ask before deleting an untracked file no comment names, since it may be the user's. Post the `discarded:` comment. Do not move HEAD (no `git reset` to the starting commit): HEAD is the starting commit plus the task's committed `red(AC-n)` tests, and those stay. Then run the task again from Step 5 item 7 with the same `taskTestContext`, so the verifier still diffs from the original starting commit.
 - **Plan defect**: follow the protocol above; the reopened issue stays open.
+- **An option the message named in place of the generic three**: do what that option's line said it would do, because that line is what the user agreed to. When the option drops the task's changes, discard them as Discard and retry does, asking before deleting an untracked file no comment names, and post the `discarded:` comment. Ask before committing a task whose last verification failed, naming the failing findings the commit would carry, because a commit makes the task look done to every later reader.
 
 ## Evidence in Beads (Steps 5, 6, 8, and Resume)
 
@@ -250,6 +283,16 @@ The brief carries a differential requirement, because a rewrite that drops a cas
 - **The record**: `wb:test-writer` lists each planted defect, with the result for both versions, in its report, and the verifier checks that differential against its own (task-verifier Step 6).
 - **The suggested fix**: pass the review's Suggested fix on as a starting point, not as the specification. Where following it would stop catching something the red-commit version catches, the rewrite keeps the original's case and adds the gap, as the test-quality skill's Part 3 rule for suggested fixes says.
 
+## Lost-coverage Fix Check (Step 6)
+
+When a verifier fails a sanctioned rewrite for lost coverage (its Failing findings or Suggested fix line names lost coverage), read its Suggested fix before spawning the fix worker, because that fix is what the one attempt is spent on. Ask one question of it: does it restore the original's reach by construction, or by listing cases?
+
+- **By construction**: the fix covers the whole class with one rule, such as scanning the part of the source the rewrite skipped, with a pattern strict enough not to fail on correct code. Spawn the fix worker as Step 6 says.
+- **By listing cases**: the fix names instances from an open-ended set, such as "skip X unless it is read back through A, B, or C". The re-verification will find a member the list left out, and there is no second attempt. Spawn `wb:task-verifier` again with the "Verification Agent Prompt" and one added line: `Your last report's suggested fix lists cases; return a class fix that removes the need for the list, checked against the planted defects as your Step 6 says. This is a re-check of an unchanged working tree: begin your test integrity: comment by saying so.` That note lets Step 8 count the re-check's integrity findings once, not twice. This re-spawn does not count as the fix attempt, because nothing in the working tree changed. Then spawn the fix worker on the new report. Ask once: if the second fix still lists cases, spawn the fix worker on it, since the Fix Worker Prompt already tells it to fix the whole class.
+- **A different verdict or Cause from the re-spawn**: the tree is unchanged, so a PASS means the first FAIL was wrong: commit as on PASS, and note the disagreement between the two reports in a comment on the task. A different Cause follows that Cause's branch in Step 6.
+
+The rule the check applies is the test-quality skill's Part 3 rule for suggested fixes (a class fix, not an enumeration), which the verifier also applies to its own suggestion before returning it.
+
 ## Missing Context Check (Steps 5 and 6, and Resume)
 
 An agent that cannot find its task or a criterion it was told to read stops rather than guessing, and says what it could not find: the verifier returns FAIL with `Cause: missing context (<what>)`, a worker puts a `missing context:` line under Blockers and leaves the task `in_progress`, and `wb:test-writer` returns a block `blocked (criterion not found: <id>, looked in <where>)`. The gap may be in your own prompt rather than in the plan, so check your inputs before anything else. The Plan-Defect Deviation Protocol would file a design revision against a plan that may be fine, and a fix worker cannot repair a wrong id.
@@ -266,12 +309,18 @@ An agent that cannot find its task or a criterion it was told to read stops rath
    My inputs checked: task id, plan directory ${planDir}, criterion ids against tasks.md
    Landed changes: ${gitStatusSummary}
 
-   **Options**:
+   Quality question: ${the behavior the missing criterion or task would have specified, and what goes unchecked without it}
+   Judgment or friction: ${a real gap in the plan that needs your decision, or a lookup that got stuck; if stuck, what the plugin should have done}
+
+   **Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
    1. Add or correct it in the plan or beads, then say "continue". I run the agent that stopped again.
    2. Treat it as a plan defect: I follow the Plan-Defect Deviation Protocol.
 
    Recommendation: ${option and the reason}. How should I proceed?
+   Paste-ready reply: ${the exact reply that takes the recommended option: "continue", "plan defect", or the words of an option named above}
    ```
+
+   On the reply: `continue` runs this check again from item 1 and then spawns the agent that stopped from the same prompt template; `plan defect` follows the Plan-Defect Deviation Protocol; an option named in place of these does what its line said, as the Failed Re-verification Halt's reply handling says for such an option.
 
 ## Handoff Decision (Steps 5 and 8, and Resume)
 
@@ -279,7 +328,16 @@ A phase that has already compacted once and is heading for another compaction is
 
 ```
 This phase has already compacted once and is heading for another. Done so far: ${tasks done, in plain words}; left: ${tasks left, in plain words}.
-Write a handoff for a fresh session, or keep going and compact? I recommend ${choice}, because ${reason}.
+
+Quality question: a second compaction works from a summary of a summary, so the remaining tasks may be built against a drifted reading of the plan.
+Judgment or friction: a real trade-off for you: the session is yours, and a handoff ends it.
+
+**Options**:
+1. Write a handoff for a fresh session: /wb:resume_handoff re-reads the plan documents in full, so the remaining tasks start from the plan, not a summary. Cost: this session ends and its working context is gone. Undo: none needed; the next session picks up from beads.
+2. Keep going and compact: no restart, and I re-read the plan documents after the compaction. Risk: what I recall between tasks is paraphrase. Undo: you can still ask for a handoff at the next boundary.
+
+I recommend ${choice}, because ${reason}.
+Paste-ready reply: ${"write a handoff" or "keep going"}
 ```
 
 Write the handoff with `/wb:create_handoff` only when the user says so: `resume_handoff` forces a fresh read of the plan documents, while a second compaction compounds summary drift, and the user weighs that against losing this session. If they choose to keep going, continue and re-read the plan documents after the compaction, as Resume Logic says.

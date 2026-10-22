@@ -22,9 +22,14 @@ Generated: [YYYY-MM-DD HH:MM]
 
 ## Needs Your Decision
 
-Everything that blocks the release: test-review Blocking items, must-fix problems (broken functionality, a security concern, a failing build), and unjustified deviations to revert or accept.
+Everything that blocks the release: test-review Blocking items, must-fix problems (broken functionality, a security concern, a failing build), and unjustified deviations to revert or accept. Each item carries the four parts of the "Decision and halt messages" section in writing-for-the-user.md, and offers only the options that are real choices for it.
 
-- [each blocking item: what it is in plain words] ([id], `file:line`): [what breaks or is at risk]. Options: [options]. Recommendation: [option and the reason].
+- [each blocking item: what it is in plain words] ([id], `file:line`): [what breaks or is at risk].
+  - Quality question: [the product behavior at risk, in plain words, not test mechanics]
+  - Judgment or friction: [a real trade-off that needs you, or the process got stuck; if stuck, what the plugin should have done]
+  - Options: [each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo]
+  - Recommendation: [option and the reason].
+  - Paste-ready reply: [the exact reply that takes the recommended option]
 - [or "Nothing needs your decision"]
 
 ## Verdict per Intent Statement
