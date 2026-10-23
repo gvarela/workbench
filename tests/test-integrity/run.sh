@@ -135,6 +135,34 @@ OUT_SUB="$(cd src && run --start "$START" --red "$RED:spec/outer_spec.rb" --red 
 OUT_NODECL="$(run --start "$START")"
 check "$OUT_NODECL" 'd["undeclared_changes"] is None' "undeclared_changes is null when no declared list is given"
 
+# --declared-path: declared paths as arguments, no list file.
+OUT_DPATH="$(run --start "$START" --red "$RED:spec/outer_spec.rb" --red "$RED:spec/edited_outer_spec.rb" \
+    --declared-path spec/new_spec.rb --declared-path tests/test_legacy.py --declared-path spec/keep_spec.rb \
+    --declared-path spec/old_spec.rb --declared-path spec/edited_outer_spec.rb --declared-path 'spec/we"ird_spec.rb')"
+[ -n "$OUT" ] && [ "$OUT" = "$OUT_DPATH" ] && ok "--declared-path gives the same result as the same list in --declared" ||
+    fail "--declared-path gives the same result as the same list in --declared"
+OUT_MIX="$(run --start "$START" --declared-path ./spec/new_spec.rb --declared "$DECLARED")"
+check "$OUT_MIX" '"spec/new_spec.rb" not in d["undeclared_changes"] and "spec/keep_spec.rb" not in d["undeclared_changes"] and "__tests__/a.test.js" in d["undeclared_changes"]' \
+    "--declared-path combines with --declared (a leading ./ is dropped)"
+OUT_ONE="$(run --start "$START" --declared-path spec/new_spec.rb)"
+check "$OUT_ONE" '"spec/new_spec.rb" not in d["undeclared_changes"] and "tests/test_legacy.py" in d["undeclared_changes"]' \
+    "--declared-path alone: only the named path counts as declared"
+OUT_NONE="$(run --start "$START" --declared-none)"
+check "$OUT_NONE" 'd["undeclared_changes"] is not None and "spec/new_spec.rb" in d["undeclared_changes"] and "__tests__/a.test.js" in d["undeclared_changes"]' \
+    "--declared-none: an empty declared set, so every changed test file is undeclared"
+run --start "$START" --declared-path >/dev/null 2>&1
+CODE=$?
+[ "$CODE" = 2 ] && ok "--declared-path without a value is a usage error (exit 2)" || fail "--declared-path without a value is a usage error (exit 2, got $CODE)"
+run --start "$START" --declared-path "" >/dev/null 2>&1
+CODE=$?
+[ "$CODE" = 2 ] && ok "--declared-path with an empty value is a usage error (exit 2)" || fail "--declared-path with an empty value is a usage error (exit 2, got $CODE)"
+
+# --test-paths naming an existing directory without its trailing slash means that directory.
+check "$(run --start "$START" --test-paths tests)" '[c for c in d["changed_tests"] if c["path"]=="tests/test_legacy.py"]' \
+    "--test-paths naming a directory without a trailing slash counts files under it"
+check "$(cd src && run --start "$START" --test-paths tests)" '[c for c in d["changed_tests"] if c["path"]=="tests/test_legacy.py"]' \
+    "--test-paths directory without a slash is resolved from the repository root"
+
 run --red "$RED:spec/outer_spec.rb" >/dev/null 2>&1
 CODE=$?
 [ "$CODE" = 2 ] && ok "missing --start is a usage error (exit 2)" || fail "missing --start is a usage error (exit 2, got $CODE)"
@@ -270,6 +298,51 @@ check "$OUT_SH" 'd["errors"] == [] and all(o["mode"]=="lines" and o["identical"]
 
 check "$OUT" '[o for o in d["outer_tests"] if o["path"]=="spec/outer_spec.rb" and o["mode"]=="file" and o["changed_lines"] is None]' \
     "unshared outer test reports mode file"
+
+# ------------------------------------------------- earlier phases' tests
+# A plan starts at PLAN_START; phase 1 changes a, b, and d; phase 2 starts at
+# PHASE_START, commits a change to d, leaves an uncommitted change to a, and
+# adds c. Only a and d were changed before the phase and again in it.
+PHASES="$TMP_ROOT/phases"
+mkdir -p "$PHASES/spec" "$PHASES/src" && cd "$PHASES" || exit 1
+git init -q .
+printf 'describe "a" do\nend\n' > spec/a_spec.rb
+printf 'describe "b" do\nend\n' > spec/b_spec.rb
+printf 'describe "d" do\nend\n' > spec/d_spec.rb
+printf 'x\n' > src/x.rb
+git add -A && git commit -q -m 'before the plan'
+PLAN_START="$(git rev-parse HEAD)"
+printf 'describe "a" do\n  it "1" do\n  end\nend\n' > spec/a_spec.rb
+printf 'describe "b" do\n  it "1" do\n  end\nend\n' > spec/b_spec.rb
+git add -A && git commit -q -m 'phase 1 task 1'
+P1A="$(git rev-parse HEAD)"
+printf 'describe "d" do\n  it "1" do\n  end\nend\n' > spec/d_spec.rb
+printf 'y\n' > src/x.rb
+git add -A && git commit -q -m 'phase 1 task 2'
+P1B="$(git rev-parse HEAD)"
+PHASE_START="$P1B"
+printf 'describe "d" do\n  it "2" do\n  end\nend\n' > spec/d_spec.rb
+git add -A && git commit -q -m 'phase 2 task 1'
+printf 'describe "a" do\n  it "changed" do\n  end\nend\n' > spec/a_spec.rb
+printf 'describe "c" do\nend\n' > spec/c_spec.rb
+printf 'z\n' > src/x.rb
+
+OUT_PH="$(run --start "$PHASE_START" --plan-start "$PLAN_START")"
+check "$OUT_PH" 'd["errors"] == []' "earlier phases: no errors"
+check "$OUT_PH" '[e for e in d["earlier_phase_tests"] if e["path"]=="spec/a_spec.rb" and e["earlier_commits"]==["'"$P1A"'"]]' \
+    "earlier phases: a test changed before the phase and uncommitted in it is listed with its earlier commit"
+check "$OUT_PH" '[e for e in d["earlier_phase_tests"] if e["path"]=="spec/d_spec.rb" and e["earlier_commits"]==["'"$P1B"'"]]' \
+    "earlier phases: a test changed before the phase and committed again in it is listed"
+check "$OUT_PH" 'not [e for e in d["earlier_phase_tests"] if e["path"]=="spec/b_spec.rb"]' \
+    "earlier phases: a test changed only before the phase is not listed"
+check "$OUT_PH" 'not [e for e in d["earlier_phase_tests"] if e["path"] in ("spec/c_spec.rb", "src/x.rb")]' \
+    "earlier phases: a test new in the phase and a production file are not listed"
+check "$(run --start "$PHASE_START")" 'd["earlier_phase_tests"] is None' \
+    "earlier phases: null without --plan-start"
+check "$(run --start "$PHASE_START" --plan-start no-such-commit)" 'd["earlier_phase_tests"] is None and [e for e in d["errors"] if "plan start commit not found" in e]' \
+    "earlier phases: an unknown plan start is an error and null"
+check "$(run --start "$PLAN_START" --plan-start "$PHASE_START")" 'd["earlier_phase_tests"] is None and [e for e in d["errors"] if "not an ancestor" in e]' \
+    "earlier phases: a plan start after the phase start is an error and null"
 
 echo
 echo "bash $BASH_VERSION: $PASS passed, $FAIL failed"

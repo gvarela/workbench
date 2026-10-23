@@ -50,7 +50,9 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 **Needs your decision:**
 
-- [each blocking item (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes]
+- [each blocking item, numbered T1, T2, ... so a reply can name it (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes]
+- [each unexplained deviation from the phase verifier, numbered D1, D2, ..., with its options and a paste-ready reply ("Phase Verification" in [implement/reference.md](../implement/reference.md))]
+- [on the final phase: each FAIL Intent verdict on a statement the plan did not defer, with what failed, its options, and a paste-ready reply (`accept fail:`, `fix:`, or `plan defect:` and the statement; "Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md))]
 - [each proposed outer-test Rewrite, with a recommendation]
 - [if this phase compacted: whether to start the next phase in a fresh session, with a recommendation (Resume Logic in SKILL.md)]
 - [or "Nothing needs your decision"]
@@ -58,6 +60,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 **What this phase delivered** (by acceptance criterion):
 
 - [behavior the user can now rely on] (AC-n, task [id])
+- Intent progress: [one line per README Intent statement, with its status from the phase verifier (deferred, at risk, not started, awaiting the manual check, met, or met so far); on the final phase, its Intent verdict instead (PASS, FAIL, DEFERRED, or awaiting your manual check, with its evidence in one clause), as "Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md) says]
 
 **Manual checks** (from design.md):
 
@@ -68,17 +71,18 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 - Outer tests committed red first: [each named by the criterion it guards]
 - Integrity findings: [total] ([escalated] escalated)
+- Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
 - Review findings: [each with the criterion it guards and what the weakness lets through; settled candidates marked "n of 3"]
 - Review these: [each in plain words with its file:line after]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
 
-- Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
+- Product and plan: [behavior gaps, explained deviations, Intent statements at risk, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
 - Test quality: [weak or brittle tests and checks that fail on correct code, or none]
 
 **Beads state:** all Phase [N] tasks closed; the Phase [N] milestone ([phase-milestone-id]) is ready to close.
 
-Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by its number (acknowledge: T1), if any, answering each deviation by its number (accept: D1, fix: D2, plan defect: D3) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
 
 ```
 
@@ -95,11 +99,15 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 **What this phase delivered** (by acceptance criterion):
 
 - [behavior the user can now rely on] (AC-n, task [id])
+- Intent progress: [one line per README Intent statement, with its status from the phase verifier]
+- Intent verdicts (final phase only, in place of Intent progress): [each statement with the verdict written to the README and its evidence in one clause, and each still awaiting your manual check, with no suffix written; as [intent-verdicts.md](../../docs/reference/intent-verdicts.md) says]
+- Deviations from the plan: [each, in plain words, with the answer given (accepted, fixed, or plan defect), or "none"]
 
 **Test integrity:**
 
 - Outer tests committed red first: [each named by the criterion it guards]
 - Integrity findings: [total] ([escalated] escalated); review findings filed: [each in plain words with its criterion and issue id]
+- Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
 - Outer-test rewrites run: [each with the criterion it guards, or "none"]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):

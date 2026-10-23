@@ -45,7 +45,7 @@ You implement exactly that one task and return.
    WB_REPORT_END
    ```
 
-   On a setup task (its description carries a `Setup files:` line), post the test files whose setup you edited the same way, with `setup files:` as the first line. The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_execution's build the declared list from these records, because your returned block does not survive the session.
+   On a setup task (its description carries a `Setup files:` line), post the test files whose setup you edited the same way, with `setup files:` as the first line. The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_phase's build the declared list from these records, because your returned block does not survive the session.
 6. **Post your report** as Report below describes. Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 7. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
 

@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — output templates and the beads
 
 ## Initial Response
 
-This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, and a handoff decision when a phase that has already compacted heads for another compaction.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction.
 
 When invoked, check for arguments:
 
@@ -158,7 +158,7 @@ This shows:
 - Tasks whose dependencies are all closed (newly unblocked)
 - Both granular tasks and phase milestones
 
-Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 5 test review diffs from it.
+Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 5 test review diffs from it. Run one plain command per Bash call, as [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says: permission rules deny loops, `cd … &&` chains, and shell variables, and a denied call stalls the step.
 
 #### Claim and Track Tasks
 
@@ -330,9 +330,9 @@ make build          # or npm run build, go build
 
 **Requirement**: All automated checks must pass.
 
-#### 3. Review the Phase's Tests
+#### 3. Review the Phase's Tests and Verify the Phase
 
-No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits (the latest per criterion), every `wb:test-writer` report in the phase tasks' comments, the support files from each harness task's `support files:` comments, by task with its type, the setup files from each setup task's `setup files:` comments, by task with its `Setup files:` line, the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` and, in the same message, `wb:phase-verifier`, both with no `model` parameter (their definitions pin Opus at `high`). The phase verifier checks the phase diff against its tasks and reports Intent progress; build its prompt from the "Phase Verifier Prompt" in [implement/sub-agent-prompts.md](../implement/sub-agent-prompts.md), and take its values, verdict rule, barrier (wait for both agents before going on), and how its findings enter the checkpoint report from "Phase Verification" in [implement/reference.md](../implement/reference.md). Give the reviewer the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits (the latest per criterion), every `wb:test-writer` report in the phase tasks' comments, the support files from each harness task's `support files:` comments, by task with its type, the setup files from each setup task's `setup files:` comments, by task with its `Setup files:` line, the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
 Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these".
 
@@ -340,17 +340,17 @@ File each escalated integrity finding and each "n of 3" finding as an issue link
 
 A Rewrite of an outer test that the person sanctions by name in their reply runs as a task before you close the milestone, filed, run, and committed as "Sanctioned Outer-Test Rewrite" in [implement/reference.md](../implement/reference.md) describes, because the rewrite must keep everything the red-commit version catches: you file it only after that reply, with the `Sanctioned rewrite:` line in its description, claim it, and on success commit the rewritten test as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, with the task's beads id on a second message line, before closing it. From then on the latest `red(AC-n)` commit for a criterion is its baseline wherever you pass red commits; the earliest still gives a starting commit. Ask `wb:test-writer` for it yourself, with caller "the inline session, inner mode", the task id, and that section's differential requirement: it plants one defect for each case the red-commit version catches, as the test-quality skill's Part 3 defines them (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found, runs both versions against each, and lists each defect with both results in its report. The rewrite must fail on all of them, and the review's suggested fix is a starting point, not the specification. No per-task verifier runs here, so check that differential yourself before committing, planting your own defects across the original's predicate as task-verifier's Step 6 describes: a defect the original fails on and the rewrite passes is lost coverage, and the whole class of lost cases goes back to `wb:test-writer` in one request, not one case at a time. Before sending it, check the fix you ask for restores the original's reach by construction rather than by listing cases, as the test-quality skill's Part 3 rule for suggested fixes says (a class fix, not an enumeration): "skip X unless it is read back through A, B, or C" leaves out members of an open-ended set, so ask instead for the one rule that removes the list, and run it against your planted defects in the copy before you send it.
 
-Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script, which the reviewer runs over the phase; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
+Two things hold the go-ahead: the reviewer's Blocking section and each unexplained deviation in the phase verifier's report ("Holding the go-ahead" under "Phase Verification" in [implement/reference.md](../implement/reference.md)). The Blocking section lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script, which the reviewer runs over the phase; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
 
 #### 4. Request Manual Verification
 
 Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly: its sections keep decisions, delivered behavior, test integrity, and follow-ups apart, and every item is written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, so the user can decide without opening beads.
 
-**Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
+**Requirement**: Wait for user confirmation before proceeding. Blocking items, unexplained deviations, and final-phase FAIL verdicts need an answer each by name; a general go-ahead does not clear them, because a person has to have seen each one before the next phase builds on it.
 
 #### 5. Close Phase Milestone
 
-**ONLY after user confirms manual verification**, close the milestone:
+**ONLY after user confirms manual verification**, and after applying each deviation answer and, on the final phase, writing the README verdict echo ("Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md)), close the milestone:
 
 ```bash
 bd close [phase-milestone-id] --reason "Phase [N] complete: [summary]. All tasks closed, automated verification passed, manual verification confirmed."
@@ -379,7 +379,7 @@ After phase completion and verification:
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); [key learnings, deviations from plan, each named in plain words with any id in parentheses]
+   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); phase verification [PASS, or FAIL with each deviation and the answer given]; [key learnings, deviations from plan, each named in plain words with any id in parentheses]
    ```
 
 4. **Record durable learnings.** If this phase established something the next session would otherwise rediscover — a repository convention, a tool quirk, a constraint the plan did not state — record it:
@@ -430,7 +430,7 @@ On the reply, because a paste-ready reply is only useful if it does what its opt
 - **skip**: stop work on the task and leave its issue unclosed, so the tasks that depend on it stay blocked; say why in Implementation Notes and go on to the next ready task.
 - **An option named in place of these**: do what its line said it would do. When it drops the task's uncommitted changes, ask before deleting an untracked file you did not create, since it may be the user's. Ask before committing work whose tests do not pass.
 
-Document any deviations in the "Implementation Notes" section of tasks.md.
+Record each answered variance in tasks.md's "Implementation Notes" when you apply the answer, in its own commit between tasks, so the phase verifier finds it as an explanation.
 
 ## Resume Logic
 

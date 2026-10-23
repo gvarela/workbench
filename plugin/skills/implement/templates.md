@@ -32,10 +32,14 @@ ${anything still open from the checkpoint, with options and a recommendation, or
 
 **What this phase delivered** (by acceptance criterion):
 ${each criterion and task done as behavior the user can now rely on: "- <behavior> (AC-n, task <id>)"}
+- Intent progress: ${one line per README Intent statement, with its status from the phase verifier ("Phase Verification" in reference.md)}
+- Intent verdicts (final phase only, in place of Intent progress): ${each statement with the verdict written to the README (PASS, FAIL, or DEFERRED) and its evidence in one clause, and each still awaiting your manual check, with no suffix written; as [intent-verdicts.md](../../docs/reference/intent-verdicts.md) says}
+- Deviations from the plan: ${each, in plain words, with the answer the user gave (accepted, fixed, or plan defect), or "none"}
 
 **Test integrity:**
 - Outer tests committed red first: ${each named by the criterion it guards}
 - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); review findings filed: ${each in plain words with its criterion and issue id}
+- Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
 - Outer-test rewrites run: ${each with the criterion it guards, or "none"}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
@@ -71,5 +75,6 @@ The user reads these notes in tasks.md, so a learning or follow-up names its sub
   - ${workerCount} workers spawned (sequential execution)
   - Compactions this phase: ${compactionCount}
   - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+  - Phase verification: ${PASS, or FAIL with each deviation and the answer given}; Intent progress: ${each statement's status; on the final phase, its verdict}
   - Key learnings: ${aggregatedLearnings}
 ```

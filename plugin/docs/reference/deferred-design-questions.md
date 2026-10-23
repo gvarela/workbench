@@ -1,6 +1,6 @@
 # Deferred Design Questions
 
-Shared reference for the reports that close a plan: implement's final-phase checkpoint and Phase Completion Report, implement_inline's final checkpoint and Phase Completion Report, and validate_execution's report.
+Shared reference for the reports that close a plan: implement's final-phase checkpoint and Phase Completion Report, implement_inline's final checkpoint and Phase Completion Report, and validate_phase's report for all phases.
 
 create_design puts each of a plan's open questions to the user. One the user defers stays open with a named owner, and design.md records what the plan assumes until it is answered. The plan then ships on that assumption, so the closing reports list each such question still open; otherwise nothing raises it again.
 
@@ -20,7 +20,7 @@ It moves to Needs your decision, in the full decision form of [writing-for-the-u
 
 ## When the user answers one
 
-The reply form is `[id]: answer: <answer>`. Close the issue with the answer as the reason, naming the plan directory ([plan-dir-name], its name, for example `2025-01-08-my-project`) and the stage (`implement`, `implement_inline`, or `validate_execution`):
+The reply form is `[id]: answer: <answer>`. Close the issue with the answer as the reason, naming the plan directory ([plan-dir-name], its name, for example `2025-01-08-my-project`) and the stage (`implement`, `implement_inline`, or `validate_phase`):
 
 ```bash
 bd close [id] --reason "[answer] ([plan-dir-name], [stage])"

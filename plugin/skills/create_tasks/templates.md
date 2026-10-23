@@ -38,6 +38,10 @@ Based on dependency analysis:
 ### Testing Strategy
 [How the acceptance criteria become outer tests, which boundaries need a harness task, and the inner cases the criterion examples imply, from the test coverage agent. Omit the criterion-based parts for a plan that predates acceptance criteria.]
 
+## Design Coverage
+
+[The table from the "Design Coverage Table" section below: every design.md In Scope item and Success Metric, with the tasks that deliver it or the deferral design.md states.]
+
 ## Progress Overview
 
 Progress is tracked in beads. To check current status:
@@ -255,6 +259,45 @@ Quick lookup of key design decisions:
 - [Decision 1]: [Brief reminder]
 - [Decision 2]: [Brief reminder]
 ````
+
+## Design Coverage Table (Step 4a)
+
+One row per In Scope item and per Success Metric in design.md, in design.md's order, under the tasks.md heading `## Design Coverage`. `wb:phase-verifier` reads the rows whose Phase column names the phase it checks, so name task keys exactly as the `[beads:...]` markers spell them (beads ids do not exist yet at this step).
+
+```markdown
+| Design item | Kind | Delivered by | Phase |
+|-------------|------|--------------|-------|
+| [In Scope item, as design.md words it] (`design.md:[line]`) | scope | `phase1_impl_1`, `phase2_impl_3` | 1, 2 |
+| M1 [metric, as design.md words it] (refines: "[Intent statement]") | metric | AC-1 via `phase1_outer_1`, `phase1_impl_1`; AC-2 via `phase2_outer_1`, `phase2_impl_2` | 1, 2 |
+| M2 [metric no criterion refines] | metric | Phase 2 Manual Verification: [the check] | 2 |
+| "[Intent statement]" | metric | Deferred in design.md (`design.md:[line]`): [the reason design.md gives] | — |
+| [In Scope item] (`design.md:[line]`) | scope | Deferred in design.md (`design.md:[line]`): [the reason] | — |
+```
+
+- **Delivered by**: the task keys that build the item; for a metric, each acceptance criterion that refines it with its outer test step and implementation tasks, or, for a metric no criterion refines, the Manual Verification line that checks it.
+- **Deferred**: only a deferral design.md already states (its Success Metrics `Deferred:` line, or Out of Scope), cited by line. A deferral this step would invent is a gap, asked with the message below.
+- **Unmapped**: no row stays empty or says "TBD"; an item with no task and no stated deferral goes to the user.
+
+## Design Coverage Gap Message (Step 4a)
+
+Asked once for all unmapped items, written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, because the user decides scope and the plan should not drop or add it quietly:
+
+```
+⚠️ Design coverage: [n] design items have no task
+
+[For each item:]
+[letter]. [The item in plain words] ([scope item or metric id], design.md:[line])
+   Quality question: [what the user would not get, or what goes unchecked, if no task delivers it]
+   Judgment or friction: [a real scope choice; or friction, when the design names it but gives too little to plan from, saying what design should have said]
+   Options:
+   1. Add a task: I add [the task, in plain words] to Phase [N] of tasks.md. Buys: the item is built and checked at that phase's checkpoint. Cost: [rough size]. Undo: remove the task before beads issues exist.
+   2. Defer it: I record it in design.md ([Out of Scope, or the Success Metrics Deferred line for a metric]) with your reason, dated. Buys: the plan stays its size and the deferral is on record. Cost: [what waits]. Undo: move it back and re-run this stage.
+   3. Drop it from scope: I move it to design.md's Out of Scope as dropped, with your reason, dated. Buys: a smaller plan. Cost: [what is given up]. Undo: as for 2.
+   Recommendation: [option and the reason]
+   Paste-ready reply: [letter]: [add task | defer: <reason> | drop: <reason>]
+```
+
+On the replies, apply each answer to tasks.md or design.md, re-check the table, and go to Step 5 only when every row is mapped.
 
 ## Frontmatter Tracking Block (Step 5f)
 

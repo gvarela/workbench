@@ -49,11 +49,11 @@ bd init             # only a repository you own outright; .beads/ is still exclu
 # 6. Create execution plan
 /wb:create_tasks docs/plans/2025-01-15-TICKET-123-my-feature
 
-# 7. Implement with TDD
+# 7. Implement with TDD (each checkpoint verifies the phase; the final one writes the Intent verdicts)
 /wb:implement docs/plans/2025-01-15-TICKET-123-my-feature
 
-# 8. Validate implementation
-/wb:validate_execution docs/plans/2025-01-15-TICKET-123-my-feature
+# 8. Optional: re-check a phase, or every phase plus the verdicts
+/wb:validate_phase docs/plans/2025-01-15-TICKET-123-my-feature all
 ```
 
 ### Choosing a Session Model
@@ -69,7 +69,7 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
 | implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
 | implement_inline | Sonnet (Claude Code's default `medium`; `high` for harder phases); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
-| validate_execution, test-audit | Any (each skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
+| validate_phase, test-audit | Any (each skill pins opus + high effort) | A review task: Opus 5.5 catches more with fewer false alarms; the pin also keeps a Fable session from running it at Fable prices |
 
 These are defaults, not gates — usage limits and task size legitimately move you down a tier.
 
@@ -315,7 +315,7 @@ bd ready
 
 **Phase Checkpoints**:
 
-After completing all phase tasks, `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. Then:
+After completing all phase tasks, `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
 
 ```bash
 # Check phase milestone
@@ -337,26 +337,25 @@ bd ready
 - Respect phase boundaries
 - Stop at checkpoints for human verification
 
-### Stage 8: Validation
+### Stage 8: Validation (optional)
 
-**Command**: `/wb:validate_execution`
+**Command**: `/wb:validate_phase <plan-dir> [phase | all]`
 
-Validates implementation matches plan.
+Every implement checkpoint already runs `wb:phase-verifier` and `wb:test-reviewer` on its phase, and the final checkpoint writes the Intent verdicts to the README. Run this to repeat those checks on demand: for a phase that closed without its checkpoint, after later changes, or for a finished plan whose README carries no verdicts.
 
 **Process**:
 
-1. Spawns validation agents
-2. Compares actual vs planned implementation
-3. Identifies deviations
-4. Generates comprehensive report
+1. Runs automated verification once (suite, lint, typecheck, build)
+2. Spawns `wb:phase-verifier` for the phase, or one per phase for `all`
+3. Spawns `wb:test-reviewer` over the phase's range, or the whole plan's for `all`
+4. For `all`: a verdict per Intent statement from the phases' evidence, written beside each README statement after your reply, and the deferred design questions still open
 
 **Checks**:
 
-- All tasks completed
-- Success criteria met
-- Tests reviewed by `wb:test-reviewer` over the plan's whole range
-- Documentation updated
-- No unintended changes
+- Planned changes missing from the diff, and changes no task covers
+- Earlier phases' tests changed again, with the task that declared each
+- Progress toward each Intent statement (one phase) or its verdict (all)
+- The test review's blocking items and findings
 
 ### Stage 9: Status Updates
 

@@ -64,7 +64,7 @@ Reports, as JSON, deterministic test-integrity evidence for a task since its sta
 
 # Also check outer tests against their red commits and changes against a declared list
 ./plugin/scripts/test-integrity --start <commit> \
-  --red <red commit>:<test file> --declared /tmp/declared.txt
+  --red <red commit>:<test file> --declared-path <test file> --declared-path <support file>
 
 # Show help
 ./plugin/scripts/test-integrity --help
@@ -74,11 +74,14 @@ Reports, as JSON, deterministic test-integrity evidence for a task since its sta
 
 - `--start <commit>`: the commit the task began from (required)
 - `--red <commit>:<path>`: an outer test file and its red commit (repeatable)
-- `--declared <file>`: a file listing the test files the test-writer reports declare, plus the support files a harness task's worker declares and the setup files a setup task's worker declares (`setup files:` records), one per line; without it, `undeclared_changes` is null
+- `--declared <file>`: a file listing the test files the test-writer reports declare, plus the support files a harness task's worker declares and the setup files a setup task's worker declares (`setup files:` records), one per line
+- `--declared-path <path>`: one declared path (repeatable; combines with `--declared`). Agents pass their declared files this way, in the one `test-integrity` call, so no list file has to be written first
+- `--declared-none`: a declared set with nothing in it, for a task that declares no test files: every changed test file is then undeclared. Without any of the three declared options, `undeclared_changes` is null
 - `--test-paths <spec>`: what counts as a test file (repeatable; replaces the defaults `spec/ test/ tests/ __tests__/ *_test.* *_spec.* test_*.py *.test.* *.spec.*`). `dir/` matches a directory anywhere in the path, a spec with `/` is a glob on the whole path, anything else is a glob on the file name
 - `--skip-pattern <regex>`: an extended regex for a skip or focus marker (repeatable; added to the built-in markers)
+- `--plan-start <commit>`: the commit the plan began from, with `--start` as the phase's starting commit; fills `earlier_phase_tests`, which `wb:phase-verifier` reads. Without it, `earlier_phase_tests` is null
 
-**Output:** one JSON object on stdout with `start`, `changed_tests` (committed, staged, unstaged, and untracked), `outer_tests` (one entry per `--red`: `path`, `red`, `mode`, `identical` true, false, or null, `diff_stat` against the red commit when not identical, and `changed_lines`), `added_skip_markers`, `deleted_tests` (files, and removed test-definition lines with their line in the starting commit), `undeclared_changes`, and `errors`. Paths are relative to the repository root.
+**Output:** one JSON object on stdout with `start`, `changed_tests` (committed, staged, unstaged, and untracked), `outer_tests` (one entry per `--red`: `path`, `red`, `mode`, `identical` true, false, or null, `diff_stat` against the red commit when not identical, and `changed_lines`), `added_skip_markers`, `deleted_tests` (files, and removed test-definition lines with their line in the starting commit), `undeclared_changes`, `earlier_phase_tests` (each test file changed in a commit between the plan start and `--start` that is in `changed_tests` too, as `path` and `earlier_commits`, the commits that changed it before the phase, newest first; a file renamed in the phase is not matched), and `errors` (an unknown plan start, or one that is not an ancestor of `--start`, is reported here and leaves `earlier_phase_tests` null). Paths are relative to the repository root.
 
 **Outer-test modes:** each `outer_tests` entry names the check that ran in `mode`.
 

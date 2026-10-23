@@ -39,7 +39,7 @@ Do NOT block — if the user chooses to continue, proceed.
 
 ## Initial Response
 
-This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work.
+This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work, and a decision on each design item or metric no task delivers: add a task, defer it in design.md, or drop it from scope.
 
 When invoked, check for arguments:
 
@@ -139,6 +139,14 @@ Update or create tasks.md with the following structure:
 Read the "tasks.md Document Template" section of [templates.md](templates.md) NOW and follow it exactly.
 
 ⛔ BARRIER 3: no placeholder values remain — a placeholder that ships becomes a task nobody can execute
+
+### Step 4a: Check Design Coverage
+
+Before any beads issue exists, map every design.md In Scope item and every Success Metric (each `M<n>`, and each statement on its `Deferred:` line) to the tasks that deliver it, in tasks.md's Design Coverage table: read the "Design Coverage Table" section of [templates.md](templates.md) NOW. A row is mapped when it names task keys, or a deferral design.md already states, cited by line. `wb:phase-verifier` reads this table at each checkpoint to know which design items a phase delivers.
+
+⛔ BARRIER: every row mapped before Step 5 — an unmapped item is silently dropped, or silently added later by whoever notices. When rows are unmapped, ask about each one with the "Design Coverage Gap Message" in [templates.md](templates.md) (add a task, defer it in design.md, or drop it from scope) and apply the answers, because the choice is the user's, not yours; when every row is mapped, go on without asking.
+
+Then check the plan itself against the agents' findings: research.md's knowledge gaps and design.md's risk mitigations are handled, every task is specific and executable, dependencies follow the agent-identified order, and every acceptance criterion has an outer-test step (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task.
 
 ### Step 5: Create Beads Issues
 
@@ -261,19 +269,7 @@ Add a quick reference section with key commands:
 
 Read the "Beads Issue Tracking Section (Step 5f)" section of [templates.md](templates.md) NOW and follow it exactly.
 
-### Step 6: Validate Completeness
-
-Verify with agent findings:
-
-1. **All success criteria** from design.md have corresponding tasks
-2. **All scope items** from design.md are addressed
-3. **Knowledge gaps** from research.md are handled
-4. **Risk mitigations** from design.md are incorporated
-5. **Every task is specific and executable**
-6. **Every acceptance criterion has an outer-test step** (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task
-7. **Dependencies** follow agent-identified order
-
-### Step 7: Present the Plan
+### Step 6: Present the Plan
 
 ```
 ✅ Execution plan created at: [path]/tasks.md
@@ -288,6 +284,7 @@ Total tasks: [total count]
 Agent findings incorporated:
 - Dependency order: [key dependency from agent]
 - Test coverage: [X] outer-test steps, [Y] harness tasks
+- Design coverage: [X] scope items and [Y] Success Metrics mapped to tasks; [Z] deferred in design.md, each named
 - Similar patterns: [reference to pattern agent findings]
 
 Beads tracking:
@@ -417,5 +414,5 @@ Project each task's cost with rough arithmetic:
 1. **⛔ BARRIER 1**: After reading documents - ensure full context
 2. **⛔ BARRIER 2**: After spawning agents - wait for every agent's completion notification
 3. **⛔ BARRIER 3**: Before writing tasks.md - verify no placeholders
-4. **Step 5**: Create beads issues for phase tracking
+4. **⛔ BARRIER (Step 4a)**: Before creating beads issues - every design item and metric mapped to a task or a stated deferral; the user decides each unmapped one
 5. **⛔ CHECKPOINT**: Between phases - require human verification

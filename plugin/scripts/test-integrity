@@ -8,7 +8,9 @@
 # the same file, every line that red commit added, still present and still
 # blamed on it), skip or focus markers added since --start, deleted test
 # files and removed test definitions, and changed test files missing from a
-# declared list. It decides nothing: the caller interprets the result.
+# declared list. With --plan-start, it also lists the test files changed
+# between the plan's start and --start that are changed again since --start.
+# It decides nothing: the caller interprets the result.
 #
 # It is safe in repositories you do not control: bash 3.2 and git only, and
 # read-only (git reads a temporary copy of the index; nothing in the
@@ -24,18 +26,30 @@ Usage: test-integrity --start <commit> [options]
   --start <commit>          Commit the task began from (required).
   --red <commit>:<path>     An outer test file and its red commit (repeatable).
   --declared <file>         File listing, one per line, the test files the
-                            reports declare. Without it, undeclared_changes is null.
+                            reports declare.
+  --declared-path <path>    One declared test file (repeatable; combines with
+                            --declared), so no list file is needed.
+  --declared-none           A declared set with nothing in it: every changed
+                            test file is undeclared. Without any of the three
+                            declared options, undeclared_changes is null.
   --test-paths <spec>       What counts as a test file (repeatable; replaces the
                             defaults). "dir/" matches a directory anywhere in the
                             path, a spec with "/" is a glob on the whole path,
-                            anything else is a glob on the file name.
+                            anything else is a glob on the file name. A plain
+                            name that is a directory at the top level ("tests")
+                            counts as "tests/".
                             Default: spec/ test/ tests/ __tests__/ *_test.*
                             *_spec.* test_*.py *.test.* *.spec.*
   --skip-pattern <regex>    Extended regex for a skip or focus marker (repeatable;
                             added to the built-in RSpec, pytest, Jest/Vitest, Go,
                             and Minitest patterns).
+  --plan-start <commit>     Commit the plan began from. Lists the test files
+                            changed between it and --start (earlier phases) that
+                            are changed again since --start. Without it,
+                            earlier_phase_tests is null.
 
-Paths in --red, --declared, and the output are relative to the repository root.
+Paths in --red, --declared, --declared-path, and the output are relative to the
+repository root.
 EOF
     exit 2
 }
@@ -50,7 +64,10 @@ SEP=$'\037'
 
 # ---------------------------------------------------------------- arguments
 START=""
+PLAN_START=""
 DECLARED=""
+DECLARED_GIVEN=""
+DECLARED_ARGS=""
 REDS=()
 TEST_PATHS=()
 SKIP_PATTERNS=()
@@ -61,7 +78,11 @@ while [ $# -gt 0 ]; do
         --start)        [ $# -ge 2 ] || usage; START="$2"; shift 2 ;;
         --red)          [ $# -ge 2 ] || usage; case "$2" in *:?*) ;; *) usage ;; esac
                         REDS[${#REDS[@]}]="$2"; shift 2 ;;
-        --declared)     [ $# -ge 2 ] || usage; DECLARED="$2"; shift 2 ;;
+        --declared)     [ $# -ge 2 ] || usage; DECLARED="$2"; DECLARED_GIVEN=1; shift 2 ;;
+        --declared-path) [ $# -ge 2 ] && [ -n "$2" ] || usage
+                        DECLARED_ARGS="$DECLARED_ARGS${2#./}"$'\n'; DECLARED_GIVEN=1; shift 2 ;;
+        --declared-none) DECLARED_GIVEN=1; shift ;;
+        --plan-start)   [ $# -ge 2 ] || usage; PLAN_START="$2"; shift 2 ;;
         --test-paths)   [ $# -ge 2 ] || usage; TEST_PATHS[${#TEST_PATHS[@]}]="$2"; shift 2 ;;
         --skip-pattern) [ $# -ge 2 ] || usage; SKIP_PATTERNS[${#SKIP_PATTERNS[@]}]="$2"; shift 2 ;;
         -h|--help)      usage ;;
@@ -190,6 +211,16 @@ case "$DECLARED" in
 esac
 cd "$TOP" || exit 2
 
+# A plain name that is a directory at the top level ("tests") means that
+# directory, as "tests/" does; read as a file-name glob it would match nothing
+# and silently report no changed tests.
+for i in "${!TEST_PATHS[@]}"; do
+    case "${TEST_PATHS[$i]}" in
+        */*|*[*?[]*) ;;
+        *) [ -d "${TEST_PATHS[$i]}" ] && TEST_PATHS[$i]="${TEST_PATHS[$i]}/" ;;
+    esac
+done
+
 # norm_path <path>: one spelling per file, so --red arguments that name the
 # same file match: "./spec/a.rb", "spec//a.rb", and "spec/./a.rb" all become
 # "spec/a.rb". Sets NORM.
@@ -237,7 +268,7 @@ if [ ! -f "$REAL_INDEX" ]; then
     fi
 fi
 
-DECLARED_LIST=""
+DECLARED_LIST="$DECLARED_ARGS"
 if [ -n "$DECLARED" ]; then
     if [ -r "$DECLARED" ]; then
         while IFS= read -r line || [ -n "$line" ]; do
@@ -294,7 +325,7 @@ record_change() {
     [ "$status" = D ] &&
         append DELETED "{\"path\":$(json_str "$path"),\"kind\":\"file\",\"line\":null,\"text\":null}"
 
-    if [ -n "$DECLARED" ] && ! is_declared "$path" && { [ -z "$old" ] || ! is_declared "$old"; }; then
+    if [ -n "$DECLARED_GIVEN" ] && ! is_declared "$path" && { [ -z "$old" ] || ! is_declared "$old"; }; then
         append UNDECLARED "$(json_str "$path")"
     fi
 }
@@ -402,14 +433,41 @@ for spec in ${REDS[@]+"${REDS[@]}"}; do
     fi
 done
 
+# ---------------------------------------------------------------- earlier phases
+# Test files changed in PLAN_START..START (committed history before the phase)
+# that are also changed since START (uncommitted changes included).
+EARLIER_JSON="null"
+if [ -n "$PLAN_START" ]; then
+    PLAN_SHA="$(g rev-parse --verify --quiet "$PLAN_START^{commit}")"
+    if [ -z "$PLAN_SHA" ]; then
+        add_error "plan start commit not found: $PLAN_START"
+    elif [ -z "$START_SHA" ]; then
+        :
+    elif ! g merge-base --is-ancestor "$PLAN_SHA" "$START_SHA"; then
+        add_error "plan start is not an ancestor of the start commit: $PLAN_START"
+    else
+        EARLIER=""
+        while IFS= read -r -d '' path; do
+            is_test_path "$path" || continue
+            case "$CHANGED" in *"{\"path\":$(json_str "$path"),"*) ;; *) continue ;; esac
+            commits=""
+            while IFS= read -r sha; do
+                [ -n "$sha" ] && append commits "\"$sha\""
+            done < <(g log --format=%H "$PLAN_SHA..$START_SHA" -- "$path")
+            append EARLIER "{\"path\":$(json_str "$path"),\"earlier_commits\":[$commits]}"
+        done < <(gdiff --name-only --no-renames -z "$PLAN_SHA" "$START_SHA")
+        EARLIER_JSON="[$EARLIER]"
+    fi
+fi
+
 # ---------------------------------------------------------------- output
-if [ -n "$DECLARED" ]; then
+if [ -n "$DECLARED_GIVEN" ]; then
     UNDECLARED_JSON="[$UNDECLARED]"
 else
     UNDECLARED_JSON="null"
 fi
 if [ -n "$START_SHA" ]; then START_JSON="\"$START_SHA\""; else START_JSON="$(json_str "$START")"; fi
 
-printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"errors":[%s]}\n' \
-    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$ERRORS"
+printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"earlier_phase_tests":%s,"errors":[%s]}\n' \
+    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$EARLIER_JSON" "$ERRORS"
 exit 0

@@ -21,15 +21,17 @@ Claude Code slash commands for managing project documentation, research, plannin
 ## Command Workflow
 
 ```text
-/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → /wb:validate_execution
+/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → [/wb:validate_phase (optional)]
        ↓                    ↓                        ↓                             ↓                    ↓                 ↓                   ↓
-  [Structure]          [research.md]          [Decision record]               [design.md]          [tasks.md]      [Implementation]     [Validation]
+  [Structure]          [research.md]          [Decision record]               [design.md]          [tasks.md]      [Implementation]     [Re-check]
                             ↓                        ↓                             ↓                    ↓                 ↓                   ↓
-                      [What EXISTS]             [Directions]                  [WHAT & WHY]        [HOW to do it]       [TDD cycle]        [Verification]
+                      [What EXISTS]             [Directions]                  [WHAT & WHY]        [HOW to do it]   [TDD, verified    [a phase, or all
+                                                                                                                    per phase]        with verdicts]
 
 /wb:implement_inline runs the same plan inline in this session, as an alternative to /wb:implement.
 /wb:create_mockup is an optional UI side-branch after research (mockups feed design).
 /wb:test-audit and /wb:testing-profile sit outside the chain: neither needs a plan.
+/wb:validate_project is a repair tool, not a stage: run it when a plan's documents look inconsistent.
 
 For multi-session work:
 [Session 1] → /wb:create_handoff → [Session 2] → /wb:resume_handoff → [run the command it names]
@@ -43,8 +45,8 @@ For multi-session work:
 4. **Explore** (optional): Discuss architecture directions and record the decision
 5. **Design**: Decide WHAT to build and WHY (architectural decisions)
 6. **Execution**: Plan HOW to implement (phased plan with tasks)
-7. **Implement**: Execute using TDD with checkpoints
-8. **Validate**: Verify implementation matches plan
+7. **Implement**: Execute using TDD with checkpoints; each checkpoint verifies the phase against its tasks, and the final one writes the Intent verdicts
+8. **Validate** (optional): Re-check a phase, or all phases, on demand
 9. **Handoff** (optional): Transfer context between sessions
 
 ### Beads Integration (Required)
@@ -326,6 +328,7 @@ Transforms approved design into detailed phased execution plan with embedded tas
 2. **Spawns analysis agents** for dependencies, testing, rollback
 3. **Determines implementation strategy** from agent findings
 4. **Generates phased plan** with specific tasks
+5. **Checks design coverage**: every design.md scope item and metric maps to a task or a stated deferral in a Design Coverage table; you decide each one no task delivers (add a task, defer it, or drop it) before any beads issue exists
 
 **Execution Plan Structure**:
 
@@ -383,6 +386,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 - `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail. It fails any test change that neither a test-writer report nor, on a harness task, the worker's declared support files or, on a setup task, its declared setup files cover, any support file that holds a test case, and any changed outer test.
 - The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports, the verifier's `test integrity:` result, and on a harness task the worker's `support files:` list. The checkpoint review reads them there.
 - At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
+- In parallel with the review, `wb:phase-verifier` checks the phase against its tasks: planned changes missing from the diff, changes no task covers, earlier phases' tests changed again, and progress toward each README Intent statement. Each unexplained deviation needs your answer by name (accept, fix, or plan defect). On the final phase, the checkpoint writes the Intent verdicts (`→ PASS`, `→ FAIL`, `→ DEFERRED`) beside each README statement.
 - A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
 
 **Usage**:
@@ -393,7 +397,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 
 #### `/wb:implement_inline`
 
-The same plan, coded inline by this session with TDD. Use when the work should run on the session model. The session never edits test cases (a harness task's support code is its own): `wb:test-writer` writes each outer test (committed as `red(AC-n)` before its code) and every inner test. With no per-task verifier, the checkpoint's `wb:test-reviewer` review also checks test integrity across the phase, and the same blocking rule applies.
+The same plan, coded inline by this session with TDD. Use when the work should run on the session model. The session never edits test cases (a harness task's support code is its own): `wb:test-writer` writes each outer test (committed as `red(AC-n)` before its code) and every inner test. With no per-task verifier, the checkpoint's `wb:test-reviewer` review also checks test integrity across the phase, and the same blocking rule applies. The same `wb:phase-verifier` check and final Intent verdicts run at its checkpoints.
 
 **TDD Process**:
 
@@ -413,30 +417,32 @@ The same plan, coded inline by this session with TDD. Use when the work should r
 
 ---
 
-### `/wb:validate_execution` - Validate Implementation
+### `/wb:validate_phase` - Re-check a Phase or the Plan
 
-Validates that execution plan was correctly implemented. Run after implementation is complete.
+Runs a checkpoint's checks on demand: after a phase that closed without its checkpoint, to re-check a phase after later changes, or to get the Intent verdicts into a finished plan's README. Replaces `/wb:validate_execution` (5.0.0).
 
 **Usage**:
 
 ```bash
-/wb:validate_execution docs/plans/2025-10-07-my-feature
+/wb:validate_phase docs/plans/2025-10-07-my-feature 2     # one phase
+/wb:validate_phase docs/plans/2025-10-07-my-feature all   # every phase, plus the verdicts
 ```
+
+With no second argument it runs `all` when every phase milestone is closed, and otherwise asks which phase.
 
 **Validation Process**:
 
-1. **Spawns validation agents** for code changes, testing, success criteria, documentation
-2. **Compares actual vs planned** implementation
-3. **Identifies deviations** and missing items
-4. **Generates comprehensive report**
+1. **Runs automated verification once** (suite, lint, typecheck, build), not per phase
+2. **Spawns `wb:phase-verifier`** for the phase, or one per phase in parallel for `all`: planned changes missing, changes no task covers, earlier phases' tests changed again, Intent progress
+3. **Spawns `wb:test-reviewer`** over the phase's range, or the whole plan's for `all`, with judgment-only proposals settled by three independent readings
+4. **For `all`**: a verdict per Intent statement from the phases' evidence, written back to the README after your reply, and the deferred design questions still open
 
 **Validation Report**:
 
-- Implementation completeness
-- Success criteria verification
-- Test review: `wb:test-reviewer` over the plan's whole range (criterion coverage, test integrity, planted defects), with judgment-only proposals settled by three independent readings
-- Deviations from plan
-- Needs your decision (what blocks the release) and follow-ups (product and plan, test quality), each item saying whether it blocks and when to do it
+- Needs your decision: unexplained deviations, blocking test-review items, failing checks, and (all) FAIL verdicts; any of them fails the validation
+- Requirements coverage: phase by phase, with the Intent progress (one phase) or the verdict per Intent statement (all)
+- Test integrity: the test review's findings
+- Follow-ups (product and plan, test quality), each saying whether it blocks and when to do it; follow-ups never fail a validation
 
 ---
 
@@ -770,7 +776,7 @@ skills/
 ├── create_tasks/SKILL.md  # Execution plan (HOW)
 ├── implement/SKILL.md         # Coordinated implementation (default)
 ├── implement_inline/SKILL.md  # Inline implementation (this session)
-├── validate_execution/SKILL.md # Implementation validation
+├── validate_phase/SKILL.md    # Re-check a phase or the plan
 ├── create_handoff/SKILL.md    # Session handoff
 ├── resume_handoff/SKILL.md    # Resume from handoff
 └── update_status/SKILL.md     # Status synchronization

@@ -254,7 +254,7 @@ Typical workflows:
 **Phase Completion Handoff**:
 
 1. Complete Phase N
-2. `/validate_execution` - Verify work
+2. The phase checkpoint verifies the work (`/validate_phase <plan-dir> <phase>` re-checks it)
 3. **`/create_handoff`** - Document for next phase
 4. [New session]
 5. `/resume_handoff` - Start Phase N+1

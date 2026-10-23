@@ -204,7 +204,7 @@ Resuming restores context; it does not start the work. Implementation has to go 
 Read [templates.md](templates.md) and present the "Resumption Report Template", ending with the exact command for the user to run. Derive the command from the handoff's next step and the beads state:
 
 - Work remains in a phase: `/wb:implement <plan-dir> <phase>` (or `/wb:implement_inline`), or `/wb:implement <plan-dir> continue` to pick up the current phase
-- The phase is complete: `/wb:validate_execution <plan-dir>` or the next phase's `/wb:implement` command
+- The phase is complete: the next phase's `/wb:implement` command, or `/wb:validate_phase <plan-dir> all` after the last phase (`/wb:validate_phase <plan-dir> <phase>` when the phase closed without its checkpoint)
 - Earlier-stage work remains: that stage's command (for example `/wb:create_tasks <plan-dir>`)
 
 Then end the turn. Do not edit code, claim or close beads issues, or run the handed-off tasks.
@@ -259,7 +259,7 @@ Current date: [date]
 Git commits since handoff: [count]
 
 The handoff learnings may still be valuable, but verify current state.
-Consider running /wb:validate_execution to assess current progress.
+Consider running /wb:validate_phase <plan-dir> <phase> to re-check the latest finished phase.
 ```
 
 ## Important Guidelines
@@ -280,7 +280,7 @@ If handoff says one thing but code shows another:
 2. **Trust the handoff** for learnings and context
 3. **Document the discrepancy**
 4. **Report the discrepancy** in the resumption report
-5. **Name `/wb:validate_execution <plan-dir>`** as the next command when the discrepancy is about progress
+5. **Name `/wb:validate_phase <plan-dir> <phase>`** as the next command when the discrepancy is about progress, with the phase it concerns
 
 ### Quality Indicators
 
@@ -300,12 +300,12 @@ Common workflows:
 
 1. **`/resume_handoff`** - Load context; it ends with the command to run
 2. `/implement` - Continue implementation (run by the user)
-3. `/validate_execution` - Verify when phase complete
+3. `/validate_phase <plan-dir> all` - Verify the plan once its last phase is complete
 
 **Complex Resume with Validation**:
 
 1. **`/resume_handoff`** - Load context
-2. `/validate_execution` - Check actual state
+2. `/validate_phase <plan-dir> <phase>` - Check actual state
 3. Resolve any discrepancies
 4. `/implement` - Continue work (run by the user)
 

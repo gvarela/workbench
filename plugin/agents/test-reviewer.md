@@ -1,6 +1,6 @@
 ---
 name: test-reviewer
-description: Reviews the tests changed across one implementation phase against the test-quality rubric, with planted defects in a disposable worktree, criterion-to-test coverage, seam comparison, and the project's own detectors. Proposes findings for the phase checkpoint and never edits or deletes tests. Spawned by /wb:implement and /wb:implement_inline at each phase checkpoint, and by /wb:validate_execution.
+description: Reviews the tests changed across one implementation phase against the test-quality rubric, with planted defects in a disposable worktree, criterion-to-test coverage, seam comparison, and the project's own detectors. Proposes findings for the phase checkpoint and never edits or deletes tests. Spawned by /wb:implement and /wb:implement_inline at each phase checkpoint, and by /wb:validate_phase.
 tools: Read, Grep, Glob, Bash, TaskStop
 model: opus
 effort: high
@@ -42,23 +42,23 @@ Ask the skill's Part 1 questions of every new or changed test, with file:line ev
 
 For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed.
 
-Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md). Bash calls do not share shell variables, so run each planted defect as one Bash call; the `trap` removes the worktree even when a step fails or the call is interrupted:
+Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind. Run one plain command per Bash call (no loops, `cd … &&`, or shell variables), because permission rules deny compound commands and a denied call silently skips the check; [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says why and gives the worktree steps. These are the calls you need, each on its own, with `<phase>` the phase id:
 
 ```bash
-top=$(git rev-parse --show-toplevel) || exit 1
-tmp=$(mktemp -d) || exit 1
-cleanup() { git -C "$top" worktree remove --force "$tmp" 2>/dev/null; rm -rf "$tmp"; }
-trap cleanup EXIT
-trap 'exit 130' INT TERM HUP   # a signal exits through the EXIT trap, so cleanup runs then too
-git -C "$top" worktree add --quiet --detach "$tmp" HEAD || exit 1
-<one edit to the guarded production file under "$tmp", e.g. sed -i.bak ...>
-git -C "$top" show HEAD:<file> | cmp -s - "$tmp/<file>" && { echo "break did not apply"; exit 1; }   # compare with HEAD, not the working tree, which may differ already
-(cd "$tmp" && <test command> <test file>)
+git --no-pager worktree add --quiet --detach /tmp/wb-defect-<phase> HEAD
+sed -i.bak '<one substitution>' /tmp/wb-defect-<phase>/<production file>   # the break; -i.bak works on both BSD (macOS) and GNU sed
+git --no-pager -C /tmp/wb-defect-<phase> diff --stat          # empty output: the break did not apply
+<test command with the runner's directory option> <test file>   # per non-interactive-shell.md; Python: python3 -m pytest -o pythonpath=/tmp/wb-defect-<phase> --rootdir=/tmp/wb-defect-<phase> /tmp/wb-defect-<phase>/<test file>
+git --no-pager -C /tmp/wb-defect-<phase> checkout -- .        # undo the break before the next one
+git --no-pager -C /tmp/wb-defect-<phase> clean -fdq           # and drop the .bak file, so the next diff --stat starts clean
+git --no-pager worktree remove --force /tmp/wb-defect-<phase> # once, after the last defect, even when a step failed
 ```
 
+Reuse the one worktree for every defect in the phase, restoring it between them. If a call is denied, list each check it blocks under Not Run with the denied command, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+
 - **The break**: the smallest realistic break of the production code the test guards, such as an off-by-one at a boundary, a changed constant, a flipped rounding mode, or a dropped filter. Break the code, not the test.
-- **The result**: the test must fail on an assertion. If it still passes, it does not protect the criterion. A load or syntax error caused by the break proves nothing, so make a smaller break.
-- **When the tests cannot run in the worktree** (they need ignored files such as installed dependencies or a virtual environment): replace the `worktree add` line with a plain copy that leaves out `.git`, then reset its tracked files to HEAD and drop the untracked or newly added files it copied, so uncommitted changes stay out (the archive restores only files in HEAD, so any other file would otherwise stay): `tar -C "$top" --exclude=.git -cf - . | tar -xf - -C "$tmp"` followed by `git -C "$top" archive HEAD | tar -xf - -C "$tmp"` and `{ git -C "$top" ls-files --others --exclude-standard -z; git -C "$top" diff --name-only --diff-filter=A -z HEAD; } | (cd "$tmp" && xargs -0 rm -f)`. The trap still removes it. If the test still cannot run, do not plant the defect anywhere else. List the check under Not Run with the reason, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+- **The result**: the test must fail on an assertion. If it still passes, it does not protect the criterion, once a deliberate break that must fail has shown the run tests the copy's code ("Prove the copy is under test" in non-interactive-shell.md; a Python test run from the repository can import the unbroken code instead). A load or syntax error caused by the break proves nothing, so make a smaller break.
+- **When the tests cannot run in the worktree** (they need ignored files such as installed dependencies or a virtual environment): copy only those ignored directories into it, one `command cp -R <root>/<dir> /tmp/wb-defect-<phase>/<dir>` per directory, with the repository root typed out from `git rev-parse --show-toplevel`; the worktree already holds HEAD, so no uncommitted change comes in. If the test still cannot run, do not plant the defect anywhere else. List the check under Not Run with the reason, and judge protection by reading the test against the criterion's example, labelled judgment-only.
 
 ### 2. Criterion coverage
 
@@ -74,21 +74,16 @@ Run the project's detectors on the changed test files only, following the method
 
 ### 5. Test Integrity (inline mode)
 
-In implement mode a verifier checked each task's test integrity; report the counts from its findings (see Output) and skip this step. In inline mode no verifier ran, so check the whole phase. Run the integrity script first, as one Bash call, since calls do not share variables:
+In implement mode a verifier checked each task's test integrity; report the counts from its findings (see Output) and skip this step. In inline mode no verifier ran, so check the whole phase. Run the integrity script first, as one plain command. Pass the declared files as arguments, one `--declared-path` per file: every file named in the file fields of the test-writer reports, plus the support files harness tasks declared and the setup files setup tasks declared, each repository-relative. No list file is written:
 
 ```bash
-# The declared list: every file named in the file fields of the test-writer
-# reports, plus the support files harness tasks declared and the setup files
-# setup tasks declared; one repository-relative path per line, kept outside the repository
-declared=$(mktemp) || exit 1; trap 'rm -f "$declared"' EXIT
-printf '%s\n' <report file> <support file> <setup file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
-  --red <red commit>:<outer test file> --declared "$declared" \
+  --red <red commit>:<outer test file> --declared-path <report file> \
+  --declared-path <support file> --declared-path <setup file> \
   --test-paths <test path> --skip-pattern <skip marker regex>
-rm -f "$declared"
 ```
 
-- **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. Without test-writer reports or declared support or setup files, leave out `--declared` and the two lines that build the list. A usage message with exit status 2 means the command was malformed: fix it and run it again.
+- **Arguments**: the starting commit and red commits are the ones your prompt names. Each flag takes one value, so repeat it: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Take test locations and skip markers from the conventions, when they list them; otherwise leave both flags out and the defaults apply. When reports were posted but none of them, and no harness or setup task, declares a file, pass `--declared-none` instead, so every changed test file reads as undeclared; when no reports were recorded at all, leave out every declared option, and `undeclared_changes` is null. A usage message with exit status 2 means the command was malformed: fix it and run it again.
 - **The JSON is deterministic evidence**: `outer_tests` with `identical: false` is a changed outer test. When criteria share a test file, each has its own `--red` with the same path, including criteria from earlier phases whose `red(...)` commits touched the file (`git log --format='%h %s' -- <outer test file>` lists them; pass only the latest for each criterion), and its entry's `mode` is `lines`: only the lines its red commit added are checked, so another criterion's test added later in the same file is not a change, and `changed_lines > 0` is the changed-outer-test finding (`mode` `file` compares the whole file; "Outer-test modes" in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` defines both). `undeclared_changes` lists changed test files no report names, and `added_skip_markers` and `deleted_tests` point at hunks to read. `errors` names a check the script could not make; make that one by hand. The script compares the starting commit with the working tree, not with HEAD, so its results include uncommitted changes too, and it marks only untracked files (`tracked: false`). Uncommitted changes are outside the review, as above: when `git status --short` showed any, confirm each hit against `git diff <starting commit> HEAD` before reporting it. The script matches files, not the changes inside them, so the coverage-by-reports check below still applies within each declared file.
 
 If the script is not found, or still prints no JSON, say so under Not Run and make the checks by hand:

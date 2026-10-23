@@ -15,14 +15,14 @@ You coordinate task implementation from `tasks.md` by spawning worker agents seq
 
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
-- [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim worker, Outer Test, verifier, and fix-worker prompts
+- [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim worker, Outer Test, verifier, fix-worker, and phase-verifier prompts
 - [templates.md](templates.md) — output templates for aggregation, reports, notes
 - [reference.md](reference.md) — context-package spec, model selection, failure playbook, evidence in beads
 - [README.md](README.md) — design rationale (for humans; not needed at runtime)
 
 ## Initial Response
 
-This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item by name, a decision when a verified failure or a plan defect halts the phase, and a handoff decision when a phase that has already compacted heads for another compaction.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item and answering each unexplained deviation by name, a decision when a verified failure or a plan defect halts the phase, and a handoff decision when a phase that has already compacted heads for another compaction.
 
 When invoked, check for arguments:
 
@@ -166,7 +166,7 @@ beads_tasks:
 
 ### Step 4: Find Available Work
 
-Find ready work in beads (a lookup, not a synchronization point). Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 8 test review diffs from it.
+Find ready work in beads (a lookup, not a synchronization point). Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 8 test review diffs from it. Run one plain command per Bash call, as [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says: permission rules deny loops, `cd … &&` chains, and shell variables, and a denied call stalls the step.
 
 ```bash
 bd ready   # tasks with no open dependencies
@@ -296,13 +296,13 @@ make build          # or npm run build, go build
 
 **Requirement**: All automated checks must pass.
 
-#### 3. Review the Phase's Tests
+#### 3. Review the Phase's Tests and Verify the Phase
 
-Spawn `wb:test-reviewer` with no `model` parameter (its definition pins Opus at `high`). Give it the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section from the phase tasks' `test integrity:` comments, the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+Spawn `wb:test-reviewer` and, in the same message, `wb:phase-verifier` ("Phase Verification" in [reference.md](reference.md): its prompt values, verdict, and barrier), both with no `model` parameter (their definitions pin Opus at `high`). Give the reviewer the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section from the phase tasks' `test integrity:` comments, the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
 Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". File each escalated integrity finding and each "n of 3" finding as an issue linked to its task, as "Evidence in Beads" in [reference.md](reference.md) shows, so a Rewrite or Remove proposal outlives this summary. A Rewrite of an outer test that the person sanctions by name runs as a task you file and run before closing the milestone, under "Sanctioned Outer-Test Rewrite" in reference.md, because the rewrite must keep everything the red-commit version catches.
 
-Only the reviewer's Blocking section holds the go-ahead. It lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script each task verifier ran; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
+Two things hold the go-ahead: the reviewer's Blocking section and each unexplained deviation in the phase verifier's report ("Holding the go-ahead" under "Phase Verification" in [reference.md](reference.md)). The Blocking section lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script each task verifier ran; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line.
 
 #### 4. Request Manual Verification
 
@@ -312,10 +312,11 @@ Present the checklist to the user, writing each item as [writing-for-the-user.md
 ✅ Phase ${phase} Automated Verification Complete, all passing (tests: [test command]; lint: [lint command]; typecheck: [typecheck command]; build: [build command])
 
 **Needs your decision:**
-${each blocking item (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes; each proposed outer-test Rewrite, with a recommendation; if this phase compacted, whether to start the next phase in a fresh session, with a recommendation ("Handoff Decision" in reference.md); or "Nothing needs your decision"}
+${each blocking item, numbered T1, T2, ... so a reply can name it (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes; each unexplained deviation from the phase verifier, numbered D1, D2, ..., with its options ("Phase Verification" in reference.md); on the final phase, each FAIL Intent verdict on a statement the plan did not defer, with its options; each proposed outer-test Rewrite, with a recommendation; if this phase compacted, whether to start the next phase in a fresh session, with a recommendation ("Handoff Decision" in reference.md); or "Nothing needs your decision"}
 
 **What this phase delivered** (by acceptance criterion):
 ${each criterion and task done as behavior you can now rely on, ids in parentheses: "- <behavior> (AC-n, task <id>)"}
+- Intent progress: ${one line per README Intent statement, with its status from the phase verifier (deferred, at risk, not started, awaiting the manual check, met, or met so far); on the final phase, its Intent verdict instead ("Final phase: the Intent verdicts" in reference.md)}
 
 **Manual checks** (from design.md):
 ${manualVerificationSteps}
@@ -323,23 +324,24 @@ ${manualVerificationSteps}
 **Test integrity** (proposals; no test was edited):
 - Outer tests committed red first: ${each named by the criterion it guards}
 - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+- Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
 - Review findings: ${reviewFindings, each with the criterion it guards and what the weakness lets through}  (settled candidates marked "n of 3")
 - Review these: ${reviewThese, each in plain words with its file:line after}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
-- Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"; on the final phase, each deferred design question still open, per "Phase Completion Report" in templates.md}
+- Product and plan: ${behavior gaps, explained deviations, Intent statements at risk, design questions, and risks in the code such as security or performance, or "none"; on the final phase, each deferred design question still open, per "Phase Completion Report" in templates.md}
 - Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
 
 **Beads state:** all Phase ${phase} tasks closed; the Phase ${phase} milestone (${phaseMilestoneId}) is ready to close.
 
-Reply when manual verification is complete, acknowledging each blocking item above by name, if any, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
+Reply when manual verification is complete, acknowledging each blocking item above by its number (acknowledge: T1), if any, answering each deviation by its number (accept: D1, fix: D2, plan defect: D3) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction, and I'll close the phase milestone.
 ```
 
-**Requirement**: Wait for user confirmation before proceeding. When the review listed blocking items, the confirmation must acknowledge each one by name; a general go-ahead does not clear them, because a person has to have seen each failure before the next phase builds on it.
+**Requirement**: Wait for user confirmation before proceeding. Blocking items, unexplained deviations, and final-phase FAIL verdicts need an answer each by name; a general go-ahead does not clear them, because a person has to have seen each one before the next phase builds on it.
 
 #### 5. Close Phase Milestone
 
-**ONLY after user confirms manual verification**:
+**ONLY after user confirms manual verification**, and on the final phase after writing the README verdict echo ("Final phase: the Intent verdicts" in [reference.md](reference.md)):
 
 ```bash
 bd close ${phaseMilestoneId} --reason "Phase ${phase} complete: ${summary}. All ${taskCount} tasks closed via worker agents, automated verification passed, manual verification confirmed."

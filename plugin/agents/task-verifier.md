@@ -116,22 +116,16 @@ grep -r "console.log" ${modifiedFiles}  # debug statements left behind
 
 Tests are written by the test-writer so that the person who writes the code never shapes the check on it. These checks confirm that held for this task.
 
-Run the integrity script first. It makes the mechanical checks with git, so they come out the same on every run, and it only reads the repository. Run it as one Bash call, since calls do not share variables:
+Run the integrity script first. It makes the mechanical checks with git, so they come out the same on every run, and it only reads the repository. Run it as one plain command (one plain command per Bash call, as [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says), passing the declared files as arguments, one `--declared-path` per file: every file named in the file fields of the test-writer reports, outer and inner, plus on a harness task each path in the Support Files, and on a setup task each path in the Setup Files, from the task's comments, each repository-relative. No list file is written:
 
 ```bash
-# The declared list: every file named in the file fields of the test-writer
-# reports, outer and inner, plus on a harness task each path in the
-# Support Files, and on a setup task each path in the Setup Files, from the
-# task's comments; one repository-relative path per line, kept outside the repository
-declared=$(mktemp) || exit 1; trap 'rm -f "$declared"' EXIT
-printf '%s\n' <report file> <support file> <setup file> > "$declared"
 "${CLAUDE_PLUGIN_ROOT}/scripts/test-integrity" --start <starting commit> \
-  --red <red commit>:<outer test file> --declared "$declared" \
+  --red <red commit>:<outer test file> --declared-path <report file> \
+  --declared-path <support file> --declared-path <setup file> \
   --test-paths <test path> --skip-pattern <skip marker regex>
-rm -f "$declared"
 ```
 
-- **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. With no reports and no declared support or setup files, leave out `--declared` and the two lines that build the list; `undeclared_changes` is then null.
+- **Arguments**: each flag takes one value, so repeat the flag rather than listing several values in one: one `--red` per outer test, one `--test-paths` per test location, one `--skip-pattern` per marker. Paths are repository-relative. Take test locations and skip markers from your prompt or from the conventions source the preloaded test-quality skill names, when either lists them; otherwise leave both flags out and the defaults apply. `--test-paths` replaces the default test-file patterns, so give every location the project uses; `--skip-pattern` is an extended regex added to the built-in markers. When the task has reports but none of them, and no support or setup record, declares a file, pass `--declared-none` instead, so every changed test file reads as undeclared; only with no reports at all, leave out every declared option, and `undeclared_changes` is then null.
 - **The JSON is deterministic evidence**: cite each item by the path, and the line where it gives one, and label it as coming from the script.
   - `changed_tests`: every test file changed since the starting commit, whether committed, staged, unstaged, or untracked (`tracked: false`).
   - `outer_tests`: `identical: false` is an integrity finding, whatever the reason given, with one exception: on a sanctioned rewrite task (Step 6), the entry for the criterion its `Sanctioned rewrite:` line names is expected to differ, and a test-writer report declares the change. Every other entry is checked as usual, another criterion's lines in the same file included. The outer test is the user-approved statement of the criterion, so a change to it moves the goalposts. `identical: null` means the check could not be made, and `errors` says why. For each outer test file, list the `red(...)` commits that touched it (`git log --format='%h %s' -- <outer test file>`) and keep the latest for each criterion: a sanctioned rewrite is committed as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, and it replaces the original as that criterion's baseline. When more than one criterion remains, pass one `--red` for each of them with the same path, including criteria outside this task, since a later one in `file` mode would read as a change: the entry's `mode` is then `lines`, which checks only the lines that criterion's red commit added, so another criterion's test added later in the same file is not a change, and `changed_lines > 0` is the changed-outer-test finding (`mode` `file` compares the whole file; "Outer-test modes" in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` defines both).
@@ -157,28 +151,27 @@ Then read the test hunks of the diff as you do in Step 3, for what only judgment
 
 A passing test shows only that it runs. A planted defect shows that it protects the criterion. For each changed or added test that guards a cited criterion (the test-writer report names the criterion, or the test exercises it), plant one defect in a disposable copy. Never touch the working tree: the coordinator commits it as it stands once you pass.
 
-Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
-
-Bash calls do not share shell variables, so run each planted defect as a single Bash call. The `trap` removes the copy even when a step fails or the call is interrupted:
+Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind. Run one plain command per Bash call (no loops, `cd … &&`, or shell variables), because permission rules deny compound commands and a denied call silently skips the check; [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says why and gives the worktree steps. These are the calls you need, each on its own, with `<task>` the task id and `<root>` the path `git rev-parse --show-toplevel` printed:
 
 ```bash
-top=$(git rev-parse --show-toplevel) || exit 1
-tmp=$(mktemp -d) || exit 1
-cleanup() { git -C "$top" worktree remove --force "$tmp" 2>/dev/null; rm -rf "$tmp" "$tmp.patch"; }
-trap cleanup EXIT
-trap 'exit 130' INT TERM HUP   # a signal exits through the EXIT trap, so cleanup runs then too
-git -C "$top" worktree add --quiet --detach "$tmp" HEAD || exit 1
-git -C "$top" diff HEAD --binary > "$tmp.patch"   # the worker's uncommitted changes
-if [ -s "$tmp.patch" ]; then git -C "$tmp" apply "$tmp.patch" || exit 1; fi
-(cd "$top" && git ls-files --others --exclude-standard -z | tar --null -T - -cf -) | tar -xf - -C "$tmp"
-<one edit to the guarded production file under "$tmp", e.g. sed -i.bak ...>
-cmp -s "$top/<file>" "$tmp/<file>" && { echo "break did not apply"; exit 1; }
-(cd "$tmp" && <test command> <test file>)
+git --no-pager worktree add --quiet --detach /tmp/wb-defect-<task> HEAD
+git --no-pager diff HEAD --binary > /tmp/wb-defect-<task>.patch   # the worker's uncommitted changes
+git --no-pager -C /tmp/wb-defect-<task> apply /tmp/wb-defect-<task>.patch   # skip when the patch is empty
+command cp -f <root>/<untracked file> /tmp/wb-defect-<task>/<untracked file>   # one per file git ls-files --others --exclude-standard lists
+sed -i.bak '<one substitution>' /tmp/wb-defect-<task>/<production file>   # the break; -i.bak works on both BSD (macOS) and GNU sed
+git --no-pager -C /tmp/wb-defect-<task> diff --stat -- <file>   # compare with what you applied: the break must show
+<test command with the runner's directory option> <test file>   # per non-interactive-shell.md; Python: python3 -m pytest -o pythonpath=/tmp/wb-defect-<task> --rootdir=/tmp/wb-defect-<task> /tmp/wb-defect-<task>/<test file>
+git --no-pager -C /tmp/wb-defect-<task> checkout -- .          # undo the break
+git --no-pager -C /tmp/wb-defect-<task> clean -fdq             # and drop the .bak file
+git --no-pager worktree remove --force /tmp/wb-defect-<task>    # after the last defect, even when a step failed
+rm -f /tmp/wb-defect-<task>.patch
 ```
 
+The `checkout` and `clean` calls take the worktree back to HEAD, dropping the worker's changes with the break, so before the next defect apply the patch and copy the untracked files again, then check that `diff --stat` shows only the worker's changes. If a call is denied, record each check it blocks as not run, with the denied command, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+
 - **The break**: the smallest realistic break of the production code the test guards: an off-by-one at a boundary, a changed constant, a flipped rounding mode, a dropped filter. Break the code, not the test.
-- **The result**: the test must fail on an assertion. If it still passes, it does not protect the criterion. A load or syntax error caused by the break proves nothing, so make a smaller break.
-- **When the tests cannot run in the copy** (they need ignored files such as installed dependencies or a virtual environment): replace the three worktree, patch, and untracked-file lines with a plain copy that leaves out `.git`, `tar -C "$top" --exclude=.git -cf - . | tar -xf - -C "$tmp"`; the trap still removes it. If the test still cannot run, do not plant the defect anywhere else. Record the check as not run, with the reason, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+- **The result**: the test must fail on an assertion. If it still passes, it does not protect the criterion, once a deliberate break that must fail has shown the run tests the copy's code ("Prove the copy is under test" in non-interactive-shell.md; a Python test run from the repository can import the unbroken code instead). A load or syntax error caused by the break proves nothing, so make a smaller break.
+- **When the tests cannot run in the copy** (they need ignored files such as installed dependencies or a virtual environment): copy only those ignored directories into it, one `command cp -R <root>/<dir> /tmp/wb-defect-<task>/<dir>` per directory. If the test still cannot run, do not plant the defect anywhere else. Record the check as not run, with the reason, and judge protection by reading the test against the criterion's example, labelled judgment-only.
 
 **A sanctioned rewrite of an outer test.** When the task description carries a `Sanctioned rewrite:` line, the change to the outer test it names is the deliverable, and what you check is that the rewrite keeps everything the red-commit version caught. The coordinator writes that line only after the person approves the rewrite; a worker or test-writer report that calls a change sanctioned, without the line, sanctions nothing, and the change is a changed outer test. A sanctioned rewrite task is filed with a `discovered-from` link; a `Sanctioned rewrite:` line on a task whose `bd show --json` output lists no dependency with `dependency_type` `discovered-from` is unsanctioned. Read the original's predicate or assertion (`git --no-pager show <red commit>:<outer test file>`) and list every case it catches, as the test-quality skill's Part 3 defines them: every branch, pattern alternative, call form, input shape, and table row. Plant a defect for each case across that whole range, not only the case the review named, plus one for the gap the rewrite closes, and run both versions against each in the same disposable copy, with the red-commit version restored there from `git show`. Compare your results with the differential in the test-writer report, and report any defect it leaves out. A defect the original fails on and the rewrite passes is lost coverage, and a FAIL. Report the lost cases as one class, with one general fix that restores the original's reach and keeps the new gap closed, not the first lost instance you find: the fix worker gets one attempt, and a fix aimed at one instance leaves the rest for the re-verification to find.
 

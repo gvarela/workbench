@@ -10,7 +10,32 @@ Use forms that cannot prompt:
 - Prefer a git-native form where it fits: `git show <rev>:<path> > <file>` or `git restore` to bring a file back, `git archive` for an export, `git worktree add` for a disposable checkout.
 - Keep git from opening a pager with `git --no-pager` (or `GIT_PAGER=cat`) and from opening an editor with `-m <message>` or `--no-edit` (or `GIT_EDITOR=true`), and pass `-f` to `rm` where deleting is the intent.
 
-Register the removal of a temporary copy or worktree before the steps that use it, as the `trap` in task-verifier's and test-reviewer's planted-defect scripts does, so cleanup runs even when a step fails or the call is interrupted.
+## One plain command per Bash call
+
+Permission rules in the user's settings approve or deny each Bash call by its text, and they cannot see inside a compound command, so a for loop, a `cd <dir> && ...` chain, or a command built from shell variables (`$tmp`, `$(mktemp -d)`) is often denied even where each part alone would be allowed. A denied call does not stop you; it silently skips the check it was for. So run one plain command per Bash call: no loops, no `cd … &&`, no shell variables, and write every path out in full. Where you need a value from one command in the next, such as the repository root from `git rev-parse --show-toplevel`, read it from the first call's output and type it into the second. A single pipe or output redirect between two plain commands is fine.
+
+When a call you need is still denied, do not work around it with another form: record the check under Not Run with the denied command and the reason, so the person sees what went unchecked.
+
+## A disposable worktree in plain commands
+
+Planted defects and other changes that must not touch the user's working tree go in a disposable worktree at a fixed path you name yourself, `/tmp/wb-defect-<id>` (the task or phase id, so two agents do not collide). Each step is its own Bash call:
+
+```bash
+git rev-parse --show-toplevel                                  # the repository root; type it into later calls
+git --no-pager worktree add --quiet --detach /tmp/wb-defect-<id> HEAD
+sed -i.bak '<one substitution>' /tmp/wb-defect-<id>/<file>      # the break
+git --no-pager -C /tmp/wb-defect-<id> diff --stat              # shows the break applied
+git --no-pager -C /tmp/wb-defect-<id> checkout -- .            # after the run: undo the break
+git --no-pager -C /tmp/wb-defect-<id> clean -fdq               # and drop the .bak file
+git --no-pager worktree remove --force /tmp/wb-defect-<id>     # always, even after a failed step
+```
+
+- **The break**: one `sed -i.bak` command on the file under `/tmp/wb-defect-<id>/`. The `.bak` suffix attached to `-i` works on both BSD (macOS) and GNU sed, where a bare `-i` does not. After the run, `checkout -- .` restores the file and `clean -fdq` removes the `.bak` file (ignored files such as copied dependencies stay), so the next break's `diff --stat` shows only that break.
+- **Uncommitted changes**, when the check needs them (task-verifier): `git --no-pager diff HEAD --binary > /tmp/wb-defect-<id>.patch` from the repository, then `git -C /tmp/wb-defect-<id> apply /tmp/wb-defect-<id>.patch`; for each untracked file `git ls-files --others --exclude-standard` lists, one `command cp -f <root>/<file> /tmp/wb-defect-<id>/<file>` per file.
+- **Running the test there**: use the test runner's own directory or path option where it has one (`npm --prefix /tmp/wb-defect-<id> test`, `go -C /tmp/wb-defect-<id> test ./...`). For Python, `python3 -m pytest -o pythonpath=/tmp/wb-defect-<id> --rootdir=/tmp/wb-defect-<id> /tmp/wb-defect-<id>/<test file>`: run from the repository, a plain `pytest` puts the current directory first on `sys.path`, so the worktree's test can import the user's unbroken code and a planted defect looks as if it survived. A runner with none needs the worktree as its working directory, and `cd /tmp/wb-defect-<id> && <test command> <test file>` is then the one compound form to try; if it is denied, the check goes under Not Run.
+- **Prove the copy is under test**: before you trust a defect that survived, plant one deliberate break that must fail (in the function the test calls directly, such as making it raise or return a wrong constant) and run the same command. If that passes too, the run is not testing the worktree's code; fix the command, or list the check under Not Run.
+- **Permission rules it needs**: Claude Code treats `sed -i` as a file edit, so the break needs an Edit rule for the worktree path even though the agent has no Edit tool; without one the break is denied and the check goes under Not Run. To let planted defects run, allow `Bash(git worktree:*)`, `Edit(//tmp/wb-defect-*/**)`, and on macOS also `Edit(//private/tmp/wb-defect-*/**)`, since `/tmp` resolves there.
+- **Cleanup**: nothing removes the worktree for you, since no `trap` spans separate calls. Run the `worktree remove` call (and `rm -f /tmp/wb-defect-<id>.patch` when you made one) before you hand back, whether the checks passed, failed, or stopped early, and confirm with `git --no-pager worktree list`.
 
 ## End background shells before handing back
 

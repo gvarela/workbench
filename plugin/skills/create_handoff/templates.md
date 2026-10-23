@@ -180,7 +180,7 @@ The stage command the next session's user runs after `/resume_handoff`, with its
 
 ```bash
 # e.g. /wb:implement <plan-dir> <phase>, /wb:implement <plan-dir> continue,
-# /wb:validate_execution <plan-dir>, or the next stage's command
+# /wb:validate_phase <plan-dir> all, or the next stage's command
 [exact command]
 ```
 

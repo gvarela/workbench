@@ -110,3 +110,22 @@ Provide:
 **Re-verify** using the task-verifier agent with the same context, again with no `model` parameter. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
 
 **If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.
+
+## Phase Verifier Prompt (Step 8)
+
+Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn, so the two run in parallel. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Phase Verification" in [reference.md](reference.md) says where each value comes from.
+
+```
+Verify Phase ${phase} of the plan against its tasks.
+
+- Plan directory: ${planDir}  (its README.md, design.md, and tasks.md)
+- Phase: ${phase}; final phase: ${isFinalPhase ? "yes" : "no"}
+- Range: ${phaseStartingCommit}..${endCommit}  (end: HEAD, or "working tree" when the phase's changes are not all committed)
+- Plan starting commit: ${planStartingCommit}
+- Tasks: ${phaseTaskIds}  (the phase's beads task ids from the tasks.md frontmatter, outer test steps included, plus each issue filed during the phase whose id a commit in the range names)
+- Red commits: ${redCommits}  (the latest red(AC-n) commit of each criterion delivered so far, with its test file)
+- Automated verification: ${each checkpoint command and whether it passed}
+- Conventions: ${conventionsSource}; test paths: ${testPaths}; test command: ${testCommand}
+
+Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself, as your agent definition's Inputs says; this prompt does not repeat them. Return the report your definition specifies; you edit and post nothing.
+```
