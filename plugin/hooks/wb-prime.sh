@@ -31,7 +31,7 @@ ORIENTATION
   cat <<'ORIENTATION'
 What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
-  create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions
+  create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
   create_tasks: confirm the phases and checkpoints
   implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure by name, and a handoff decision when a phase that has already compacted heads for another compaction
   validate_execution: the manual checks only you can run

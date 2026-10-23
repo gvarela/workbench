@@ -327,7 +327,7 @@ ${manualVerificationSteps}
 - Review these: ${reviewThese, each in plain words with its file:line after}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
-- Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}
+- Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"; on the final phase, each deferred design question still open, per "Phase Completion Report" in templates.md}
 - Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
 
 **Beads state:** all Phase ${phase} tasks closed; the Phase ${phase} milestone (${phaseMilestoneId}) is ready to close.

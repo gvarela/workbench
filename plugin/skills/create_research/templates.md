@@ -127,11 +127,11 @@ This pattern is also used in:
 
 Questions that require resolution before proceeding are tracked in beads, NOT in this document.
 
-**To add a question**:
+**To add a question** ([plan-dir-name] is the plan directory's name, for example `2025-01-08-my-project`, so create_design can find this plan's questions):
 
 ```bash
 bd create "Q: [your question]" --type=task --priority=2 \
-  -d "Research question. Blocks: [what can't proceed without this answer]"
+  -d "Research question for [plan-dir-name]. Blocks: [what can't proceed without this answer]"
 # → Returns issue ID (e.g., prompts-abc)
 ```
 

@@ -101,7 +101,7 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | `create_project` | the goal, what success looks like, non-goals (or prose that carries them); name, base directory, ticket | — | the intent as read back to you | README has an Intent section: a Goal, two to four success statements, non-goals; nothing was written before you confirmed |
 | `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references; a Testing Conventions section records frameworks, commands, and harness |
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
-| `create_design` | the approach, when no decision record exists | the approach; the refined metrics; the acceptance criteria with their harness decisions | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; every acceptance criterion names the metric it refines; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
+| `create_design` | the approach, when no decision record exists | the approach; the refined metrics; the acceptance criteria with their harness decisions; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; every acceptance criterion names the metric it refines; a Goal or Non-goal change has a `Decide:` record and an Amendments line; each of this plan's open `Q:` questions was put to you by name and is closed with your answer, deferred with its owner in design.md and on the issue, or marked not this plan's |
 | `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; every acceptance criterion has an outer-test step (or a manual check, where design chose manual), and implementation tasks cite the criteria they serve; Target State names the Intent-refining metrics |
 | `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt; whether to hand off or keep going when a phase that has already compacted heads for another compaction | the phase report at each checkpoint, with the test review's findings (your go-ahead, acknowledging each blocking item by name) | every task in the phase is closed in beads, one commit each (under `implement`, each verified by a task-verifier); each cited criterion's outer test is committed as `red(AC-n)` before its code; the milestone closes only on your go-ahead, with each blocking item acknowledged |
 | `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement and a test review of the tests the plan changed, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
@@ -123,7 +123,7 @@ Beads helps ensure nothing falls through the cracks during planning:
 
 | What to Track | When | Why |
 | --------------- | ------ | ----- |
-| `Q: [question]` | Research finds unknowns | Blocks design until answered |
+| `Q: [question]` | Research finds unknowns | create_design puts it to you: answer, defer to a named owner, or not this plan's |
 | `Decide: [choice]` | Design needs stakeholder input | Blocks execution until decided |
 | `Validate: [assumption]` | Design assumes something | Must verify during implementation |
 | `UI Q: [question]` | Mockup iteration raises issue | Blocks finalization |
@@ -215,7 +215,7 @@ Researches the codebase from the product perspective: features, user flows, user
 
 ### `/wb:create_design [directory]`
 
-Interactive design session. Captures WHAT and WHY, not HOW, including acceptance criteria (Given/When/Then with examples and where each is observed) and a harness decision per boundary. Formalizes a recorded decision when explore_design ran; generates options itself when not.
+Interactive design session. Captures WHAT and WHY, not HOW, including acceptance criteria (Given/When/Then with examples and where each is observed) and a harness decision per boundary. Formalizes a recorded decision when explore_design ran; generates options itself when not. Puts each of this plan's open `Q:` questions and pending decisions to you by name before approval: answer it now, defer it to a named owner, or rule it not this plan's; it never defers one on its own.
 
 ### `/wb:create_tasks [directory]`
 

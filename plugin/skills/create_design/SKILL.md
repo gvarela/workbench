@@ -12,7 +12,7 @@ Creates architectural and technical design decisions based on validated research
 Supporting files in this directory (read each when its step directs you to — never paraphrase from memory):
 
 - [sub-agent-prompts.md](sub-agent-prompts.md) — verbatim prompts for the three Step 2 verification agents
-- [templates.md](templates.md) — design.md output template
+- [templates.md](templates.md) — design.md output template and the Open Question Message
 
 ## Scope: WHAT and WHY, not HOW
 
@@ -20,7 +20,7 @@ design.md records architectural decisions and the reasoning behind them: what to
 
 ## Initial Response
 
-This stage needs from you: approval of the approach, the refined metrics, and the acceptance criteria with their harness decisions.
+This stage needs from you: approval of the approach, the refined metrics, and the acceptance criteria with their harness decisions; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question.
 
 When invoked, check for arguments:
 
@@ -46,15 +46,15 @@ When invoked, check for arguments:
 - Research should be validated (facts confirmed accurate)
 - Knowledge gaps from research should be reviewed
 
-### Check for Blocking Questions
+### Open Questions for This Plan
 
-Before starting design, check if research left unresolved questions:
+This plan's open questions are the open `Q:` issues (titles beginning `Q:`) that research.md or the README cites by id (`bd show [id]` for each), plus those whose description names this plan's directory, [plan-dir-name] (its name, for example `2025-01-08-my-project`). The filter matches substrings, so keep only descriptions naming exactly this directory:
 
 ```bash
-bd list -n 0 --status=open | grep "Q:"   # Find open questions from research
+bd list -n 0 --status=open --title-contains "Q:" --desc-contains "[plan-dir-name]"
 ```
 
-If critical questions block design decisions, resolve them first or document as assumptions.
+Only the user decides that a question can wait, because a question the design assumes away quietly becomes a risk nobody accepted. Put each one to them by name as [templates.md](templates.md) → **Open Question Message** says: before Step 4 when it bears on the choice of approach, otherwise in the Step 6 message. On a re-run, a question with a `deferred by [plan-dir-name]` or `not a question for [plan-dir-name]` comment (`bd comments [id] --json`) was already decided: carry its row forward, and ask again only if the user wants to revisit it.
 
 ## Process Steps
 
@@ -200,9 +200,9 @@ should be revisited.
 
 Update or create design.md using the structure in [templates.md](templates.md) → **design.md Template**.
 
-The template includes `bd create` command snippets for tracking assumptions and pending decisions — use them as written.
+The template includes `bd create` command snippets for tracking assumptions and pending decisions — use them as written. An open question still awaiting the user's reply is written as its row with Owner `awaiting your reply` (templates.md → **Open Question Message**).
 
-**⛔ BARRIER 3**: Verify no placeholder values before writing
+**⛔ BARRIER 3**: Verify no placeholder values before writing (Owner `awaiting your reply` is the one value allowed, until Step 6's replies replace it)
 
 **⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; every acceptance criterion names the Success Metric it refines; any Goal or Non-goal change has its `Decide:` record and README amendment line already in place.
 
@@ -220,7 +220,8 @@ The template includes `bd create` command snippets for tracking assumptions and 
    - [Major decision 2]
    - [Major decision 3]
 
-   Pending decisions: [count]
+   Needs your decision:
+   - [each open question and each Pending Decision, by name, in the Open Question Message form from templates.md; or "Nothing needs your decision"]
 
    Agent findings incorporated:
    - [Finding 1 from verification agents]
@@ -245,10 +246,10 @@ The template includes `bd create` command snippets for tracking assumptions and 
    - Add/remove scope items
    - Update risk analysis
 
-3. **Get explicit approval**:
+3. **Get explicit approval** (one that leaves an item under Needs your decision without a reply is not approval yet; templates.md → **Open Question Message** says how to ask again):
 
    ```
-   Once you're satisfied with the design, please confirm approval.
+   Once you've replied to each item under Needs your decision and are satisfied with the design, please confirm approval.
    After approval, run `/create_tasks` to build the implementation plan.
    ```
 
@@ -310,10 +311,7 @@ When research has knowledge gaps:
    - Build in abstraction where needed
    - Plan for multiple scenarios
 
-3. **Flag for implementation**:
-   - Mark decisions that depend on unknowns
-   - Note what needs investigation
-   - Will be resolved in execution phase
+3. **Flag for implementation**: mark decisions that depend on unknowns; an open question goes to the user (Open Questions for This Plan), never deferred by you alone
 
 ### Leveraging Agent Findings
 
@@ -330,4 +328,4 @@ Use agent findings to strengthen design:
 2. **⛔ BARRIER 2**: After agent spawning - wait for every agent's completion notification
 3. **⛔ DECISION POINT**: After presenting options - get approach approval (with a closed `Decide:` record: confirmation of the recorded decision instead)
 4. **⛔ BARRIER 3**: Before writing - verify no placeholders
-5. **⛔ APPROVAL GATE**: After writing design - get explicit approval
+5. **⛔ APPROVAL GATE**: After writing design - get explicit approval, with a reply to each item under Needs your decision

@@ -73,7 +73,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
 
-- Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]
+- Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
 - Test quality: [weak or brittle tests and checks that fail on correct code, or none]
 
 **Beads state:** all Phase [N] tasks closed; the Phase [N] milestone ([phase-milestone-id]) is ready to close.
@@ -104,7 +104,7 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 
-- Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]
+- Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
 - Test quality: [weak or brittle tests and checks that fail on correct code, or none]
 
 **Beads tracking**:

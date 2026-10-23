@@ -81,6 +81,7 @@ Each item: what it is, what it puts at risk, whether it blocks the release, and 
 
 ### Product and Plan
 - [behavior gap, design question, or risk in the code (performance, maintainability, a component it may affect), in plain words] ([id] or `file:line`): [what it puts at risk]. Fix: [the proposed fix]. [Blocks (above) / does not block]; [now / before release / later, and for a risk, what to watch]
+- Deferred design question, still open: [each, in the form and under the rules of [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md), which also says how to handle an answer given here]
 
 ### Test Quality
 - [weak or brittle test, a missing test for a scenario, or a check that fails on correct code, with the criterion it guards] ([id] or `file:line`): [what it lets through or costs]. Fix: [the proposed fix]. [Blocks (above) / does not block]; [now / before release / later]
