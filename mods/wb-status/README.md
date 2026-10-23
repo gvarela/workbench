@@ -53,7 +53,7 @@ Design: ⚠ design.md waiting for your approval · 4 criteria, 3 with examples �
 
 Line 1, the stages: `✓` done, `●` current (with its document's `status`), `○` not started.
 
-- A stage is done when its document says so: research.md `status: complete`; design.md `ready`, `approved`, `implementing` or `complete`; tasks.md naming beads tasks; validate when every README Intent statement carries a `→ PASS`, `→ FAIL` or `→ DEFERRED` verdict. Project is done once the folder exists. A stage counts as done whenever a later one is, so a research.md left at `draft` behind a finished design reads done. A complete product-research.md stands for research.md.
+- A stage is done when its document says so: research.md `status: complete`; design.md `ready`, `approved`, `implementing` or `complete`; tasks.md naming beads tasks; validate (`/wb:validate_phase`) when every README Intent statement carries a `→ PASS`, `→ FAIL` or `→ DEFERRED` verdict. Project is done once the folder exists. A stage counts as done whenever a later one is, so a research.md left at `draft` behind a finished design reads done. A complete product-research.md stands for research.md.
 - **Explore** shows only when the plan has a `thoughts/*.md` doc or a closed `Decide:` issue whose close reason or description names the plan's directory or one of its thoughts docs. It is done once that record exists.
 - The current stage is the one the session's latest `/wb:*` command ran for this plan (a command run before a later pin by `/wb-status` does not count). With none, it is the first stage that is not done; explore is never current on its own.
 
@@ -111,6 +111,7 @@ Line 1, progress:
 Line 2, test integrity, with what needs you first:
 
 - **⚠ or ✓**: what needs you, the first item and a `+N more` count: a phase checkpoint waiting (above); a plan issue with a `halted:` comment and no later `verification report:`, `test integrity:`, `resolved:` or `resumed:` comment, and not closed; an issue that was closed and reopened; an open `Q:` or `Decide:` issue linked to the plan or opened since it was created. The pane lists every item. Once every phase is done, those open questions are no longer asked of you: line 2 shows them dim as `open follow-up: <title> (id)` (with `+N more`), without the `⚠`, and the pane lists them under Follow-ups.
+- **Validation**: `/wb:validate_phase <plan dir> [phase|all]` writes a verdict onto each "Success looks like" statement in the README's `## Intent` section (`→ PASS (2026-02-01)`, `→ FAIL (…)` or `→ DEFERRED (…)`; a re-run replaces the suffix, and if two remain the last counts). A finished plan whose statements carry no verdict shows `⚠ validate the plan: /wb:validate_phase <plan dir> all` in place of the dim open follow-up line, with a dim `N open follow-up(s)` count after it while there is room. Any `FAIL` shows `⚠ validation: N FAIL`, finished plan or not. Verdicts that are all PASS or DEFERRED show nothing new, and a README with no Intent section (an older plan) is never asked to validate.
 - **red-first n/m**: the criteria in design.md's Acceptance Criteria (`- **AC-n Title**`) that have a `red(AC-n)` commit since the plan was created. With no design.md criteria, the AC ids tasks.md mentions.
 - **verifier n✓ n✗**: the latest verdict of each verified issue in this phase: its planned tasks, and the follow-ups that moved since the previous phase's milestone closed. A verdict comes from a `verification report:` comment's `### Status:` line; from an older `test integrity:` comment, by its PASS or FAIL wording, else FAIL when a finding was escalated, else PASS (used only when no report or close reason says otherwise); or from a close reason such as `Verified PASS`. The latest wins.
 
@@ -146,7 +147,7 @@ wb <plan>: design (draft) · P✓ R✓ D● T○ I○ V○ · ⚠ 1
 
 ### The `/wb-status` pane
 
-`/wb-status` takes a fresh reading and opens a pane. While planning it has three sections (Plan, Planning, Needs your decision); once the plan has beads tasks, six:
+`/wb-status` takes a fresh reading and opens a pane. While planning it has three sections (Plan, Planning, Needs your decision); once the plan has beads tasks, seven:
 
 - **Plan**: the plan's name and worktree, its directory, how it was chosen (pinned by which command and when, or guessed from what), and how to pin or unpin.
 - **Planning**: one row per stage, with its state, its document's status and path, and its signals; then the next command to run, from help's chain (`Next: /wb:create_design docs/plans/<dir>`, or `Next: approve design.md, then /wb:create_tasks …`).
@@ -154,6 +155,7 @@ wb <plan>: design (draft) · P✓ R✓ D● T○ I○ V○ · ⚠ 1
 - **What phase N delivered**: the phase's tasks grouped by the criterion each one names (`AC-n` in its title or description), then the tasks that name none. `✓` closed, `…` in progress, `○` open.
 - **Test integrity**: per criterion, its red commit (or none), its latest verifier verdict and the task or follow-up it came from, and the integrity findings count from the `test integrity:` comment.
 - **Follow-ups**: the open follow-ups, with the issue each was discovered from; on a finished plan, also its open `Q:` and `Decide:` issues.
+- **Validation**: `Not run: /wb:validate_phase <plan dir> all` and the Intent statements, or each statement with its verdict and date (`✓ PASS 2026-02-01 · …`, `✗ FAIL …`, `○ DEFERRED …`); a README with no Intent section says so.
 
 Close it with ctrl+x x, or the close mark on its frame.
 
@@ -191,7 +193,7 @@ With the log on, the pane shows a **Reading log** section with the file's path a
 
 - `ts`, `sessionId`, `event` (`start`, `change`, or `cap`)
 - `plan`: `name`, `dir`, `worktree`; `source`: `pinned` with the command and time, or `guessed` with how (`beads-in-progress`, `beads-recent`, `recent-file`, `newest-directory`)
-- `stage`, `phase` (`n`, `of`, `state`), `counts` (tasks closed/total, follow-ups open, red-first k/n, verifier pass/fail), `now` (id, title), `needsYou` (kind, id, text), `followUps` (the open questions a finished plan handed off; present only then), and, while planning, `signals`
+- `stage`, `phase` (`n`, `of`, `state`), `counts` (tasks closed/total, follow-ups open, red-first k/n, verifier pass/fail), `now` (id, title), `needsYou` (kind, id, text), `validation` (`state` of `not-run`, `partial`, `passed` or `failed`, with the PASS, FAIL, DEFERRED and no-verdict counts; `null` with no Intent section), `followUps` (the open questions a finished plan handed off; present only then), and, while planning, `signals`
 - `inputs`: the beads ids and statuses the reading used, the red commits it matched per criterion, the verifier verdicts, and the document statuses
 - `band`: the two lines as plain text at the width last drawn
 

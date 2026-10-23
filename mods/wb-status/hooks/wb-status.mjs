@@ -367,7 +367,7 @@ async function read($) {
     const state = planState({ fm: plan.fm, issues, openIssues })
     const comments = state === null ? {} : await readComments($, where, state)
 
-    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments })
+    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments, intent: docs.read.intent, dir: selection.dir })
     if (built !== null) {
       // The planning stages are all behind it; the explore record is not
       // looked up in beads here, since a later stage being done settles it.

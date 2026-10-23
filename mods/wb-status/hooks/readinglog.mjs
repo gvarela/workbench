@@ -64,6 +64,11 @@ function needsYouOf(blocking) {
   return items
 }
 
+function validationOf(model) {
+  const { state, pass, fail, deferred, pending } = model.validation ?? {}
+  return model.validation ? { state, pass, fail, deferred, pending } : null
+}
+
 function countsOf(model) {
   if (model.kind === 'planning') return null
   const verdicts = model.verdicts ?? []
@@ -97,7 +102,7 @@ function inputsOf(model) {
  */
 export function readingRecord(model, { columns = DEFAULT_COLUMNS } = {}) {
   if (model === null || model === undefined) {
-    return { plan: null, source: null, stage: null, phase: null, counts: null, now: null, needsYou: [], inputs: { bd: {}, redCommits: {}, verdicts: {}, docs: {} }, band: null }
+    return { plan: null, source: null, stage: null, phase: null, counts: null, now: null, needsYou: [], validation: null, inputs: { bd: {}, redCommits: {}, verdicts: {}, docs: {} }, band: null }
   }
   const isPlanning = model.kind === 'planning'
   const band = bandLines(model, columns).text
@@ -110,6 +115,7 @@ export function readingRecord(model, { columns = DEFAULT_COLUMNS } = {}) {
     counts: countsOf(model),
     now: model.now ? { id: model.now.id, title: clip(model.now.title) } : null,
     needsYou: needsYouOf(model.blocking),
+    validation: validationOf(model),
     inputs: inputsOf(model),
     band: { columns, progress: band.progress, tests: band.tests },
   }

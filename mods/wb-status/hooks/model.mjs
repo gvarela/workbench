@@ -293,9 +293,11 @@ function verdictOf(issue, notes) {
  * The whole read-out, from what the hooks module gathered:
  * fm (tasks.md frontmatter), criteria, issues (bd list for the plan's ids and
  * the epic's children), openIssues (bd list of every unclosed issue),
- * commits (git log lines), comments ({ [id]: bd comments JSON }).
+ * commits (git log lines), comments ({ [id]: bd comments JSON }), intent
+ * (readIntent of the README) and dir (the plan directory, as the validate
+ * command names it).
  */
-export function buildModel({ fm, criteria, issues, openIssues, commits, comments }) {
+export function buildModel({ fm, criteria, issues, openIssues, commits, comments, intent = null, dir = null }) {
   const state = planState({ fm, issues, openIssues })
   if (state === null) return null
   const notesOf = new Map()
@@ -346,6 +348,13 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
       blocking.push({ kind: 'reopened', id: task.id, title: task.title, why: 'reopened' })
     }
   }
+  const validation = validationOf(intent)
+  const command = `/wb:validate_phase ${dir ?? `docs/plans/${String(fm.project ?? 'plan')}`} all`
+  if (validation !== null && validation.fail > 0) {
+    blocking.push({ kind: 'validation', id: null, title: 'validation', why: `validation: ${validation.fail} FAIL` })
+  } else if (validation !== null && state.isDone && validation.state === 'not-run') {
+    blocking.push({ kind: 'validate', id: null, title: 'the plan', why: `validate the plan: ${command}` })
+  }
   // On a finished plan an open question was handed off on purpose: it is a
   // follow-up, not something the plan waits on.
   const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''))
@@ -369,8 +378,26 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
     verdicts,
     blocking,
     handedOff,
+    validation: validation === null ? null : { ...validation, command },
     followUps: openFollowUps.map(item => ({ id: item.id, title: item.title, status: item.status, from: item.from })),
   }
+}
+
+/**
+ * Where validation stands, from the README's Intent statements: how many
+ * carry each verdict and how many none. Null when the README has no Intent
+ * section or lists no success statements (older plans), so nothing is asked.
+ */
+export function validationOf(intent) {
+  const statements = intent?.statements ?? []
+  if (statements.length === 0) return null
+  const count = verdict => statements.filter(one => one.verdict === verdict).length
+  const pass = count('PASS')
+  const fail = count('FAIL')
+  const deferred = count('DEFERRED')
+  const pending = statements.length - pass - fail - deferred
+  const state = fail > 0 ? 'failed' : pending === statements.length ? 'not-run' : pending > 0 ? 'partial' : 'passed'
+  return { state, pass, fail, deferred, pending, statements }
 }
 
 /**
@@ -478,7 +505,7 @@ export function attentionWords(blocking, max = Infinity, handedOff = []) {
   const first = blocking[0]
   const more = blocking.length > 1 ? ` +${blocking.length - 1} more` : ''
   let what
-  if (first.kind === 'checkpoint' || first.kind === 'approval') {
+  if (first.kind === 'checkpoint' || first.kind === 'approval' || first.kind === 'validate' || first.kind === 'validation') {
     what = first.why
   } else if (first.kind === 'halt') {
     what = `${first.why} (${first.id})`
@@ -541,7 +568,17 @@ export function bandLines(model, columns = Infinity) {
     ? [seg('no criteria found', 'dim')]
     : [seg('red-first ', 'dim'), seg(`${model.redCount}/${model.criteria.length}`)]
   const verifier = verifierSegments(model.verdicts)
+  // A validation prompt or failure takes the place of the open follow-up line;
+  // the count of those follow-ups stays beside it while there is room.
+  const handed = model.handedOff ?? []
+  const hasValidation = model.blocking.some(item => item.kind === 'validate' || item.kind === 'validation')
+  const followNote = hasValidation && handed.length > 0 ? [seg(`${handed.length} open follow-up${handed.length === 1 ? '' : 's'}`, 'dim')] : null
   const testsVariants = [
+    ...(followNote === null ? [] : [
+      [...label, ...line([attentionSegment(attention)], followNote, red, verifier)],
+      [...label, ...line([attentionSegment(attention)], followNote, verifier)],
+      [...label, ...line([attentionSegment(attention)], followNote)],
+    ]),
     [...label, ...line([attentionSegment(attention)], red, verifier)],
     [...label, ...line([attentionSegment(attention)], verifier)],
     [...label, attentionSegment(attention)],
@@ -625,7 +662,18 @@ export function paneSections(model) {
     { heading: `What phase ${model.phase} delivered`, rows: delivered.length === 0 ? ['No tasks in this phase.'] : delivered },
     { heading: 'Test integrity', rows: integrity },
     { heading: 'Follow-ups', rows: followUps },
+    { heading: 'Validation', rows: validationRows(model.validation) },
   ]
+}
+
+const VERDICT_MARK = { PASS: '✓', FAIL: '✗', DEFERRED: '○' }
+
+/** The pane's Validation rows: not run, or each Intent statement with its verdict and date. */
+function validationRows(validation) {
+  if (validation === null || validation === undefined) return ['No Intent section in README.md: nothing to validate.']
+  const rows = validation.statements.map(one =>
+    one.verdict === null ? `○ ${one.text}` : `${VERDICT_MARK[one.verdict]} ${one.verdict}${one.date ? ` ${one.date}` : ''} · ${one.text}`)
+  return validation.state === 'not-run' ? [`Not run: ${validation.command}`, ...rows] : rows
 }
 
 /** Whether a Bash command is one that changes what the read-out shows. */
@@ -892,7 +940,7 @@ export const STAGES = [
   { key: 'design', label: 'Design', symbol: 'D', command: '/wb:create_design', doc: 'design.md' },
   { key: 'tasks', label: 'Tasks', symbol: 'T', command: '/wb:create_tasks', doc: 'tasks.md' },
   { key: 'implement', label: 'Implement', symbol: 'I', command: '/wb:implement', doc: 'tasks.md' },
-  { key: 'validate', label: 'Validate', symbol: 'V', command: '/wb:validate_execution', doc: 'README.md' },
+  { key: 'validate', label: 'Validate', symbol: 'V', command: '/wb:validate_phase', doc: 'README.md' },
 ]
 
 const STAGE_OF = {
@@ -904,6 +952,8 @@ const STAGE_OF = {
   'wb:create_tasks': 'tasks',
   'wb:implement': 'implement',
   'wb:implement_inline': 'implement',
+  'wb:validate_phase': 'validate',
+  // Renamed to validate_phase in 5.0.0; kept so older transcripts still map to the validate stage.
   'wb:validate_execution': 'validate',
 }
 
@@ -968,7 +1018,7 @@ function labelledList(body, label) {
 
 /**
  * The README's Intent: its goal, its "Success looks like" statements, each
- * with the verdict validate_execution appended (`→ PASS (date)`), and its
+ * with the verdict validate_phase appended (`→ PASS (date)`), and its
  * non-goals. Null when the README has no Intent section.
  */
 export function readIntent(readmeText) {
@@ -978,8 +1028,9 @@ export function readIntent(readmeText) {
   const statements = labelledList(body, 'Success looks like')
     .filter(text => !isPlaceholder(text))
     .map(text => {
-      const verdict = /→\s*(PASS|FAIL|DEFERRED)\b/.exec(text)?.[1] ?? null
-      return { text: text.replace(/\s*→\s*(PASS|FAIL|DEFERRED)\b.*$/, ''), verdict }
+      // A re-run appends or replaces the suffix; if two remain, the last is current.
+      const last = [...text.matchAll(/→\s*(PASS|FAIL|DEFERRED)\b(?:\s*\((\d{4}-\d{2}-\d{2})\))?/g)].at(-1)
+      return { text: text.replace(/\s*→\s*(PASS|FAIL|DEFERRED)\b.*$/, ''), verdict: last?.[1] ?? null, date: last?.[2] ?? null }
     })
   const nonGoals = labelledList(body, 'Non-goals').filter(text => !isPlaceholder(text))
   return { goal: isPlaceholder(goal) ? '' : goal, statements, nonGoals }

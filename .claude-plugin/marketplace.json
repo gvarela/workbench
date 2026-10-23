@@ -15,7 +15,7 @@
       "name": "wb-status",
       "source": "./mods/wb-status",
       "description": "Prototype mod for wb: a read-only band above the prompt with the plan's stage while planning, then plan progress and test integrity, and a /wb-status pane.",
-      "version": "0.4.2"
+      "version": "0.4.3"
     }
   ]
 }

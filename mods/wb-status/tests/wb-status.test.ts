@@ -283,13 +283,14 @@ describe('verifier results', () => {
 })
 
 describe('pane', () => {
-  test('the four sections carry decisions, delivery, integrity, follow-ups', () => {
+  test('the sections carry decisions, delivery, integrity, follow-ups, validation', () => {
     const sections = paneSections(demoModel()!)
     expect(sections.map(section => section.heading)).toEqual([
       'Needs your decision',
       'What phase 2 delivered',
       'Test integrity',
       'Follow-ups',
+      'Validation',
     ])
     expect(sections[0].rows).toEqual([
       '⚠ halted: missing context: Build the reset form (ex-t2)',
