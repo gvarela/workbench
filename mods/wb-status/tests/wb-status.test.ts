@@ -7,6 +7,7 @@ import {
   closeReasonVerdict,
   isActivePlan,
   isRefreshCommand,
+  openAsksOf,
   paneSections,
   parseCriteria,
   parseFrontmatter,
@@ -421,5 +422,62 @@ describe('mod', () => {
     expect(await ui.find({ type: 'Text', text: /Plan:/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: 'another mod' })).toBeDefined()
     await ui.unmount()
+  })
+})
+
+describe('open questions on a finished plan', () => {
+  const DONE_MD = `---
+project: demo-plan
+status: in-progress
+created: 2026-01-01
+beads_epic: ex-epic
+beads_phases:
+  phase1_milestone: ex-m1
+beads_tasks:
+  phase1_impl_1: ex-t1
+---
+`
+  const doneIssues = [
+    { id: 'ex-epic', title: 'Epic', status: 'open', issue_type: 'epic' },
+    { id: 'ex-m1', title: 'Phase 1 Milestone', status: 'closed', closed_at: '2026-01-02T00:00:00Z' },
+    { id: 'ex-t1', title: 'Expire old links', status: 'closed', closed_at: '2026-01-02T00:00:00Z' },
+  ]
+  const openQuestion = { id: 'ex-q1', title: 'Q: Which store is the source of truth?', status: 'open', created_at: '2026-01-05T00:00:00Z' }
+  const modelOf = (issues: object[], open: object[]) =>
+    buildModel({ fm: parseFrontmatter(DONE_MD), criteria: [], issues, openIssues: open, commits: [], comments: {} })!
+  const toneOf = (segments: { text: string; tone: string }[], pattern: RegExp) => segments.find(one => pattern.test(one.text))?.tone
+
+  test('a done plan shows the question as a dim follow-up, not a warning', () => {
+    const model = modelOf(doneIssues, [openQuestion])
+    expect(model.isDone).toBe(true)
+    expect(model.blocking).toEqual([])
+    const lines = bandLines(model, 120)
+    expect(lines.text.tests).toBe('Tests: open follow-up: Which store is the source of truth? (ex-q1) · no criteria found · verifier none yet')
+    expect(lines.text.tests).not.toContain('⚠')
+    expect(toneOf(lines.tests, /^open follow-up/)).toBe('dim')
+  })
+
+  test('several questions on a done plan add a count', () => {
+    const model = modelOf(doneIssues, [openQuestion, { id: 'ex-q2', title: 'Decide: retention window', status: 'open', created_at: '2026-01-06T00:00:00Z' }])
+    expect(bandLines(model, 120).text.tests).toContain('open follow-up: Which store is the source of truth? (ex-q1) +1 more')
+  })
+
+  test('the pane lists the question under follow-ups, not needs-your-decision', () => {
+    const sections = paneSections(modelOf(doneIssues, [openQuestion]))
+    expect(sections.find(one => one.heading === 'Needs your decision')!.rows).toEqual(['Nothing needs you.'])
+    expect(sections.find(one => one.heading === 'Follow-ups')!.rows).toEqual(['○ open question: Q: Which store is the source of truth? (ex-q1)'])
+  })
+
+  test('the open asks a reading records include a done plan\'s handed-off questions', () => {
+    expect(openAsksOf(modelOf(doneIssues, [openQuestion])).map(ask => ask.id)).toEqual(['ex-q1'])
+  })
+
+  test('an in-progress plan still warns about the same question', () => {
+    const issues = doneIssues.map(issue => (issue.id === 'ex-epic' ? issue : { id: issue.id, title: issue.title, status: 'open' }))
+    const model = modelOf(issues, [openQuestion])
+    expect(model.isDone).toBe(false)
+    const lines = bandLines(model, 120)
+    expect(lines.text.tests).toBe('Tests: ⚠ open question: Which store is the source of truth? (ex-q1) · no criteria found · verifier none yet')
+    expect(toneOf(lines.tests, /^⚠ open question/)).toBe('warn')
   })
 })

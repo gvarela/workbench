@@ -346,7 +346,11 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
       blocking.push({ kind: 'reopened', id: task.id, title: task.title, why: 'reopened' })
     }
   }
-  blocking.push(...asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? '')))
+  // On a finished plan an open question was handed off on purpose: it is a
+  // follow-up, not something the plan waits on.
+  const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''))
+  if (!state.isDone) blocking.push(...asks)
+  const handedOff = state.isDone ? asks : []
 
   const openFollowUps = state.followUps.filter(item => UNCLOSED.has(item.status))
 
@@ -364,6 +368,7 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
     redCount: rows.filter(row => row.redSha !== null).length,
     verdicts,
     blocking,
+    handedOff,
     followUps: openFollowUps.map(item => ({ id: item.id, title: item.title, status: item.status, from: item.from })),
   }
 }
@@ -455,8 +460,20 @@ export function verifierSegments(verdicts) {
   return out
 }
 
+/** The open Q: and Decide: issues a model knows of: blocking ones, plus those a finished plan handed off. */
+export function openAsksOf(model) {
+  return [...model.blocking, ...(model.handedOff ?? [])].filter(item => item.kind === 'question' || item.kind === 'decision')
+}
+
 /** What needs the person, as one short phrase, and whether all is well. */
-export function attentionWords(blocking, max = Infinity) {
+export function attentionWords(blocking, max = Infinity, handedOff = []) {
+  if (blocking.length === 0 && handedOff.length > 0) {
+    // Open questions on a finished plan: a follow-up, so no warning symbol.
+    const title = String(handedOff[0].title).replace(/^(Q|Decide):\s*/, '')
+    const more = handedOff.length > 1 ? ` +${handedOff.length - 1} more` : ''
+    const room = max - cells(`open follow-up:  (${handedOff[0].id})${more}`)
+    return { text: `open follow-up: ${room < cells(title) ? shorten(title, Math.max(room, 16)) : title} (${handedOff[0].id})${more}`, isOk: true, isFollowUp: true }
+  }
   if (blocking.length === 0) return { text: '✓ nothing needs you', isOk: true }
   const first = blocking[0]
   const more = blocking.length > 1 ? ` +${blocking.length - 1} more` : ''
@@ -476,7 +493,7 @@ export function attentionWords(blocking, max = Infinity) {
 }
 
 function attentionSegment(attention, max = Infinity) {
-  return seg(shorten(attention.text, max), attention.isOk ? 'ok' : 'warn')
+  return seg(shorten(attention.text, max), attention.isFollowUp ? 'dim' : attention.isOk ? 'ok' : 'warn')
 }
 
 /**
@@ -518,7 +535,7 @@ export function bandLines(model, columns = Infinity) {
   ]
   const progress = firstFitting(progressVariants, columns)
 
-  const attention = attentionWords(model.blocking)
+  const attention = attentionWords(model.blocking, Infinity, model.handedOff)
   const label = [seg('Tests: ', 'dim')]
   const red = model.criteria.length === 0
     ? [seg('no criteria found', 'dim')]
@@ -596,9 +613,10 @@ export function paneSections(model) {
         return `${row.id}${row.title ? ` ${row.title}` : ''} · ${red} · ${verdict}${findings}`
       })
 
-  const followUps = model.followUps.length === 0
+  const handedOff = (model.handedOff ?? []).map(item => `○ ${item.why}: ${item.title} (${item.id})`)
+  const followUps = model.followUps.length === 0 && handedOff.length === 0
     ? ['No open follow-ups.']
-    : model.followUps.map(item => `${MARK[item.status] ?? '○'} ${item.title} (${item.id}${item.from ? `, from ${item.from}` : ''})`)
+    : [...model.followUps.map(item => `${MARK[item.status] ?? '○'} ${item.title} (${item.id}${item.from ? `, from ${item.from}` : ''})`), ...handedOff]
 
   return [
     ...plan,

@@ -61,6 +61,7 @@ import {
   isRefreshCommand,
   latestInvocation,
   nextCommand,
+  openAsksOf,
   paneSections,
   parseCriteria,
   parseFrontmatter,
@@ -372,7 +373,7 @@ async function read($) {
       // looked up in beads here, since a later stage being done settles it.
       const explore = docs.thoughts.length > 0 ? { thoughts: docs.thoughts.length, isDecided: false } : null
       const stages = stageStates({ ...docs.read, explore, isImplemented: built.isDone, last })
-      const asks = built.blocking.filter(item => item.kind === 'question' || item.kind === 'decision')
+      const asks = openAsksOf(built)
       return {
         ...built,
         inputs: { bd: statuses([...issues, ...asks.map(ask => ({ id: ask.id, status: 'open' }))]), docs: docStatuses(docs) },

@@ -110,7 +110,7 @@ Line 1, progress:
 
 Line 2, test integrity, with what needs you first:
 
-- **⚠ or ✓**: what needs you, the first item and a `+N more` count: a phase checkpoint waiting (above); a plan issue with a `halted:` comment and no later `verification report:`, `test integrity:`, `resolved:` or `resumed:` comment, and not closed; an issue that was closed and reopened; an open `Q:` or `Decide:` issue linked to the plan or opened since it was created. The pane lists every item.
+- **⚠ or ✓**: what needs you, the first item and a `+N more` count: a phase checkpoint waiting (above); a plan issue with a `halted:` comment and no later `verification report:`, `test integrity:`, `resolved:` or `resumed:` comment, and not closed; an issue that was closed and reopened; an open `Q:` or `Decide:` issue linked to the plan or opened since it was created. The pane lists every item. Once every phase is done, those open questions are no longer asked of you: line 2 shows them dim as `open follow-up: <title> (id)` (with `+N more`), without the `⚠`, and the pane lists them under Follow-ups.
 - **red-first n/m**: the criteria in design.md's Acceptance Criteria (`- **AC-n Title**`) that have a `red(AC-n)` commit since the plan was created. With no design.md criteria, the AC ids tasks.md mentions.
 - **verifier n✓ n✗**: the latest verdict of each verified issue in this phase: its planned tasks, and the follow-ups that moved since the previous phase's milestone closed. A verdict comes from a `verification report:` comment's `### Status:` line; from an older `test integrity:` comment, by its PASS or FAIL wording, else FAIL when a finding was escalated, else PASS (used only when no report or close reason says otherwise); or from a close reason such as `Verified PASS`. The latest wins.
 
@@ -124,6 +124,7 @@ Color marks state only, and every state keeps its symbol, so the band reads the 
 | Plan name, phase, counts, titles | default text |
 | Bar, filled cells | `permission` (the theme's blue accent); empty cells `inactive` |
 | `✓ nothing needs you` | `success` |
+| `open follow-up: …` (a finished plan's open questions) | dim |
 | `⚠ …` (checkpoint, halt, reopened, question, decision) | `warning` |
 | `n✗` (verifier failures) | `error` |
 
@@ -152,7 +153,7 @@ wb <plan>: design (draft) · P✓ R✓ D● T○ I○ V○ · ⚠ 1
 - **Needs your decision**: each blocking item, with why it is blocking.
 - **What phase N delivered**: the phase's tasks grouped by the criterion each one names (`AC-n` in its title or description), then the tasks that name none. `✓` closed, `…` in progress, `○` open.
 - **Test integrity**: per criterion, its red commit (or none), its latest verifier verdict and the task or follow-up it came from, and the integrity findings count from the `test integrity:` comment.
-- **Follow-ups**: the open follow-ups, with the issue each was discovered from.
+- **Follow-ups**: the open follow-ups, with the issue each was discovered from; on a finished plan, also its open `Q:` and `Decide:` issues.
 
 Close it with ctrl+x x, or the close mark on its frame.
 
@@ -190,7 +191,7 @@ With the log on, the pane shows a **Reading log** section with the file's path a
 
 - `ts`, `sessionId`, `event` (`start`, `change`, or `cap`)
 - `plan`: `name`, `dir`, `worktree`; `source`: `pinned` with the command and time, or `guessed` with how (`beads-in-progress`, `beads-recent`, `recent-file`, `newest-directory`)
-- `stage`, `phase` (`n`, `of`, `state`), `counts` (tasks closed/total, follow-ups open, red-first k/n, verifier pass/fail), `now` (id, title), `needsYou` (kind, id, text), and, while planning, `signals`
+- `stage`, `phase` (`n`, `of`, `state`), `counts` (tasks closed/total, follow-ups open, red-first k/n, verifier pass/fail), `now` (id, title), `needsYou` (kind, id, text), `followUps` (the open questions a finished plan handed off; present only then), and, while planning, `signals`
 - `inputs`: the beads ids and statuses the reading used, the red commits it matched per criterion, the verifier verdicts, and the document statuses
 - `band`: the two lines as plain text at the width last drawn
 

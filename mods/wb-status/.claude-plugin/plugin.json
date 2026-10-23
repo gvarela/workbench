@@ -1,6 +1,6 @@
 {
   "name": "wb-status",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "types": "./types/index.d.ts",
   "description": "Prototype mod for the wb workflow: a read-only band above the prompt with the plan's stage while planning, then plan progress and test integrity, a status line, and a /wb-status pane",
   "author": {

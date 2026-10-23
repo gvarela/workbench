@@ -113,6 +113,8 @@ export function readingRecord(model, { columns = DEFAULT_COLUMNS } = {}) {
     inputs: inputsOf(model),
     band: { columns, progress: band.progress, tests: band.tests },
   }
+  // Questions a finished plan handed off are follow-ups, never needs.
+  if ((model.handedOff ?? []).length > 0) record.followUps = model.handedOff.map(item => ({ kind: item.kind, id: item.id, text: clip(`${item.why}: ${item.title}`) }))
   if (isPlanning) record.signals = (model.signals?.[model.current] ?? []).map(text => clip(text))
   return record
 }
