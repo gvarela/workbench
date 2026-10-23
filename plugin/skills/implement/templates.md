@@ -38,13 +38,13 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 
 **Test integrity:**
 - Outer tests committed red first: ${each named by the criterion it guards}
-- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); review findings filed: ${each in plain words with its criterion and issue id}
+- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); ${the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded}; review findings filed: ${each in plain words with its criterion and issue id}
 - Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
 - Outer-test rewrites run: ${each with the criterion it guards, or "none"}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 - Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
-- Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
+- Test quality: ${weak or brittle tests and checks that fail on correct code; a defect runner's `setup_hint`, as a `!` command for you to run; or "none"}
 
 **Execution Statistics:**
 - Worker agents spawned: ${workerCount}
@@ -74,7 +74,7 @@ The user reads these notes in tasks.md, so a learning or follow-up names its sub
 - [YYYY-MM-DD] Phase ${phase} complete using coordinated workers:
   - ${workerCount} workers spawned (sequential execution)
   - Compactions this phase: ${compactionCount}
-  - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+  - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); ${the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded}
   - Phase verification: ${PASS, or FAIL with each deviation and the answer given}; Intent progress: ${each statement's status; on the final phase, its verdict}
   - Key learnings: ${aggregatedLearnings}
 ```

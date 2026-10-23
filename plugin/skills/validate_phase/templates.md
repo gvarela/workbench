@@ -75,6 +75,7 @@ From [intent-verdicts.md](../../docs/reference/intent-verdicts.md).
 ### Test Review ([phase range | whole plan range])
 - Blocking: [the reviewer's Blocking items (deterministic failures in tests the range changed), each numbered T1, T2, ... with the criterion it guards, its kind, `file:line`, and evidence; also listed under Needs Your Decision; or none]
 - Integrity: [N] findings ([M] escalated)
+- Defect checks: [each reviewer's Defect checks line, copied verbatim with its route (wb-plant-defect, mutation tool with its exact command, or not run), counts, and reasons; not summarised or reworded]
 - Findings: [verdict, the criterion the test guards, rubric item, `file:line`, evidence type, and the proof in one clause; criterion coverage gaps; settled candidates marked "n of 3"]
 - Review these: [observations that reached no verdict, each with one evidence label]
 - Not run: [checks the reviewer listed under Not Run, with reasons]
@@ -88,7 +89,7 @@ Each item: what it is, what it puts at risk, whether it blocks the release, and 
 - Deferred design question, still open (all): [each, in the form and under the rules of [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md), which also says how to handle an answer given here]
 
 ### Test Quality
-- [weak or brittle test, a missing test for a scenario, or a check that fails on correct code, with the criterion it guards] ([id] or `file:line`): [what it lets through or costs]. Fix: [the proposed fix]. [Blocks (above) / does not block]; [now / before release / later]
+- [weak or brittle test, a missing test for a scenario, a check that fails on correct code, with the criterion it guards, or a defect runner's `setup_hint` as a `!` command for the user to run] ([id] or `file:line`): [what it lets through or costs]. Fix: [the proposed fix]. [Blocks (above) / does not block]; [now / before release / later]
 
 ## Manual Testing Checklist
 

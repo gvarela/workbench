@@ -92,8 +92,14 @@ Reports, as JSON, deterministic test-integrity evidence for a task since its sta
 
 - Read-only: never writes in the repository; git (including `git blame` in `lines` mode) works on a temporary copy of the index with optional locks off, so the real index is never refreshed; when the repository has no index, that copy is built from HEAD, or from the starting commit when HEAD does not resolve (`git read-tree`), so unchanged tracked tests are not reported as deleted and re-added, and no index is created; only a failed rebuild is reported in `errors`
 - Requires only bash 3.2 and git, so it runs in repositories you do not control
+- Runs nothing the repository configures: git hooks, fsmonitor, system config, global attributes, external diff, pager, and every configured filter, diff, and merge driver are switched off (the same hardening as in the optional `wb-defects` plugin)
+- Runs nothing the environment injects: its `#!/bin/bash -p` first line makes bash ignore `BASH_ENV`, `ENV`, and exported functions, and it clears inherited `GIT_*`, `BASH_ENV`, `ENV`, and `CDPATH` before calling git, so run it by its path, not as `bash test-integrity`
 - Exit status 0 whenever it prints JSON (a check it could not make goes in `errors`); 2 on a usage error or outside a git work tree
 - Tests: `tests/test-integrity/run.sh`
+
+### Planted-defect runner
+
+The planted-defect runner is an optional separate plugin, `wb-defects` (command `wb-plant-defect`); see [wb-defects/README.md](../../wb-defects/README.md).
 
 ## Configuration
 

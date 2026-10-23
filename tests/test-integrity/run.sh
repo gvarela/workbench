@@ -344,6 +344,53 @@ check "$(run --start "$PHASE_START" --plan-start no-such-commit)" 'd["earlier_ph
 check "$(run --start "$PLAN_START" --plan-start "$PHASE_START")" 'd["earlier_phase_tests"] is None and [e for e in d["errors"] if "not an ancestor" in e]' \
     "earlier phases: a plan start after the phase start is an error and null"
 
+# ------------------------------------------------- hostile repository config
+# Local config names an fsmonitor hook and filter/diff drivers that would
+# create sentinel files; committed .gitattributes and .git/info/attributes
+# route test files through them. None of them may run.
+HOST="$TMP_ROOT/hostile"
+SENT="$TMP_ROOT/hostile-sentinel"
+mkdir -p "$HOST/spec" && cd "$HOST" || exit 1
+git init -q .
+printf 'describe "a" do\nend\n' > spec/a_spec.rb
+printf 'spec/* filter=evil diff=evil\n' > .gitattributes
+git add -A && git commit -q -m start
+START_H="$(git rev-parse HEAD)"
+printf '#!/bin/sh\ntouch "%s.fsmonitor"\nexit 1\n' "$SENT" > "$TMP_ROOT/fsmon.sh"
+chmod +x "$TMP_ROOT/fsmon.sh"
+git config core.fsmonitor "$TMP_ROOT/fsmon.sh"
+git config filter.evil.clean "sh -c 'touch $SENT.clean; cat'"
+git config filter.evil.smudge "sh -c 'touch $SENT.smudge; cat'"
+git config diff.evil.textconv "sh -c 'touch $SENT.textconv; cat'"
+git config core.pager "sh -c 'touch $SENT.pager; cat'"
+printf 'spec/* filter=evil diff=evil\n' > .git/info/attributes
+printf 'describe "a" do\n  xit "x" do\n  end\nend\n' > spec/a_spec.rb
+sleep 1
+touch spec/a_spec.rb
+OUT_H="$(run --start "$START_H" --red "$START_H:spec/a_spec.rb")"
+check "$OUT_H" '[c for c in d["changed_tests"] if c["path"]=="spec/a_spec.rb"] and [m for m in d["added_skip_markers"] if m["path"]=="spec/a_spec.rb"]' \
+    "hostile config: the change is still reported"
+for s in fsmonitor clean smudge textconv pager; do
+    [ ! -e "$SENT.$s" ] && ok "hostile config: the $s command did not run" || fail "hostile config: the $s command did not run"
+done
+
+# ------------------------------------------------- startup environment
+# Run directly, by its shebang: BASH_ENV/ENV are not sourced, exported
+# functions are not imported, and inherited GIT_* variables do not steer git.
+cd "$REPO" || exit 1
+printf 'touch "%s"\n' "$TMP_ROOT/ti-bashenv-ran" > "$TMP_ROOT/ti-bashenv.sh"
+BASH_ENV="$TMP_ROOT/ti-bashenv.sh" ENV="$TMP_ROOT/ti-bashenv.sh" "$SCRIPT" --start "$START" >/dev/null 2>&1
+[ ! -e "$TMP_ROOT/ti-bashenv-ran" ] && ok "startup: BASH_ENV and ENV are not sourced" || fail "startup: BASH_ENV and ENV are not sourced"
+(
+    eval "git() { touch '$TMP_ROOT/ti-func-ran'; command git \"\$@\"; }"
+    export -f git
+    "$SCRIPT" --start "$START" >/dev/null 2>&1
+)
+[ ! -e "$TMP_ROOT/ti-func-ran" ] && ok "startup: exported shell functions are not imported" || fail "startup: exported shell functions are not imported"
+OUT_GD="$(GIT_DIR="$TMP_ROOT/nowhere" GIT_WORK_TREE="$TMP_ROOT/nowhere" run --start "$START")"
+check "$OUT_GD" 'd["errors"] == [] and [c for c in d["changed_tests"] if c["path"]=="spec/new_spec.rb"]' \
+    "startup: inherited GIT_DIR and GIT_WORK_TREE are ignored"
+
 echo
 echo "bash $BASH_VERSION: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

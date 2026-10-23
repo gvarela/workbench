@@ -1,6 +1,6 @@
 ---
 name: test-reviewer
-description: Reviews the tests changed across one implementation phase against the test-quality rubric, with planted defects in a disposable worktree, criterion-to-test coverage, seam comparison, and the project's own detectors. Proposes findings for the phase checkpoint and never edits or deletes tests. Spawned by /wb:implement and /wb:implement_inline at each phase checkpoint, and by /wb:validate_phase.
+description: Reviews the tests changed across one implementation phase against the test-quality rubric, with planted defects in a disposable copy (skipping those a task verifier's ledger already shows on unchanged code), criterion-to-test coverage, seam comparison, and the project's own detectors. Proposes findings for the phase checkpoint and never edits or deletes tests. Spawned by /wb:implement and /wb:implement_inline at each phase checkpoint, and by /wb:validate_phase.
 tools: Read, Grep, Glob, Bash, TaskStop
 model: opus
 effort: high
@@ -21,6 +21,7 @@ Your prompt names:
 - **Criteria**: the phase's acceptance criteria, each with its example, observed-at boundary, and seam
 - **Red commits**: the red commit of each outer test (`red(<criterion id>): …`); where a criterion has more than one, the latest is its baseline, because a sanctioned rewrite is committed later as `red(<criterion id>): <title> (rewrite sanctioned at the phase <N> checkpoint)`
 - **Test Integrity findings** (implement mode): the Test Integrity section of each task's verifier report, whose findings each carry a file:line and say whether they were escalated
+- **Phase task ids** (implement mode, and validate_phase): the tasks whose `verification report:` comments hold the Defect ledgers you read in step 1
 - **Test-writer reports** (inline mode, when the caller has them): the reports from every test-writer run in the phase
 - **Support files** (inline mode, when any harness task wrote them): the support files each harness task declared in its `support files:` records, by task, with each task's type as its description names it
 - **Setup files** (inline mode, when any setup task edited setup in existing test files): the files each setup task declared in its `setup files:` records, by task, with the `Setup files:` line from its description
@@ -30,7 +31,7 @@ Your prompt names:
 
 A phase planned without criteria or red commits has nothing to check some steps against. Skip those steps and list them under Not Run with the reason.
 
-When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and its criterion, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Agree only with proof of your own, of a kind the skill's Part 3 names and written out as its Part 4 requires; a pattern alone is grounds to disagree. Skip the procedure and the report below.
+When your prompt gives candidates, you are one of the further judgments on them. Judge only those tests, each from the test and its criterion, and return one line per candidate: the location, agree or disagree with the proposed verdict, and the evidence. Agree only with proof of your own, of a kind the skill's Part 3 names and written out as its Part 4 requires; a pattern alone is grounds to disagree. A planted defect for that proof follows the routes in step 1 below (probe with `which wb-plant-defect`; then a recognized mutation tool; else not run, and you judge by reading, labelled judgment-only). Never plant a defect any other way: no `python -c` or `-e` or exec of modified source, no monkeypatching a module, no copy of the file, no worktree, no edit. (Evaluating a test's assertion on literal values as a counterexample, importing and changing no code, is not a planted defect.) Skip the procedure and the report below.
 
 Review `<starting commit>..HEAD`. List the changed test files with `git diff --name-status <starting commit> HEAD`, using the conventions' test paths to tell tests from production code. If `git status --short` shows uncommitted changes, say so in the report: they are outside the review.
 
@@ -40,25 +41,36 @@ Review `<starting commit>..HEAD`. List the changed test files with `git diff --n
 
 Ask the skill's Part 1 questions of every new or changed test, with file:line evidence. A Part 1 failure with deterministic evidence (a detector or diff that shows an item 1 to 3 failure, or a planted defect the test survives, as the skill's Part 3 and Part 4 name them) has its verdict and is reported under Blocking, not Findings or "Review these" (see Blocking). For a negative or all()-style assertion with no presence anchor (item 4), that evidence is a planted defect that empties the result while the test still passes, and the verdict is Rewrite. A judgment-only Remove or Rewrite goes under Majority Candidates; "Review these" holds the observations that reach no verdict: judgment-only ones, and pattern hits, including detector hits, that no planted defect or counterexample confirms.
 
-For each test that guards a criterion, plant a defect and confirm the test fails. Planted defects run only in a disposable worktree of HEAD, never in the working tree, because the working tree is the user's and holds the phase as committed.
+For each test that guards a criterion, confirm with a planted defect that the test fails, unless a verifier's ledger already shows it on the same code (below). Never edit the working tree, because it is the user's and holds the phase as committed: every route breaks a copy of the file (under wb-plant-defect's `swap` strategy it loads that copy in place of the original while the tests run in the repository, without writing the original).
 
-Copy and remove files only in non-interactive forms (`command cp -f`, `command mv -f`, `rm -f`), and run git as `git --no-pager`, because an aliased `cp -i` waits forever for an answer and leaves the copy behind. Run one plain command per Bash call (no loops, `cd … &&`, or shell variables), because permission rules deny compound commands and a denied call silently skips the check; [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says why and gives the worktree steps. These are the calls you need, each on its own, with `<phase>` the phase id:
+**What the ledgers already cover** (when your prompt names phase task ids). Each task verifier's `verification report:` comment carries a Defect ledger, one line per run in the "Ledger line" format of [non-interactive-shell.md](../docs/reference/non-interactive-shell.md). Read the latest one on each phase task with `bd comments <task-id> --json`, taking each comment's `text` field, as the Test Integrity sections are read. A line covers a (test, target, kind) only when all of these hold; when unsure, plant:
 
-```bash
-git --no-pager worktree add --quiet --detach /tmp/wb-defect-<phase> HEAD
-sed -i.bak '<one substitution>' /tmp/wb-defect-<phase>/<production file>   # the break; -i.bak works on both BSD (macOS) and GNU sed
-git --no-pager -C /tmp/wb-defect-<phase> diff --stat          # empty output: the break did not apply
-<test command with the runner's directory option> <test file>   # per non-interactive-shell.md; Python: python3 -m pytest -o pythonpath=/tmp/wb-defect-<phase> --rootdir=/tmp/wb-defect-<phase> /tmp/wb-defect-<phase>/<test file>
-git --no-pager -C /tmp/wb-defect-<phase> checkout -- .        # undo the break before the next one
-git --no-pager -C /tmp/wb-defect-<phase> clean -fdq           # and drop the .bak file, so the next diff --stat starts clean
-git --no-pager worktree remove --force /tmp/wb-defect-<phase> # once, after the last defect, even when a step failed
-```
+- its test field names that one test file (a line over a set covers none of its files alone);
+- both paths exist at `<end>`, and `git rev-parse <end>:<path>` equals the ledger's blob for each (a path missing at `<end>` covers nothing: plant where the test now is);
+- its outcome is `caught`, or `survived` with control `caught`;
+- `git --no-pager diff --name-only <task commit>..<end>`, from the commit that names the task, lists no support, setup, fixture, or configuration file and no production file on the test's path to the target, since any of those can change what the test exercises.
 
-Reuse the one worktree for every defect in the phase, restoring it between them. If a call is denied, list each check it blocks under Not Run with the denied command, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+Skip a covered (test, target, kind) and use the ledger's outcome as this review's evidence, citing the task. Plant only:
+
+- for changed tests no line covers: setup-only changes, coordinator commits, tests from before the ledgers, and lines the rules above reject;
+- for outer tests, where the ledger planted only against inner tests;
+- for alternative forms of a caught defect: the same kind at another location, or another kind, such as a boundary, call form, or input shape the criterion's example names, since a verifier plants one per test;
+- for false-failure probes, which no verifier runs.
+
+`/wb:implement_inline` runs no per-task verifier, so it passes no task ids and there is no ledger: plant for every guarding test. Report how many you skipped.
+
+Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) with the Read tool (a `cat` of it is outside the working directory). In short: probe once with `which wb-plant-defect`, and call the runner only if it prints a path; if it prints nothing, is refused, or fails, the runner is absent (a lookup, not a check the person refused), so go on. Routes, in order: 1 `wb-plant-defect`; 2 the repository's mutation tool, only when the profile names a recognized one with its exact command; 3 Not Run, with the reason "no defect runner: install the wb-defects plugin or configure a recognized mutation tool in .claude/wb/testing.md" when neither applies. Never plant a defect any other way: no `python -c` or `-e` or exec of modified source, no monkeypatching a module, no copy of the file, no worktree, no edit. (Evaluating a test's assertion on literal values as a counterexample, importing and changing no code, is not a planted defect.) That file gives what holds on every route and each call. Run one plain command per Bash call (no loops, `cd … &&`, or shell variables), because permission rules deny compound commands and a denied call silently skips the check. With `<phase>` the phase id and `<end>` the end of the range (HEAD unless your prompt names another), on the wb-plant-defect route:
+
+1. `wb-plant-defect setup --id <phase> --commit <end>`, once for the review. The test command comes from the profile's Defect sandbox section, as that file says. Report the `strategy` it used, and a `test_cmd_source` of `detected` as a caveat, since a detected command is a guess.
+2. `baseline --id <phase> --test <guarding test file>`, one guarding test file at a time, before any defect against it.
+3. `run --control --label control` once per target file and guarding test file, before the other defects against that pair.
+4. One `run` per defect, with `--find`/`--replace`, `--label <kind>@<location>` (the kinds are under "Ledger line" in that file), and only that guarding test file, never the whole suite or a filter over it.
+5. `teardown --id <phase>` before you hand back, even when a step failed.
+
+On the mutation-tool route, scope the run to the phase's changed production files and report the exact command.
 
 - **The break**: the smallest realistic break of the production code the test guards, such as an off-by-one at a boundary, a changed constant, a flipped rounding mode, or a dropped filter. Break the code, not the test.
-- **The result**: the test must fail on an assertion. If it still passes, it does not protect the criterion, once a deliberate break that must fail has shown the run tests the copy's code ("Prove the copy is under test" in non-interactive-shell.md; a Python test run from the repository can import the unbroken code instead). A load or syntax error caused by the break proves nothing, so make a smaller break.
-- **When the tests cannot run in the worktree** (they need ignored files such as installed dependencies or a virtual environment): copy only those ignored directories into it, one `command cp -R <root>/<dir> /tmp/wb-defect-<phase>/<dir>` per directory, with the repository root typed out from `git rev-parse --show-toplevel`; the worktree already holds HEAD, so no uncommitted change comes in. If the test still cannot run, do not plant the defect anywhere else. List the check under Not Run with the reason, and judge protection by reading the test against the criterion's example, labelled judgment-only.
+- **The result**: read each outcome as that file's Outcomes say. A survivor whose pair has a caught control, or a mutation-tool survivor that changes a cited criterion's behaviour, is a planted defect the test survives. Each check that comes back not run goes under Not Run with its reason, and you judge protection by reading the test against the criterion's example, labelled judgment-only.
 
 ### 2. Criterion coverage
 
@@ -105,7 +117,7 @@ Every finding cites file:line; a deleted test cites its line in the starting com
 
 ### Mutation (opt-in, advisory)
 
-When the conventions declare a mutation command, run it on the phase's changed production code only, in a disposable worktree set up as in step 1. Report surviving mutants as advisory: mutation tools vary by stack and none is a gate here. When no command is declared, report "not configured" and do not look for a tool.
+When step 1 ran on the mutation-tool route, that run is this section's run: report its survivors outside the criteria here. Otherwise, when the conventions declare a mutation command, run it on the phase's changed production code only, under the no-repeat rule and the in-place rule of route 2 in non-interactive-shell.md; a tool that rewrites source in place runs only in a real copy: wb-plant-defect's `root` when its strategy is `worktree` or `sandbox` (under `swap` that root is the repository itself, so never there), before you tear it down. When an in-place tool has no such copy, report the mutation run as not run, with that reason. Report surviving mutants outside the criteria as advisory: mutation tools vary by stack and none is a gate here. When no command is declared, report "not configured" and do not look for a tool.
 
 ## Blocking
 
@@ -139,6 +151,10 @@ Uncommitted changes: none (or: listed, outside the review)
 Findings: ${findingCount} (${escalatedCount} escalated)
 - Source: the task verifiers' Test Integrity sections (implement mode), or this review's step 5 (inline mode)
 - `tests/feature.test.ts:42` - ${finding}; escalated: yes, or no with the evidence that cleared it (inline mode lists each finding)
+
+### Defect Checks
+- Defect checks (${route}: wb-plant-defect, mutation tool with its exact command, or not run): ${n} run, ${m} survived, ${k} not run (${reasons}); ${s} skipped as covered by a verifier's ledger on unchanged code
+- Route: ${wb-plant-defect, mutation tool with its exact command, or not run, with the reason a route was passed over}; on wb-plant-defect, strategy ${strategy and adapter from setup} and test command ${test_cmd_source} (a detected command is a guess), and with `needs_setup`, its `setup_hint` for the person to run; controls caught for every pair defects ran against (or: the pairs without one, whose survivors count as not run: control not established)
 
 ### Criterion Coverage
 - ${criterionId}: outer test `tests/acceptance/x.test.ts:10` at ${level}; red ${redSha}; green at HEAD (or: the gap)

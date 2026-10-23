@@ -107,7 +107,7 @@ Provide:
 - Instructions: Read the task and its cited criteria as your agent definition's Inputs says, then fix the specific issues the verification report names. Where it names a class of failure, such as the cases a rewrite of an outer test stopped catching, fix the whole class, not only the instances it lists: the re-verification checks the class again, and there is no second fix attempt. Close beads issue when done.
 ```
 
-**Re-verify** using the task-verifier agent with the same context, again with no `model` parameter. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
+**Re-verify** using the task-verifier agent with the same context plus one line, `Re-verification: yes; the earlier verification report: comment holds the FAIL and its Defect ledger`, again with no `model` parameter. It re-plants only the defects behind the FAIL and those whose target file the fix changed, and carries the rest of the ledger over, since the suite run covers the unchanged code. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
 
 **If re-verification fails**: halt the phase with the "Failed Re-verification Halt" in [reference.md](reference.md). Do not spawn a second fix worker.
 

@@ -298,7 +298,7 @@ make build          # or npm run build, go build
 
 #### 3. Review the Phase's Tests and Verify the Phase
 
-Spawn `wb:test-reviewer` and, in the same message, `wb:phase-verifier` ("Phase Verification" in [reference.md](reference.md): its prompt values, verdict, and barrier), both with no `model` parameter (their definitions pin Opus at `high`). Give the reviewer the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section from the phase tasks' `test integrity:` comments, the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
+Spawn `wb:test-reviewer` and, in the same message, `wb:phase-verifier` ("Phase Verification" in [reference.md](reference.md): its prompt values, verdict, and barrier), both with no `model` parameter (their definitions pin Opus at `high`). Give the reviewer the phase's starting commit (Step 4), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits, each task verifier's Test Integrity section from the phase tasks' `test integrity:` comments, the phase task ids (it reads each verifier's Defect ledger from their `verification report:` comments and skips the defects already checked on unchanged code), the conventions source, and mode `implement`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
 Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these". File each escalated integrity finding and each "n of 3" finding as an issue linked to its task, as "Evidence in Beads" in [reference.md](reference.md) shows, so a Rewrite or Remove proposal outlives this summary. A Rewrite of an outer test that the person sanctions by name runs as a task you file and run before closing the milestone, under "Sanctioned Outer-Test Rewrite" in reference.md, because the rewrite must keep everything the red-commit version catches.
 
@@ -323,14 +323,14 @@ ${manualVerificationSteps}
 
 **Test integrity** (proposals; no test was edited):
 - Outer tests committed red first: ${each named by the criterion it guards}
-- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated)
+- Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); ${the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded}
 - Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
 - Review findings: ${reviewFindings, each with the criterion it guards and what the weakness lets through}  (settled candidates marked "n of 3")
 - Review these: ${reviewThese, each in plain words with its file:line after}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
 - Product and plan: ${behavior gaps, explained deviations, Intent statements at risk, design questions, and risks in the code such as security or performance, or "none"; on the final phase, each deferred design question still open, per "Phase Completion Report" in templates.md}
-- Test quality: ${weak or brittle tests and checks that fail on correct code, or "none"}
+- Test quality: ${weak or brittle tests and checks that fail on correct code; a defect runner's `setup_hint`, as a `!` command for you to run; or "none"}
 
 **Beads state:** all Phase ${phase} tasks closed; the Phase ${phase} milestone (${phaseMilestoneId}) is ready to close.
 

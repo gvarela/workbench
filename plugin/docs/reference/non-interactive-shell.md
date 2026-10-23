@@ -7,7 +7,7 @@ The plugin runs in shells and repositories its author does not control, and a us
 Use forms that cannot prompt:
 
 - Write `command cp -f` and `command mv -f`: `command` skips aliases and functions, and `-f` skips the overwrite question.
-- Prefer a git-native form where it fits: `git show <rev>:<path> > <file>` or `git restore` to bring a file back, `git archive` for an export, `git worktree add` for a disposable checkout.
+- Prefer a git-native form where it fits: `git show <rev>:<path> > <file>` or `git restore` to bring a file back, `git archive` for an export, `git worktree add` for a disposable checkout; for planted defects, the routes under "Planted defects" below.
 - Keep git from opening a pager with `git --no-pager` (or `GIT_PAGER=cat`) and from opening an editor with `-m <message>` or `--no-edit` (or `GIT_EDITOR=true`), and pass `-f` to `rm` where deleting is the intent.
 
 ## One plain command per Bash call
@@ -16,26 +16,74 @@ Permission rules in the user's settings approve or deny each Bash call by its te
 
 When a call you need is still denied, do not work around it with another form: record the check under Not Run with the denied command and the reason, so the person sees what went unchecked.
 
-## A disposable worktree in plain commands
+## Planted defects
 
-Planted defects and other changes that must not touch the user's working tree go in a disposable worktree at a fixed path you name yourself, `/tmp/wb-defect-<id>` (the task or phase id, so two agents do not collide). Each step is its own Bash call:
+A planted defect is a small break in the code a test guards, made in a disposable copy, to show the test fails on it. It must never touch the user's working tree, which holds their work. There are two routes and a fallback, tried in this order; take the first that can run, and name it in your report's Defect checks line (`wb-plant-defect`, `mutation tool`, or `not run`):
+
+1. **wb-plant-defect**, when `which wb-plant-defect` (one Bash call, once per agent run) prints a path; only then call the runner, whose calls the `Bash(wb-plant-defect *)` rule covers. Do not probe with the runner itself: with the plugin absent, no rule covers that call, so it would prompt the person on every spawn. It comes from the optional `wb-defects` plugin, which puts it on the Bash tool's PATH while that plugin is enabled. If `which` prints nothing, is refused, or fails, the runner is absent: that is a lookup, not a check the person refused, so go to route 2.
+2. **The repository's own mutation tool**, only when it is recognized, as route 2 below defines.
+3. **Not run**, with the reason.
+
+A route that is absent, or that reports it cannot run here (`strategy: none`, a refusal in `errors`, a mutation tool that will not start), passes to the next. A denied defect call (not the probe) does not: the checks it was for are not run, with the denied command as the reason, because trying another form of a call the person refused works around their decision. When neither route applies, the reason is one line: "no defect runner: install the wb-defects plugin or configure a recognized mutation tool in .claude/wb/testing.md".
+
+### On every route
+
+- **Guarding test files only**: run only the test files that guard the code under the break, never the whole suite or a filter over it. A defect needs only those tests, and a suite run per defect is where most of the time goes.
+- **A control first**: before you trust a defect the test survives, prove the copy is under test with one break against the same target file and guarding test file that must be caught: a break in the function the test calls directly, such as making it raise or return a wrong constant. A survivor counts only when its pair's control was caught; otherwise it is not run, with the reason "control not established". A load or syntax error caused by a break proves nothing, so make a smaller break.
+- **Outcomes**: caught means the test protects against that defect; survived, with a caught control, is a defect the test misses; anything else (not applied, a timeout, an error, a test run that could not start) is not run, with its reason.
+- **Ledger line**: an agent that keeps a Defect ledger writes one line per defect, the control included: `test path(s) | target file | target_blob | test blob(s) | kind@location | outcome | control`. Test paths and blobs are comma-separated when the run named a set. `kind` is one of `control`, `boundary`, `constant`, `rounding`, `dropped-filter`, `negated-condition`, `removed-call`, `wrong-value`, `other`; `location` is the function name or line. `control` is `caught` or `none` for that pair. No backticks and no `|` inside a field, so the line splits cleanly. wb-plant-defect prints the blobs; on the mutation-tool route take them with `git hash-object --no-filters <path>` for a file with uncommitted changes, or `git rev-parse <commit>:<path>` for a committed one. A mutation tool's survivor gets a line with kind `other` and its mutant at the location; a killed mutant needs none.
+- **The rest holds whichever route ran**: the test reviewer's skip rule over the verifiers' ledgers, the targeted re-verification, the no-repeat rule for mutation tools, and the count of not-run checks in every checkpoint report.
+
+### Route 1: wb-plant-defect
+
+`wb-plant-defect` keeps its copies in a directory of its own (setup prints it as `root`; never type a temporary path yourself), keyed by the id your agent definition gives so two agents do not collide, and prints one JSON object per call. Each call is its own Bash call, starting with the bare command name as below, because the permission rule that allows it (`Bash(wb-plant-defect *)`, from "Planted-defect checks" in the wb README) matches the command text as written. Never run it through an interpreter (`bash wb-plant-defect …`): its `#!/bin/bash -p` first line is what keeps `BASH_ENV` from running code before it starts.
 
 ```bash
-git rev-parse --show-toplevel                                  # the repository root; type it into later calls
-git --no-pager worktree add --quiet --detach /tmp/wb-defect-<id> HEAD
-sed -i.bak '<one substitution>' /tmp/wb-defect-<id>/<file>      # the break
-git --no-pager -C /tmp/wb-defect-<id> diff --stat              # shows the break applied
-git --no-pager -C /tmp/wb-defect-<id> checkout -- .            # after the run: undo the break
-git --no-pager -C /tmp/wb-defect-<id> clean -fdq               # and drop the .bak file
-git --no-pager worktree remove --force /tmp/wb-defect-<id>     # always, even after a failed step
+wb-plant-defect setup --id <id> --working-tree         # or --commit <sha>; once per agent run
+wb-plant-defect baseline --id <id> --test <test file>     # once per guarding test file
+wb-plant-defect run --id <id> --file <source file> --find '<literal>' --replace '<literal>' --test <test file> --control --label control
+wb-plant-defect run --id <id> --file <source file> --find '<literal>' --replace '<literal>' --test <test file> --label '<kind>@<location>'
+wb-plant-defect teardown --id <id>                        # always, even after a failed step
 ```
 
-- **The break**: one `sed -i.bak` command on the file under `/tmp/wb-defect-<id>/`. The `.bak` suffix attached to `-i` works on both BSD (macOS) and GNU sed, where a bare `-i` does not. After the run, `checkout -- .` restores the file and `clean -fdq` removes the `.bak` file (ignored files such as copied dependencies stay), so the next break's `diff --stat` shows only that break.
-- **Uncommitted changes**, when the check needs them (task-verifier): `git --no-pager diff HEAD --binary > /tmp/wb-defect-<id>.patch` from the repository, then `git -C /tmp/wb-defect-<id> apply /tmp/wb-defect-<id>.patch`; for each untracked file `git ls-files --others --exclude-standard` lists, one `command cp -f <root>/<file> /tmp/wb-defect-<id>/<file>` per file.
-- **Running the test there**: use the test runner's own directory or path option where it has one (`npm --prefix /tmp/wb-defect-<id> test`, `go -C /tmp/wb-defect-<id> test ./...`). For Python, `python3 -m pytest -o pythonpath=/tmp/wb-defect-<id> --rootdir=/tmp/wb-defect-<id> /tmp/wb-defect-<id>/<test file>`: run from the repository, a plain `pytest` puts the current directory first on `sys.path`, so the worktree's test can import the user's unbroken code and a planted defect looks as if it survived. A runner with none needs the worktree as its working directory, and `cd /tmp/wb-defect-<id> && <test command> <test file>` is then the one compound form to try; if it is denied, the check goes under Not Run.
-- **Prove the copy is under test**: before you trust a defect that survived, plant one deliberate break that must fail (in the function the test calls directly, such as making it raise or return a wrong constant) and run the same command. If that passes too, the run is not testing the worktree's code; fix the command, or list the check under Not Run.
-- **Permission rules it needs**: Claude Code treats `sed -i` as a file edit, so the break needs an Edit rule for the worktree path even though the agent has no Edit tool; without one the break is denied and the check goes under Not Run. To let planted defects run, allow `Bash(git worktree:*)`, `Edit(//tmp/wb-defect-*/**)`, and on macOS also `Edit(//private/tmp/wb-defect-*/**)`, since `/tmp` resolves there.
-- **Cleanup**: nothing removes the worktree for you, since no `trap` spans separate calls. Run the `worktree remove` call (and `rm -f /tmp/wb-defect-<id>.patch` when you made one) before you hand back, whether the checks passed, failed, or stopped early, and confirm with `git --no-pager worktree list`.
+- **Setup**: `--working-tree` brings in uncommitted and untracked changes (task-verifier: the task is not committed yet); `--commit <sha>` uses a commit (test-reviewer: the phase end; with neither flag, HEAD). The test command comes only from the `test command` line under `## Defect sandbox` in `.claude/wb/testing.md`, which a person confirmed through `/wb:testing-profile`, and runs without a shell, and as defence in depth the runner rejects known shells, inline-code flags, and launchers that reach beyond the repository as that command, and runs no setup commands; without that line the runner detects one, and `test_cmd_source: detected` is a guess, so report it as a caveat. Report the `strategy` (and `adapter`) the setup used: a worktree is the general path, and `swap` is a faster one the runner picks from the command text and drops, with the reason in `strategy_notes`, when it cannot be trusted. `strategy: none` means this route cannot run here, and `errors` says why (for want of a command: "no test command in .claude/wb/testing.md (Defect sandbox); run /wb:testing-profile"): pass to the next route and carry that reason. When setup prints `needs_setup: true`, a sandbox's dependencies must be installed first: every check is not run, with the reason "sandbox needs dependencies installed", and you relay `setup_hint` in your report as an action for the person (for example a `!` command), never running it yourself; the checkpoint or validate report lists it under Follow-ups. Give every path repository-relative: the runner refuses `..`, absolute paths, paths that start with `-`, and paths through a symlinked directory.
+- **One guarding test file per baseline and run**: name more than one only when they form one test, such as a spec and the shared-example file it includes, because a ledger line covers exactly the tests its run named.
+- **Baseline**: runs the guarding test file unchanged and sets the timeout for later runs of it (`timeout_s`; `--timeout` overrides). A failing baseline means the defects against that test cannot be judged: later runs against it come back `not_run`.
+- **Bash timeout**: set the Bash tool's `timeout` above twice the `timeout_s` the baseline printed (for the 120 second default, `timeout: 300000`), so a slow run finishes instead of moving to the background.
+- **One call per defect**: `run` applies the edit to a copy of the one file, confirms it applied, runs only the named test files, and restores the copy. The break is `--find`/`--replace` with a literal that occurs exactly once in the file, so it either applies or is reported as not applied.
+- **The control**: `run --control --label control` against each pair before its other defects. The runner tracks `control_ok` per pair; `control_ok` false or null means a survivor is not run, "control not established". If you skip the control, the runner replaces the whole target with a syntax error on the first survivor (`auto_control`); that proves only that the test loads the file, so run your own.
+- **Outcomes in the JSON**: `caught`; `survived`, counted only with that pair's `control_ok: true`; `not_run`, `timeout`, `error`, and `applied: false` are not run, with the reason from `errors` or `output_tail`. `error` covers a command that could not start (exit 126 or 127) and, for pytest only, a run that collected no tests (exit 4 or 5); other runners can exit 0 having run nothing, which only the pair's control exposes.
+- **Another version of a test**: `--test-file <path>=@<commit>` on `baseline` or `run` runs that test path as it was at a commit, and `--test-file <path>=-` reads the full text from a quoted heredoc on the same call, so one setup compares versions without writing a file; there is no local-file form. Baseline with the same `--test-file` first. Every heredoc line and the closing delimiter start at column 0:
+
+  ```bash
+  wb-plant-defect run --id <id> --file <source file> --find '<literal>' --replace '<literal>' --test <test file> --test-file <test file>=- --label '<kind>@<location>' <<'WB_TEST_END'
+  <the test file's full text>
+  WB_TEST_END
+  ```
+
+- **A usage error is your call's fault**: exit 2 with a usage message means fix the call and run it again. Still no JSON after a corrected call means this route cannot run: pass to the next.
+- **Cleanup**: no `trap` spans separate calls, so run `teardown` for every id you set up before you hand back, whether the checks passed, failed, or stopped early.
+
+### Route 2: the repository's mutation tool
+
+This route runs only when both hold:
+
+- the Mutation section of `.claude/wb/testing.md` (or, without that file, research's Testing Conventions) names the tool and its command;
+- the command's executable is one of these, run as written here: mutmut (`mutmut run`, or `python -m mutmut run`); Stryker (`node_modules/.bin/stryker run`, or `npx stryker run` only when `node_modules/.bin/stryker` exists in the repository, so nothing is fetched); PIT, through the repository's existing Maven or Gradle plugin (`mvn pitest:mutationCoverage`, `gradle pitest`, or the repository's wrapper for either); cargo-mutants (`cargo mutants`); mutant (`bundle exec mutant run`); gremlins (`gremlins unleash`).
+
+Anything else is not run, with the reason above: an unrecognized tool, a wrapper script, a make target, or a shell command (a pipe, `&&`, `sh -c`, `bash`, `env`). Never install or fetch a tool, and never let one fetch itself.
+
+- **mutmut writes `mutants/` in the working tree**: run it only when `.gitignore` lists `mutants/`; otherwise the run is not run, with that reason, so it never lands in the task's diff.
+- **Scope**: use the tool's own options to limit the run to the changed production files (the task's for a verifier, the phase's for a reviewer) and the guarding test files, with a Bash `timeout` as the time budget (`timeout: 600000` at most). A run that passes the budget is not run, with that reason.
+- **Say what ran**: report the exact resolved command. It runs the repository's code and build with the user's privileges, under Claude Code's normal permission prompts; wb recommends no allow rule for it.
+- **Triage the survivors** against the criteria the task or phase cites: only a survivor that changes a criterion's behaviour counts as a defect the test survives. An equivalent mutant (one no test could tell apart) or one outside the criteria's behaviour is a note, not a finding.
+- **The control**: the tool's own baseline run must pass, and at least one mutant against each pair must be killed; without a kill against a pair, its survivors are not run, "control not established".
+- **No repeats**: for a module unchanged since the tool last ran on it, read the cached or incremental results the tool keeps, or the results an earlier ledger cites, instead of running it again.
+- **Another version of a test** has no form on this route: a check that needs one (a sanctioned rewrite's differential, a class fix's check) needs route 1, and without it is not run, with that reason.
+
+### Route 3: not run
+
+When no route can run, or a call is denied, each check goes under Not Run with the reason, and protection is judged by reading the test against the criterion's example, labelled judgment-only. Never plant a defect any other way: no `python -c` or `-e` or exec of modified source, no monkeypatching a module, no copy of the file, no worktree, no edit. (Evaluating a test's assertion on literal values as a counterexample, importing and changing no code, is not a planted defect.)
 
 ## End background shells before handing back
 

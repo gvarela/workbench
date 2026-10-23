@@ -44,23 +44,33 @@ To release new commands/skills/agents:
 
 Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by version and only `claude plugin update` invalidates it.
 
-### Permissions for Planted-Defect Checks
+### Planted-defect checks
 
-`task-verifier` and `test-reviewer` check that a test can fail by breaking the code in a disposable git worktree at `/tmp/wb-defect-<id>` and running the test there. Claude Code treats the in-place `sed` that makes the break as a file edit, so allow these rules (in `~/.claude/settings.json` or the project's `.claude/settings.json`) or the check is reported under Not Run:
+`task-verifier`, `test-reviewer`, `test-writer`, and the `/wb:implement_inline` session check that a test can fail by breaking the code in a disposable copy and running only the guarding tests against it. None of them writes your working tree. They take the first route that can run, and report which one ran:
+
+1. **`wb-plant-defect`**, from the optional `wb-defects` plugin, when it is installed and enabled: one call per defect, unattended once allowed.
+2. **The repository's own mutation tool**, only when `.claude/wb/testing.md` names a recognized one under Mutation (mutmut, Stryker, PIT, cargo-mutants, mutant, or gremlins) with its exact command: run on the changed files only, with surviving mutants judged against the plan's criteria. It runs the repository's code and build with your privileges, under Claude Code's normal permission prompts; wb recommends no allow rule for it, and never installs or fetches a tool. A wrapper script or shell command is never run.
+3. **Not run**: when neither route applies, or you deny a call, the check is reported as not run ("no defect runner: install the wb-defects plugin or configure a recognized mutation tool in .claude/wb/testing.md"), and the agent judges the test by reading it.
+
+To install the runner:
+
+```bash
+claude plugin install wb-defects@gvarela-workbench
+```
+
+Then allow it in `~/.claude/settings.json` (project allow rules apply only once the workspace is trusted):
 
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(git worktree:*)",
-      "Edit(//tmp/wb-defect-*/**)",
-      "Edit(//private/tmp/wb-defect-*/**)"
+      "Bash(wb-plant-defect *)"
     ]
   }
 }
 ```
 
-The last rule is for macOS, where `/tmp` resolves to `/private/tmp`. The agents still have no Edit tool; the rule only lets their `sed` touch the disposable copy.
+The test command it runs comes only from the `test command` line under `## Defect sandbox` in `.claude/wb/testing.md`, which `/wb:testing-profile` drafts and you confirm, and it runs without a shell. Allowing the wb-defects runner means trusting everything in the repository as code you'd run — its tests and its .claude/wb/testing.md profile — just as allowing its test runner does. As defence in depth it rejects known shells, inline-code flags, and launchers that reach beyond the repository (containers, remote hosts), runs no setup commands, and edits only a copy; a repository script can still run whatever it contains. See [wb-defects/README.md](wb-defects/README.md). The plugin puts a command on the Bash tool's PATH from its `bin/` directory, so it cannot be installed on claude.ai or in Cowork; wb works there without it.
 
 ### Using Commands
 
@@ -96,6 +106,8 @@ claude plugin install wb-status@gvarela-workbench
 Then restart Claude Code, or run `/reload-plugins` in a running session. To try it for one session from a checkout instead: `claude --plugin-dir ./mods/wb-status`.
 
 It is read-only: it never writes to your repository or to beads, and never approves or denies a tool call. Install it at user scope (the default) so it shows in every repository; a project- or local-scope install shows only in that one.
+
+The marketplace's other optional companion is `wb-defects`, the planted-defect runner (see [Planted-defect checks](#planted-defect-checks)).
 
 ### What it shows
 
@@ -169,10 +181,10 @@ Specialized agents for codebase analysis:
 - **`pattern-finder`** - Find similar patterns and implementations
 - **`research-validator`** - Check a research document's paths, snippets, and claims against the code
 - **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests, apart from the support code a harness task delivers
-- **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants a defect to check that changed tests can fail
+- **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants defects (with `wb-plant-defect` when installed) to check that changed tests can fail, listing them in a defect ledger
 - **`phase-verifier`** - At each phase checkpoint, compare the phase's tasks with its diff (planned changes missing, changes nobody planned), list earlier phases' tests the phase changed, and report progress on each Intent success statement; edits nothing
 - **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
-- **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint; proposes findings, edits nothing
+- **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint, planting defects only where no verifier's ledger covers the test; proposes findings, edits nothing
 - **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
 
 ### Skills (auto-activated)
@@ -211,6 +223,8 @@ workbench/
 │   ├── scripts/        # Utility scripts (lint, test-integrity)
 │   └── docs/reference/ # Runtime-referenced shared docs
 ├── tests/              # Tests for the shipped scripts (not shipped)
+├── mods/wb-status/     # Optional status band plugin
+├── wb-defects/         # Optional planted-defect runner plugin
 └── docs/               # Maintainer guides + project plans (not shipped)
 ```
 

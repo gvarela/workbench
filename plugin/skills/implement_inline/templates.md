@@ -70,7 +70,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 **Test integrity** (proposals; no test was edited):
 
 - Outer tests committed red first: [each named by the criterion it guards]
-- Integrity findings: [total] ([escalated] escalated)
+- Integrity findings: [total] ([escalated] escalated); [the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded]
 - Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
 - Review findings: [each with the criterion it guards and what the weakness lets through; settled candidates marked "n of 3"]
 - Review these: [each in plain words with its file:line after]
@@ -78,7 +78,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
 
 - Product and plan: [behavior gaps, explained deviations, Intent statements at risk, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
-- Test quality: [weak or brittle tests and checks that fail on correct code, or none]
+- Test quality: [weak or brittle tests and checks that fail on correct code; a defect runner's `setup_hint`, as a `!` command for you to run; or none]
 
 **Beads state:** all Phase [N] tasks closed; the Phase [N] milestone ([phase-milestone-id]) is ready to close.
 
@@ -106,14 +106,14 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 **Test integrity:**
 
 - Outer tests committed red first: [each named by the criterion it guards]
-- Integrity findings: [total] ([escalated] escalated); review findings filed: [each in plain words with its criterion and issue id]
+- Integrity findings: [total] ([escalated] escalated); [the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded]; review findings filed: [each in plain words with its criterion and issue id]
 - Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
 - Outer-test rewrites run: [each with the criterion it guards, or "none"]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 
 - Product and plan: [behavior gaps, design questions, and risks in the code such as security or performance, or none]; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
-- Test quality: [weak or brittle tests and checks that fail on correct code, or none]
+- Test quality: [weak or brittle tests and checks that fail on correct code; a defect runner's `setup_hint`, as a `!` command for you to run; or none]
 
 **Beads tracking**:
 

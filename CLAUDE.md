@@ -17,6 +17,7 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
 - `tests/` - Tests for the shipped scripts (`tests/test-integrity/run.sh`; never shipped to installs)
+- `wb-defects/` - Opt-in companion plugin in the same marketplace: `bin/wb-plant-defect`, the planted-defect runner, on the Bash tool's PATH while enabled (tests at `wb-defects/tests/run.sh`). wb never requires it: the defect-check routes in `plugin/docs/reference/non-interactive-shell.md` fall back to the repository's recognized mutation tool, then Not Run
 - `.claude/` - Local development configuration
 
 ## Development Tools
