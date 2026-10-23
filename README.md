@@ -44,6 +44,24 @@ To release new commands/skills/agents:
 
 Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by version and only `claude plugin update` invalidates it.
 
+### Permissions for Planted-Defect Checks
+
+`task-verifier` and `test-reviewer` check that a test can fail by breaking the code in a disposable git worktree at `/tmp/wb-defect-<id>` and running the test there. Claude Code treats the in-place `sed` that makes the break as a file edit, so allow these rules (in `~/.claude/settings.json` or the project's `.claude/settings.json`) or the check is reported under Not Run:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git worktree:*)",
+      "Edit(//tmp/wb-defect-*/**)",
+      "Edit(//private/tmp/wb-defect-*/**)"
+    ]
+  }
+}
+```
+
+The last rule is for macOS, where `/tmp` resolves to `/private/tmp`. The agents still have no Edit tool; the rule only lets their `sed` touch the disposable copy.
+
 ### Using Commands
 
 ```bash
@@ -55,7 +73,7 @@ Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by ve
 /wb:create_design docs/plans/...
 /wb:create_tasks docs/plans/...
 /wb:implement docs/plans/...
-/wb:validate_execution docs/plans/...
+/wb:validate_phase docs/plans/... all  # Also runs automatically at the last checkpoint
 ```
 
 **Skills** (auto-activated): `project-structure`, `doc-adherence`, `tdd-discipline`, `verification-before-completion`, `status-sync`. `mockup-iteration` and `review-prep` run when you or the model invoke them.
@@ -63,6 +81,61 @@ Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by ve
 Auto-activation depends on the model electing these skills, which in practice happens rarely inside workflow-command sessions. During coordinated execution the discipline is guaranteed structurally instead: task-workers preload `tdd-discipline` and every task passes through `task-verifier`. The auto-activated skills primarily protect **solo and ad-hoc** changes made outside the workflow commands.
 
 **[Full Commands Reference](docs/commands-reference.md)**
+
+## Status Band (optional `wb-status` mod)
+
+`wb-status` is a separate, optional plugin in the same marketplace. It draws a two-line band above the prompt that shows where your plan stands and whether anything needs you, so you do not have to run `/wb:help` or `bd` to find out. It is a prototype built on Claude Code's [mods API](https://code.claude.com/docs/en/plugins/mods/overview), which is early access, so it can change between Claude Code releases.
+
+### Install
+
+```bash
+# Once the marketplace is added (see Installation above)
+claude plugin install wb-status@gvarela-workbench
+```
+
+Then restart Claude Code, or run `/reload-plugins` in a running session. To try it for one session from a checkout instead: `claude --plugin-dir ./mods/wb-status`.
+
+It is read-only: it never writes to your repository or to beads, and never approves or denies a tool call. Install it at user scope (the default) so it shows in every repository; a project- or local-scope install shows only in that one.
+
+### What it shows
+
+**While a phase runs**: the plan, the phase, task progress, and the task in flight; on the second line, whether anything needs you, how many acceptance criteria have their red-first commit, and the task verifier's verdicts.
+
+![Status band while a phase runs](docs/images/band-implement.png)
+
+**When a phase reaches its checkpoint**: the band says the checkpoint is waiting for you.
+
+![Status band at a phase checkpoint](docs/images/band-checkpoint.png)
+
+**While planning** (project, research, design, tasks): the stage chain, with done, current, and not-started stages, and the current stage's signals, such as a design waiting for your approval.
+
+![Status band during design](docs/images/band-planning.png)
+
+**When the plan is done but not validated**: it reminds you to run `/wb:validate_phase <plan-dir> all`. Once validation has written its verdicts into the plan's README, the reminder goes away, and a failed verdict shows as a warning instead. Open questions the plan handed off show as dim follow-ups, not warnings.
+
+![Status band on a finished plan that has not been validated](docs/images/band-validate.png)
+
+**The `/wb-status` pane** has the detail behind the band: which plan it picked and why, the planning stages and their files, what needs your decision, what the phase delivered per acceptance criterion, test integrity, follow-ups, and the validation verdicts.
+
+![The /wb-status pane](docs/images/pane.png)
+
+The images are rendered from the mod's own band and pane code with a demo plan.
+
+### Which plan, and choosing one
+
+The band follows the plan your latest `/wb:*` command named, including plans that live in a git worktree. Without one, it guesses from recent beads activity and marks the plan `(guessed)`. `/wb-status <plan-dir>` pins a plan by hand, and `/wb-status auto` goes back to guessing.
+
+### Reading log (off by default)
+
+To compare what the band showed with the session transcript, turn on the reading log: run `/config` and set `wb-status.log` to true, or add this to `~/.claude/settings.json`:
+
+```json
+{"pluginConfigs":{"wb-status@gvarela-workbench":{"options":{"log":true}}}}
+```
+
+Logs go to `~/.claude/wb-status/logs/<session id>.jsonl`, capped at about 1 MiB per session, and logs older than 14 days are removed.
+
+Full details, including the status-line fallback for VS Code and known limits: [mods/wb-status/README.md](mods/wb-status/README.md).
 
 ## What's Inside
 
@@ -78,8 +151,8 @@ Slash commands for project documentation and task management:
 - **`/wb:create_tasks`** - Transform design into phased execution plan (HOW)
 - **`/wb:implement`** - Implement the plan with coordinated worker agents (the default execution path); each outer test is committed as `red(AC-n)` first, and each phase checkpoint adds a test review
 - **`/wb:implement_inline`** - Implement the plan inline in this session with TDD, with the same outer tests and checkpoint test review
-- **`/wb:validate_execution`** - Validate implementation matches plan
-- **`/wb:validate_project`** - Validate project documentation structure
+- **`/wb:validate_phase`** - Check one phase, or the whole plan with `all`, against design.md and the README's Intent: deviations, earlier phases' tests, a test review, and a verdict per success statement. Each checkpoint already runs these checks; use it after fixes, after merging other work, or on an older plan
+- **`/wb:validate_project`** - Repair tool, not a stage: check a plan's documents (files, frontmatter, beads ids, status) when they look inconsistent
 - **`/wb:create_handoff`** - Create session handoff for work continuity
 - **`/wb:resume_handoff`** - Resume from handoff document
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
@@ -97,6 +170,7 @@ Specialized agents for codebase analysis:
 - **`research-validator`** - Check a research document's paths, snippets, and claims against the code
 - **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests, apart from the support code a harness task delivers
 - **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants a defect to check that changed tests can fail
+- **`phase-verifier`** - At each phase checkpoint, compare the phase's tasks with its diff (planned changes missing, changes nobody planned), list earlier phases' tests the phase changed, and report progress on each Intent success statement; edits nothing
 - **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
 - **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint; proposes findings, edits nothing
 - **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
