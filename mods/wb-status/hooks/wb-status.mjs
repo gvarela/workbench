@@ -38,7 +38,9 @@
 // Everything is read from the cache the readings fill; the render hooks run no
 // command. Plan documents are re-read only when their size or modification time
 // moves. Nothing is written but the session's pin, its latest stage and a
-// pending /wb:create_project: bd runs with --readonly, git only reads.
+// pending /wb:create_project: bd runs with --readonly, git only reads. The one
+// other write is the opt-in reading log (the `log` option, off by default): a
+// JSONL file per session under the Claude config directory, never in a repo.
 //
 // The host reads on(...) and $.noun.method(...) from source, so they are
 // spelled literally, and helpers that take $ are top-level functions.
@@ -53,6 +55,7 @@ import {
   criteriaMentioned,
   decidesFor,
   isActivePlan,
+  isBlankNode,
   isCreatedPlanWrite,
   isPlanningPlan,
   isRefreshCommand,
@@ -78,8 +81,10 @@ import {
   stageSignals,
   stageStates,
   statusLine,
+  topGap,
   worktreeName,
 } from './model.mjs'
+import { createReadingLog, paneRows, recordReading } from './readinglog.mjs'
 
 const PANE = 'wb-status'
 const POLL_MS = 60 * 1000
@@ -111,9 +116,14 @@ let isScheduled = false
 let isStarted = false
 let isRestored = false
 let lastStatus
+// The opt-in reading log, replaced by register with the plugin's options, and
+// the band's last drawn width, which the log writes the band's lines at.
+let readingLog = createReadingLog({})
+let bandColumns = Infinity
 
 /** @type {import('claude-code').Register} */
-export function register(on) {
+export function register(on, options) {
+  readingLog = createReadingLog(options)
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'wb-status',
@@ -191,6 +201,7 @@ export function register(on) {
     const { Box, Text } = $.ui.resolve(e)
     // paddingX: 1 takes a cell on each side.
     const columns = Math.max(1, Number(e.props.bodyColumns ?? e.viewport?.columns ?? Infinity) - 2)
+    bandColumns = columns
     const lines = bandLines(model, columns)
     const toText = segment => Text({ ...TONES[segment.tone], children: [segment.text] })
     const row = segments => Box({ flexDirection: 'row', children: segments.map(toText) })
@@ -198,20 +209,27 @@ export function register(on) {
     const rule = separator(columns, e.props.maxRows)
     if (rule !== null) children.push(Text({ dimColor: true, wrap: 'truncate-end', children: [rule.text] }))
     children.push(row(lines.progress), row(lines.tests))
-    if (theirs) children.push(theirs)
-    return Box({ flexDirection: 'column', paddingX: 1, children })
+    // Whatever a mod below drew stays; an empty node would add a blank row
+    // between the band and the prompt divider.
+    if (!isBlankNode(theirs)) children.push(theirs)
+    return Box({ flexDirection: 'column', paddingX: 1, marginTop: topGap(e.props.maxRows), children })
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
+    const logRows = paneRows(readingLog)
+    const sections = model === null ? [] : paneSections(model)
+    if (logRows.length > 0) sections.push({ heading: 'Reading log', rows: logRows })
     if (model === null) {
-      return Text({
+      const none = Text({
         dimColor: true,
         children: ['No active wb plan: no unfinished docs/plans/<dir> with beads tasks, no plan file changed in the last 30 days, in any worktree, or beads is not available here. /wb-status <plan dir> pins one.'],
       })
+      if (logRows.length === 0) return none
+      return Box({ flexDirection: 'column', children: [none, Text({ children: [' '] }), Text({ weight: 'semibold', children: ['Reading log'] }), ...logRows.map(row => Text({ wrap: 'truncate-end', children: [row] }))] })
     }
     const children = []
-    for (const section of paneSections(model)) {
+    for (const section of sections) {
       if (children.length > 0) children.push(Text({ children: [' '] }))
       children.push(Text({ weight: 'semibold', children: [section.heading] }))
       for (const row of section.rows) {
@@ -301,6 +319,7 @@ async function refresh($) {
   }
   $.ui.invalidate('ui.render')
   await showStatus($)
+  await recordReading($, readingLog, model, bandColumns)
   if (isAgainWanted) {
     isAgainWanted = false
     await refresh($)
@@ -356,6 +375,7 @@ async function read($) {
       const asks = built.blocking.filter(item => item.kind === 'question' || item.kind === 'decision')
       return {
         ...built,
+        inputs: { bd: statuses([...issues, ...asks.map(ask => ({ id: ask.id, status: 'open' }))]), docs: docStatuses(docs) },
         stages,
         signals: stageSignals({ ...docs.read, explore, openAsks: asks }),
         next: nextCommand(stages, false),
@@ -381,7 +401,19 @@ async function read($) {
     epic: plan.fm?.beads_epic ?? null,
     last,
   })
-  return { ...built, selection: { ...selection, planName } }
+  const asked = openIssues.filter(issue => /^(Q|Decide):/.test(String(issue.title ?? '')))
+  return { ...built, inputs: { bd: statuses([...asked, ...closedDecides]), docs: docStatuses(docs) }, selection: { ...selection, planName } }
+}
+
+/** { id: status } of the issues a reading used, for the reading log. */
+function statuses(issues) {
+  return Object.fromEntries(issues.filter(issue => typeof issue?.id === 'string').map(issue => [issue.id, String(issue.status ?? 'open')]))
+}
+
+/** The status each plan document says, for the reading log. */
+function docStatuses(docs) {
+  const { research, design, tasks } = docs.read
+  return { research: research?.status ?? null, design: design?.status ?? null, tasks: tasks?.status ?? null, thoughts: docs.thoughts.length }
 }
 
 function hasBeadsTasks(fm) {

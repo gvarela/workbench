@@ -167,7 +167,7 @@ describe('band', () => {
     const model = demoModel()
     expect(model).not.toBe(null)
     const lines = bandLines(model!)
-    expect(lines.text.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open · now: Build the reset form (ex-t2)')
+    expect(lines.text.progress).toBe('Plan: demo-plan · Phase 2/2 ────────── 0/2 tasks · 1 follow-up open · now: Build the reset form (ex-t2)')
     expect(lines.text.tests).toBe('Tests: ⚠ halted: missing context (ex-t2) +1 more · red-first 1/2 · verifier none yet')
     expect(lines.attention).toEqual({ text: '⚠ halted: missing context (ex-t2) +1 more', isOk: false })
   })
@@ -185,12 +185,12 @@ describe('band', () => {
 
     // Room for everything but the in-progress title in full: it is shortened, not dropped.
     const shortened = at(95)
-    expect(shortened.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open · now: Build the… (ex-t2)')
+    expect(shortened.progress).toBe('Plan: demo-plan · Phase 2/2 ────────── 0/2 tasks · 1 follow-up open · now: Build the… (ex-t2)')
     expect([...shortened.progress].length <= 95).toBe(true)
 
     // Narrower: "now" goes before the follow-ups, which go before the bar; the phase and counts stay.
-    expect(at(70).progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 1 follow-up open')
-    expect(at(50).progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks')
+    expect(at(70).progress).toBe('Plan: demo-plan · Phase 2/2 ────────── 0/2 tasks · 1 follow-up open')
+    expect(at(50).progress).toBe('Plan: demo-plan · Phase 2/2 ────────── 0/2 tasks')
     expect(at(40).progress).toBe('Plan: demo-plan · Phase 2/2 0/2 tasks')
 
     // Line 2: red-first goes first, then the verifier, then the label; the attention stays.
@@ -213,7 +213,7 @@ describe('band', () => {
     expect(TONES.warn).toEqual({ color: 'warning' })
     expect(tone(checkpoint.tests, /^1✗$/)).toBe('error')
     expect(TONES.error).toEqual({ color: 'error' })
-    expect(tone(checkpoint.progress, /^█+$/)).toBe('accent')
+    expect(tone(checkpoint.progress, /^━+$/)).toBe('accent')
     expect(TONES.accent).toEqual({ color: 'permission' })
     expect(tone(checkpoint.progress, /^Plan: $/)).toBe('dim')
     expect(tone(checkpoint.tests, /^Tests: $/)).toBe('dim')
@@ -239,7 +239,7 @@ describe('plan state', () => {
     expect(model.now).toEqual({ id: 'ex-c1', title: 'Fix the flaky mailer retry found in review', isPlanned: false })
     expect(model.total).toBe(2)
     expect(model.followUps.map(item => item.id).sort()).toEqual(['ex-c1', 'ex-f1'])
-    expect(bandLines(model).text.progress).toBe('Plan: demo-plan · Phase 2/2 ░░░░░░░░░░ 0/2 tasks · 2 follow-ups open · now: Fix the flaky mailer retry found in review (ex-c1)')
+    expect(bandLines(model).text.progress).toBe('Plan: demo-plan · Phase 2/2 ────────── 0/2 tasks · 2 follow-ups open · now: Fix the flaky mailer retry found in review (ex-c1)')
   })
 
   test('an open milestone whose tasks are all closed is a checkpoint waiting for you, and the band stays on that phase', () => {
@@ -248,7 +248,7 @@ describe('plan state', () => {
     expect(model.isAtCheckpoint).toBe(true)
     expect(model.blocking[0]).toEqual({ kind: 'checkpoint', id: null, title: 'Phase 2 checkpoint', why: 'Phase 2 checkpoint waiting for you' })
     const lines = bandLines(model).text
-    expect(lines.progress).toBe('Plan: demo-plan · Phase 2/3 at checkpoint ██████████ 2/2 tasks · 1 follow-up open')
+    expect(lines.progress).toBe('Plan: demo-plan · Phase 2/3 at checkpoint ━━━━━━━━━━ 2/2 tasks · 1 follow-up open')
     expect(lines.tests).toBe('Tests: ⚠ Phase 2 checkpoint waiting for you · red-first 0/2 · verifier 2✓ 1✗')
   })
 })
@@ -354,7 +354,7 @@ describe('mod', () => {
       expect((await ui.find({ type: 'Text', text: 'Plan: ' }))?.props.dimColor).toBe(true)
       expect(await ui.find({ type: 'Text', text: 'demo-plan' })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /^Phase 2\/2/ })).toBeDefined()
-      expect((await ui.find({ type: 'Text', text: /^░+$/ }))?.props.color).toBe('inactive')
+      expect((await ui.find({ type: 'Text', text: /^─+$/ }))?.props.color).toBe('inactive')
       expect(await ui.find({ type: 'Text', text: '1/2' })).toBeDefined()
       const attention = await ui.find({ type: 'Text', text: /^⚠ halted: missing context \(ex-t2\) \+1 more$/ })
       expect(attention?.props.color).toBe('warning')
@@ -374,6 +374,35 @@ describe('mod', () => {
     expect(await pane.find({ type: 'Text', text: 'Needs your decision' })).toBeDefined()
     expect(await pane.find({ type: 'Text', text: /Mailer retries are untested/ })).toBeDefined()
     await pane.unmount()
+  })
+
+  test('the band has a gap above its rule and no empty row below its last line', async ($, on) => {
+    const files: Record<string, string> = { '/repo/docs/plans/2026-01-01-demo/tasks.md': TASKS_MD, '/repo/docs/plans/2026-01-01-demo/design.md': DESIGN_MD }
+    on('session.root', () => ({ value: '/repo' }))
+    on('session.surfaces', () => ({ value: ['terminal'] }))
+    on('fs.exists', ($, e) => ({ value: e.path === '/repo/docs/plans' || e.path in files }))
+    on('fs.list', () => ({ value: [{ name: '2026-01-01-demo', kind: 'dir', size: 0, mtimeMs: 0, isLink: false }] }))
+    on('fs.read', ($, e) => ({ value: files[e.path] ?? '' }))
+    on('process.run', ($, e) => ({ value: { exitCode: 0, stdout: answerRun(e.argv), stderr: '' } }))
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    // No other mod draws: the site's own drawing comes back empty.
+    on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+      const { Text } = $.ui.resolve(e)
+      return Text({ children: [' '] })
+    })
+    await $.command.run({ command: 'wb-status', args: '' })
+
+    const ui = await $.ui.mount({ plugin: 'wb-status', surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS })
+    const outer = await ui.find({ type: 'Box' })
+    expect(outer?.props.marginTop).toBe(1)
+    const kids = (outer?.children ?? []) as { type: string; children?: unknown[] }[]
+    expect(kids.length).toBe(3)
+    expect(kids[0].type).toBe('Text')
+    await ui.unmount()
+
+    const short = await $.ui.mount({ plugin: 'wb-status', surface: 'terminal', component: 'AbovePrompt', props: { ...BAND_PROPS, maxRows: 4 } })
+    expect((await short.find({ type: 'Box' }))?.props.marginTop).toBe(0)
+    await short.unmount()
   })
 
   test('with no plan the band leaves the site to the others', async ($, on) => {

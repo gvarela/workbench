@@ -388,7 +388,7 @@ export function asksFor(openIssues, members, since) {
 /** A bar of `width` cells, filled in proportion. */
 export function bar(done, total, width = 10) {
   const filled = total === 0 ? 0 : Math.round((done / total) * width)
-  return '█'.repeat(filled) + '░'.repeat(width - filled)
+  return '━'.repeat(filled) + '─'.repeat(width - filled)
 }
 
 // The band is drawn from segments: text and a tone. Color marks state only:
@@ -491,7 +491,7 @@ export function bandLines(model, columns = Infinity) {
   const { name, head, headInWorktree } = planHead(model)
   const where = model.isDone ? ' done' : model.isAtCheckpoint ? ' at checkpoint' : ''
   const filled = model.total === 0 ? 0 : Math.round((model.closed / model.total) * 10)
-  const phase = [seg(`Phase ${model.phase}/${model.phaseCount}${where}`), seg(' '), seg('█'.repeat(filled), 'accent'), seg('░'.repeat(10 - filled), 'track'), seg(` ${model.closed}/${model.total} tasks`)]
+  const phase = [seg(`Phase ${model.phase}/${model.phaseCount}${where}`), seg(' '), seg('━'.repeat(filled), 'accent'), seg('─'.repeat(10 - filled), 'track'), seg(` ${model.closed}/${model.total} tasks`)]
   const phaseNoBar = [seg(`Phase ${model.phase}/${model.phaseCount}${where} ${model.closed}/${model.total} tasks`)]
   const count = model.followUps.length
   const follow = count === 0 ? null : [seg(`${count} follow-up${count === 1 ? '' : 's'} open`)]
@@ -1348,4 +1348,20 @@ function planningRows(model) {
   if (model.next) rows.push(`Next: ${model.next.before}${model.next.command}${dir ? ` ${dir}` : ''}`)
   else if (model.stages.every(stage => stage.isDone)) rows.push('Every stage is done.')
   return rows
+}
+
+// ── Band spacing ──
+
+/** Rows of gap above the rule: one, unless the band has fewer than five rows to spare (it goes before the rule does). */
+export function topGap(maxRows) {
+  return typeof maxRows === 'number' && maxRows < 5 ? 0 : 1
+}
+
+/** Whether what a mod below drew is empty: nothing, or only blank text, so it must not add a row. */
+export function isBlankNode(node) {
+  if (node === null || node === undefined || node === false) return true
+  if (typeof node === 'string') return node.trim() === ''
+  if (Array.isArray(node)) return node.every(isBlankNode)
+  if (typeof node === 'object' && 'children' in node) return isBlankNode(node.children ?? [])
+  return false
 }

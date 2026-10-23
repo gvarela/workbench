@@ -2,7 +2,7 @@
 
 A read-only [Claude Code mod](https://code.claude.com/docs/en/plugins/mods/overview) for the wb workflow. While a plan is being planned (project, research, explore, design, tasks), it shows which stage the plan is at and that stage's key signals. Once the plan has beads tasks, it shows where the work stands and, on a separate line, whether its tests can be trusted. Either way you need not run `/wb:help` or `bd` yourself.
 
-It is a separate plugin from `wb` while it is a prototype. It never writes to the repository, to beads, or to any file, and it never approves or denies a tool call. What it keeps lives in the session's own state: the session's pinned plan, the latest wb stage the session ran, and a `/wb:create_project` waiting for its folder.
+It is a separate plugin from `wb` while it is a prototype. It never writes to the repository or to beads, and it never approves or denies a tool call. The one file it can write is the opt-in [reading log](#the-reading-log-opt-in), which is off by default and lives outside any repository. What it keeps lives in the session's own state: the session's pinned plan, the latest wb stage the session ran, and a `/wb:create_project` waiting for its folder.
 
 Tested with Claude Code 2.1.309. The mods API is early access and can change between releases.
 
@@ -76,7 +76,7 @@ The 0.3.0 view, unchanged, with the chain in its narrow form at the end of line 
 
 ```text
 ── wb plan ─────────────────────────────────────────────────────────────────────────
-Plan: <plan> · Phase 2/3 ██████░░░░ 3/5 tasks · now: Build the reset form (ex-t2) · P✓ R✓ D✓ T✓ I● V○
+Plan: <plan> · Phase 2/3 ━━━━━━──── 3/5 tasks · now: Build the reset form (ex-t2) · P✓ R✓ D✓ T✓ I● V○
 Tests: ✓ nothing needs you · red-first 1/2 · verifier 3✓
 ```
 
@@ -84,7 +84,7 @@ The chain is the first thing a narrower band drops. In more detail:
 
 ```text
 ── wb plan ─────────────────────────────────────────────────────────────────────────
-Plan: <plan> · Phase 2/3 ██████░░░░ 3/5 tasks · 1 follow-up open · now: Build the reset form (ex-t2)
+Plan: <plan> · Phase 2/3 ━━━━━━──── 3/5 tasks · 1 follow-up open · now: Build the reset form (ex-t2)
 Tests: ✓ nothing needs you · red-first 1/2 · verifier 3✓
 ```
 
@@ -92,11 +92,13 @@ While a phase waits for you at its checkpoint:
 
 ```text
 ── wb plan ─────────────────────────────────────────────────────────────────────────
-Plan: <plan> · Phase 2/3 at checkpoint ██████████ 5/5 tasks · 2 follow-ups open
+Plan: <plan> · Phase 2/3 at checkpoint ━━━━━━━━━━ 5/5 tasks · 2 follow-ups open
 Tests: ⚠ Phase 2 checkpoint waiting for you · red-first 2/2 · verifier 4✓ 1✗
 ```
 
-The rule: a dim `── wb plan ──` line across the band's width, so the band does not read as part of Claude's status text above it. In a band too narrow for the label it is a blank line, and when the band has fewer than three rows it is left out.
+The rule: a dim `── wb plan ──` line across the band's width, so the band does not read as part of Claude's status text above it. In a band too narrow for the label it is a blank line, and when the band has fewer than three rows it is left out. One empty row sits above the rule (dropped first, when the band has fewer than five rows), and nothing is added below the `Tests:` line: when no other mod draws in the band, no empty node is drawn there, so the band ends at the prompt divider.
+
+The bar is drawn with thin glyphs in foreground color only, so it reads as a gauge and not as a selected block: `━` filled (the `permission` accent) and `─` empty (`inactive`), ten cells.
 
 Line 1, progress:
 
@@ -164,6 +166,45 @@ Close it with ctrl+x x, or the close mark on its frame.
 - Shortly after a `/wb:*` command pins a plan.
 
 When nothing is pinned, choosing the plan adds a `git worktree list`, a listing and the tasks.md frontmatter of each worktree's plans, and, when any of them has beads tasks, two `bd list` calls (every unclosed issue, and the candidate plans' named issues). A pinned plan skips those. Every reading lists the plan's folder and reads its README.md, research.md, product-research.md, design.md and tasks.md, each only when the listing shows its size or modification time changed. A planning plan then adds two `bd list` calls (every unclosed issue, and closed `Decide:` issues). A plan with beads tasks runs three `bd list` calls (the frontmatter's ids, the epic's children, every unclosed issue), one `git log`, and `bd comments` for the issues that have comments: every one in this phase's verifier window, and up to 10 others per reading, so the pane's per-criterion verdicts fill in over a few readings. A comment read is reused until the issue's comment count or update time changes, so a settled plan costs only the three lists and the log. Drawing reads only that cache. `bd` runs with `--readonly`.
+
+## The reading log (opt-in)
+
+To judge how accurate the band is, you can have the mod log what it showed and compare that, by hand, with the session transcript. The log is off by default.
+
+**Turn it on.** The mod declares a `log` option (a boolean, default `false`). Set it any one of these ways; a change reloads the mod, with no restart:
+
+1. In a session, run `/config`, find the `wb-status.log` row and set it to true.
+2. Or add it to `~/.claude/settings.json` (the key is the plugin id, `wb-status@<marketplace>`; for a `--plugin-dir` session it is `wb-status@inline`):
+
+   ```json
+   { "pluginConfigs": { "wb-status@gvarela-workbench": { "options": { "log": true } } } }
+   ```
+
+3. Or `claude plugin configure wb-status@gvarela-workbench` lists the option and whether it is set.
+
+With the log on, the pane shows a **Reading log** section with the file's path and how many lines it holds. Set `log` back to false to stop; the existing files stay.
+
+**Where.** `~/.claude/wb-status/logs/<session id>.jsonl`, one file per session (under `$CLAUDE_CONFIG_DIR` instead of `~/.claude` when that is set). The mods API has no append, so the mod holds the session's log in memory and rewrites the file whole on each change; the cap below keeps that small.
+
+**What a line is.** A line is written at the session's first reading and again whenever what the band shows changes (the plan, how it was chosen, the stage, counts, what is in progress, what needs you, or the band's text). Nothing is written while it is unchanged. Each line is one JSON object:
+
+- `ts`, `sessionId`, `event` (`start`, `change`, or `cap`)
+- `plan`: `name`, `dir`, `worktree`; `source`: `pinned` with the command and time, or `guessed` with how (`beads-in-progress`, `beads-recent`, `recent-file`, `newest-directory`)
+- `stage`, `phase` (`n`, `of`, `state`), `counts` (tasks closed/total, follow-ups open, red-first k/n, verifier pass/fail), `now` (id, title), `needsYou` (kind, id, text), and, while planning, `signals`
+- `inputs`: the beads ids and statuses the reading used, the red commits it matched per criterion, the verifier verdicts, and the document statuses
+- `band`: the two lines as plain text at the width last drawn
+
+Titles are cut to 80 characters; descriptions and comment bodies are never logged. A sample line:
+
+```json
+{"ts":"2026-10-22T14:05:00.000Z","sessionId":"sess-1","event":"start","plan":{"name":"demo-plan","dir":"docs/plans/2026-01-01-demo","worktree":null},"source":{"kind":"pinned","by":"/wb:implement","at":"2026-10-22T14:05:00.000Z"},"stage":"implement","phase":{"n":1,"of":1,"state":"running"},"counts":{"tasks":{"closed":1,"total":2},"followUpsOpen":0,"redFirst":{"k":1,"n":1},"verifier":{"pass":0,"fail":0}},"now":{"id":"ex-t2","title":"Build the reset form"},"needsYou":[{"kind":"decision","id":"ex-q1","text":"decision pending: Decide: token lifetime"}],"inputs":{"bd":{"ex-epic":"open","ex-m1":"open","ex-t1":"closed","ex-t2":"in_progress","ex-q1":"open"},"redCommits":{"AC-1":"abc1234"},"verdicts":{},"docs":{"research":"complete","design":"approved","tasks":"in-progress","thoughts":0}},"band":{"columns":100,"progress":"Plan: demo-plan · Phase 1/1 ━━━━━───── 1/2 tasks · now: Build the reset form (ex-t2)","tests":"Tests: ⚠ decision pending: token lifetime (ex-q1) · red-first 1/1 · verifier none yet"}}
+```
+
+**Cap and cleanup.** A session's file stops growing at about 1 MiB: the mod writes one final `cap` line saying so and logs no more. On start it deletes `*.jsonl` files in that folder not modified for 14 days (with `rm -f` on those exact paths, because the mods API has no delete).
+
+**Failures.** A log failure never affects the band: errors are caught, and the first one is noted once in the debug log.
+
+**Privacy.** The log is local and is never sent anywhere by the mod. It holds plan names and directories, task and question titles, issue ids, and commit hashes, so treat it like your transcript. It lives under `~/.claude`, outside every repository. To delete it: `rm -r ~/.claude/wb-status/logs` (or one session's file).
 
 ## Turn it off
 

@@ -605,7 +605,7 @@ describe('from tasks to the implement view', () => {
     await $.prompt.submit({ text: '/wb:implement docs/plans/2026-01-01-demo 1' })
     await read($)
     seen = await look($)
-    expect(seen.lines[0]).toBe('Plan: demo-plan · Phase 1/2 █████░░░░░ 1/2 tasks · now: Expire old links (ex-t1) · P✓ R✓ D✓ T✓ I● V○')
+    expect(seen.lines[0]).toBe('Plan: demo-plan · Phase 1/2 ━━━━━───── 1/2 tasks · now: Expire old links (ex-t1) · P✓ R✓ D✓ T✓ I● V○')
     expect(seen.lines[1]).toBe('Tests: ✓ nothing needs you · red-first 0/2 · verifier none yet')
     expect(seen.pane.slice(0, 1)).toEqual(['Plan'])
     expect(seen.pane).toContain('Planning')

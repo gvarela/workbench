@@ -339,11 +339,11 @@ describe('the bar', () => {
     stage(on, world)
     await read($)
     const band = await $.ui.mount({ plugin: 'wb-status', surface: 'terminal', component: 'AbovePrompt', props: BAND_PROPS })
-    const filled = await band.find({ type: 'Text', text: /^█+$/ })
-    expect(filled?.text).toBe('█████')
+    const filled = await band.find({ type: 'Text', text: /^━+$/ })
+    expect(filled?.text).toBe('━━━━━')
     expect(filled?.props.color).toBe('permission')
     expect(filled?.props.backgroundColor).toBeUndefined()
-    const empty = await band.find({ type: 'Text', text: /^░+$/ })
+    const empty = await band.find({ type: 'Text', text: /^─+$/ })
     expect(empty?.props.color).toBe('inactive')
     expect(empty?.props.backgroundColor).toBeUndefined()
     await band.unmount()
@@ -395,8 +395,8 @@ describe('selection helpers', () => {
     const fm = parseFrontmatter(tasksMd('demo', 'dm'))
     const built = buildModel({ fm, criteria: [], issues: planIssues('dm', true, '2026-01-02'), openIssues: [], commits: [], comments: {} })!
     const guessed = { ...built, selection: { kind: 'directory', planName: 'demo', dir: 'docs/plans/d', worktree: 'wt' } }
-    expect(bandLines(guessed).text.progress).toBe('Plan: demo (guessed) (worktree wt) · Phase 1/1 ░░░░░░░░░░ 0/2 tasks · now: First dm task (dm-t1)')
-    expect(bandLines(guessed, 85).text.progress).toBe('Plan: demo (guessed) · Phase 1/1 ░░░░░░░░░░ 0/2 tasks · now: First dm task (dm-t1)')
+    expect(bandLines(guessed).text.progress).toBe('Plan: demo (guessed) (worktree wt) · Phase 1/1 ────────── 0/2 tasks · now: First dm task (dm-t1)')
+    expect(bandLines(guessed, 85).text.progress).toBe('Plan: demo (guessed) · Phase 1/1 ────────── 0/2 tasks · now: First dm task (dm-t1)')
     expect(bandLines(guessed, 30).text.progress).toBe('demo (guessed) · Phase 1/1 0/2 tasks')
     expect(statusLine(guessed).startsWith('wb demo (guessed): phase 1/1')).toBe(true)
     expect(paneSections(guessed)[0]).toEqual({

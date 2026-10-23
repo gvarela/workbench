@@ -1,11 +1,19 @@
 {
   "name": "wb-status",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "types": "./types/index.d.ts",
   "description": "Prototype mod for the wb workflow: a read-only band above the prompt with the plan's stage while planning, then plan progress and test integrity, a status line, and a /wb-status pane",
   "author": {
     "name": "Gabriel Varela"
   },
   "repository": "https://github.com/gvarela/workbench",
-  "keywords": ["wb", "beads", "status", "mod"]
+  "keywords": ["wb", "beads", "status", "mod"],
+  "userConfig": {
+    "log": {
+      "type": "boolean",
+      "title": "Reading log",
+      "description": "Write a local log of what the band showed, one JSONL file per session under ~/.claude/wb-status/logs/. Off by default.",
+      "default": false
+    }
+  }
 }
