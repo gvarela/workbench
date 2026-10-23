@@ -1,0 +1,121 @@
+# wb-defects
+
+An opt-in Claude Code plugin that puts one command, `wb-plant-defect`, on the Bash tool's PATH while the plugin is enabled. It plants one defect at a time in a copy of one source file, runs only the named test files against it with the repository's own test command, restores, and reports as JSON whether the tests caught it.
+
+**Who uses it.** The `wb` plugin's `wb:task-verifier`, `wb:test-reviewer`, and `wb:test-writer`, and `/wb:implement_inline`, use it when it is installed. Without it, wb falls back to the repository's mutation tool or plain commands under normal permission prompts; nothing else in wb depends on it.
+
+## Install
+
+```bash
+claude plugin install wb-defects@gvarela-workbench --scope user
+```
+
+Then allow the command once in your settings, so the verifiers do not prompt on every step (it is on PATH while the plugin is enabled):
+
+```json
+{ "permissions": { "allow": ["Bash(wb-plant-defect *)"] } }
+```
+
+Files in a plugin's `bin/` directory are on PATH only where plugins install fully: claude.ai and Cowork do not install plugins with `bin/`, so the runner is not available there.
+
+Usage: `wb-plant-defect setup|baseline|run|teardown --id <id> [options]`. It is one self-contained bash file (`/bin/bash` 3.2 or later, git, sed, diff, ps; perl optional), so it can ship elsewhere unchanged.
+
+## Trust
+
+Allowing this runner means trusting everything in the repository as code you'd run — its tests and its .claude/wb/testing.md profile — just as allowing its test runner does. As defence in depth it rejects known shells, inline-code flags, and launchers that reach beyond the repository (containers, remote hosts), runs no setup commands, and edits only a copy; a repository script can still run whatever it contains.
+
+The test command comes only from the repository's profile (or detection) and runs as an argv with no shell; the only edit is one literal find/replace in a copy. The runner never writes the user's working tree or index, and runs no repository hook, filter, fsmonitor, textconv, external diff, or pager. Its first line is `#!/bin/bash -p`, so bash neither sources `BASH_ENV`/`ENV` nor imports exported shell functions before the script starts (run it by path, not as `bash wb-plant-defect`, to keep that).
+
+```bash
+wb-plant-defect setup --id <id> [--commit <sha> | --working-tree] [--cwd <dir>] [--strategy auto|swap|worktree|sandbox]
+wb-plant-defect baseline --id <id> --test <path> [--test <path> ...] [--test-file <path>=@<commit> | <path>=-] [--timeout <s>]
+wb-plant-defect run --id <id> --file <path> --find '<text>' --replace '<text>' --test <path> [...] [--test-file ...] [--control] [--label <name>] [--timeout <s>]
+wb-plant-defect teardown --id <id>
+```
+
+`--test-cmd` and `--sed` were removed; passing either is a usage error.
+
+**State.** All state lives under `${TMPDIR:-/tmp}/wb-defect-<id>/` (and, for a sandbox, under the cache directory). Setup creates it with `mkdir -m 700` (no `-p` on the final component) and writes a random marker; every later call uses it only when it is a real directory under that base, owned by the user, mode 700, with the marker. Nothing read from state names a path to write or delete: the worktree is always exactly `<state dir>/wt`, removed only with `git worktree remove --force` after `git worktree list` shows that exact path, and teardown otherwise removes only the state directory itself. A pre-existing directory at that path that fails the checks is refused by setup (strategy `none`) and by teardown, and nothing inside it is touched. Every value read back from state is checked against what it must be (the derived root path, `true`/`false` for a control, a parseable command, valid paths and env); a value that is not is refused and reported in `errors`, never used or echoed.
+
+**The test command** comes from the `test command` key of the profile's Defect sandbox section (below). Without one, detection from marker files picks a fixed argv as a last resort (`python3 -m pytest -q {tests}` or the repository's `.venv` python, `node --test {tests}` or `npx jest|vitest run|mocha {tests}`, `rspec {tests}` or `ruby -Ilib -Itest {tests}` (one test file per run) with `bundle exec` when there is a Gemfile, `go test {test_dirs}`). `setup` reports `test_cmd_source` (`profile` or `detected`) and the parsed `test_argv`; report a detected command, since it is a guess.
+
+The command is split into an argv, never handed to a shell:
+
+- Words are separated by spaces or tabs; `'…'` is literal; `"…"` allows `\"` and `\\`; a backslash outside quotes escapes the next character.
+- Refused outside quotes, with an error naming the character: `;` `|` `&` `` ` `` `$` `(` `)` `<` `>` `*` `?` `[` `]`, newline, and control characters. `$` and `` ` `` are refused inside double quotes too. Use single quotes for literal text.
+- The first word must be a program name (not `-…` or a placeholder), and it must be the test runner itself. Refused, after PATH lookup and following symlinks, with strategy `none`: shells and launchers that run another command line (`sh`, `bash`, `zsh`, `dash`, `ksh`, `mksh`, `ash`, `fish`, `csh`, `tcsh`, `busybox`, `env`, `xargs`, `nohup`, `sudo`, `doas`, `su`, `runuser`, `time`, `nice`, `ionice`, `timeout`, `gtimeout`, `stdbuf`, `setsid`, `chroot`, `unshare`, `nsenter`, `flock`, `caffeinate`, `arch`, `script`, `watch`, `osascript`, `open`, `parallel`, `strace`, `ltrace`, `gdb`, `lldb`, `expect`, `tclsh`, `wish`, `pwsh`, `powershell`, `cmd`, and the like), and launchers that reach beyond the repository: containers and remote hosts (`docker`, `docker-compose`, `podman`, `nerdctl`, `kubectl`, `ssh`, `scp`, `sftp`, `rsync`, `flatpak-spawn`, `systemd-run`, `vagrant`, `lima`, `limactl`, `colima`), and interpreters given inline or preloaded code before their script or module: `python*`/`pypy*` with `-c`; `ruby` with `-e` or `-r`; `perl` with `-e`, `-E`, `-M`, or `-m`; `php` with `-r`, `-B`, `-R`, `-E`, or `-F`; `node`/`bun` with `-e`, `-p`, `-r`, `-i`, `--eval`, `--print`, `--require`, `--import`, or `--loader`; `deno eval`. `python -m <module>` and an interpreter running a test file are fine. Package launchers are looked through to the program they run, recognised by the program a name resolves to (a renamed or symlinked wrapper is still that wrapper): `bundle exec X`, `uv|poetry|pipenv|pdm|rye|hatch|conda run X`, `npx X`, `npm|pnpm|yarn exec|dlx X`; their `-c`/`--call` is refused, and `yarn node`/`pnpm node` are checked as `node`. Runners of repository code stay allowed, since the repository is already trusted: `npm|pnpm|yarn run <script>`, `node --run <script>`, `make`, `just`, `rake`, `gradle`, `mvn`, and a repository's own runner script (`./bin/test {tests}`).
+- Placeholders: `{tests}` (one argv element per test path, relative to the test directory when under it, otherwise absolute) and `{test_dirs}` (each test's directory as `./dir`, for runners that take packages), each a whole word; `{root}` (the tree the call runs in) only as a whole argument or as the value of a `--name={root}` option.
+
+A `setup command` key is ignored with a note: the runner runs no setup commands (see `sandbox`).
+
+**Paths.** `--file`, `--test`, the path of `--test-file`, `--cwd`, and the profile's `test directory` and `dependency dirs` must be repository-relative, with no `..` component, no component starting with `-`, and no control characters. A bad CLI path is a usage error (exit 2); a bad profile value makes setup report `none`. Just before use, a target, `--test-file` path, test directory, or linked dependency directory that passes through a symlink in the tree (such as `node_modules/dep/index.js` in a worktree, where `node_modules` is linked to the user's), or whose directory resolves outside the tree, is refused (outcome `not_run`), so nothing is written through it.
+
+**Environment.** The user's environment is kept (their PATH, version managers, and database variables), except `BASH_ENV`, `ENV`, `CDPATH`, `PYTEST_PLUGINS`, `NODE_OPTIONS`, `RUBYOPT`, `GOFLAGS`, `PERL5OPT`, and every `GIT_*` variable, which are dropped before the script sets its own. Profile `env` lines may not set `PATH`, `BASH_ENV`, `ENV`, `HOME`, `SHELL`, `IFS`, `CDPATH`, `LD_*`, `DYLD_*`, `PYTHON*`, `PYTEST_*`, `NODE_*`, `RUBY*`, `GEM_*`, `BUNDLE_*`, `GO*`, `PERL*`, `GIT_*`, or `WB_DEFECT_*`; such a line makes setup report `none` with an error.
+
+**Git hardening** (also in `test-integrity`): every git call runs with `GIT_CONFIG_NOSYSTEM=1`, `GIT_ATTR_NOSYSTEM=1`, `--no-pager`, `-c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.attributesFile=/dev/null -c diff.external= -c core.pager=cat`, and, where git supports it (2.40 and later), `--attr-source=<empty tree>` so attributes in `.gitattributes` are ignored. Every filter, diff, and merge driver configured for the repository is overridden with an empty command (through `GIT_CONFIG_COUNT`/`KEY`/`VALUE`), so no driver named in `.gitattributes` or `.git/info/attributes` runs. Copies are filled without checkout filters: a commit through a throwaway index (`read-tree` plus `checkout-index --prefix`; not `git archive`, which runs smudge filters from the archived tree's attributes), the working tree file by file from `git ls-files -z` (tracked and untracked, not ignored), read NUL-separated in bash and copied with `cp -p --` (symlinks recreated with `ln -s --`), so names with leading dashes or spaces are copied verbatim and a name with a control character is refused. On a git without `--attr-source` the driver overrides still apply. Blob hashes use `hash-object --no-filters`. Diffs come from `diff -u`, not git.
+
+**Strategies.** The generic path works for any language, because it only edits a file copy and runs the command in that tree:
+
+- `worktree`: `git worktree add --no-checkout --detach <state dir>/wt`, filled as above, with dependency directories (`node_modules`, `vendor/bundle`, `.bundle`, `.venv`, `venv`, or the profile's list, also under the test directory) symlinked from the repository, not copied. For a command that mentions `pytest` or `python`, the copy (and its `src/`) is put first on `PYTHONPATH` so an installed or editable copy of the code does not win.
+- `sandbox`: a persistent per-repository copy for environments whose dependencies must be installed in the tree. The base is `<cache>/wb-defect/<key>`, where `<cache>` is `$XDG_CACHE_HOME` when its nearest existing ancestor is a real directory (not a symlink) owned by the user, with the missing components created one at a time mode 700 and each checked; otherwise `~/.cache` under the same check, with a note. When neither passes, a sandbox setup reports `none` with an error, and the key hashes the repository's top-level path and root commit, the profile's test command, env, dependency dirs, test directory, and lockfile names, the platform (`uname -sm`), and the `node`, `python3`, `ruby`, and `go` versions on PATH. Under it, the copy is `copies/<content>/wt`, where `<content>` is the exact commit, or for `--working-tree` a digest of the working-tree files. The runner runs no setup commands: when a profile `dependency dirs` entry is missing or empty in the copy, setup returns strategy `none` with `"needs_setup": true`, `"sandbox_copy"` (the copy's path), and a `"setup_hint"` naming the copy, the missing directories, and the profile's lockfile, telling the user to install there themselves (for example with a `!` command in Claude Code: `! cd '<copy>' && npm ci`) and run setup again. A new copy (new commit or working-tree content) takes over the installed dependency directories of the previous copy when the lockfiles' content is the same; a changed lockfile needs a fresh install. One copy is kept per base; the previous one is removed (its worktree through `git worktree remove` when git lists that path). Each setup of the same content refills the copy, keeping the dependency directories. The cache directories are created mode 700 and refused if they are symlinks or not private. A lock directory holds the owner's id, a random nonce, and pid; a setup that finds it held waits up to `WB_DEFECT_LOCK_WAIT` seconds (default 60) and then reports `none`. A lock whose owner's state directory is gone, or older than `WB_DEFECT_LOCK_STALE_MINUTES` (default 180), is renamed aside atomically and only the renamed directory is deleted. Teardown releases its own lock (matching nonce) and leaves the copy. Used only when the profile or `--strategy` asks for it; bases for old profiles stay in the cache until removed by hand.
+- `swap`: an optional accelerator. With no copy of the repository, the mutated file is loaded in place of the original when the repository's own command runs in the repository. Each adapter is tried only when its preconditions hold:
+
+  | Adapter | Chosen when the command | Mechanism | Serves |
+  | --- | --- | --- | --- |
+  | `python` | runs pytest | a pytest plugin loaded through `PYTEST_PLUGINS` inserts a meta-path finder: whatever finder locates a module, if its file resolves to the target, the module is compiled from the mutated copy with the original filename, and no bytecode is read or written for it. It wins over `sys.path` order, rootdir conftest insertion, `pythonpath` settings, and src layouts | `.py` |
+  | `node` | runs `node ...` or mocha | `NODE_OPTIONS=--require` preloads a hook: `module.registerHooks` load hook (Node 22.15 and later; covers `require` and `import`), else `Module._extensions` for CommonJS plus a `module.register` loader for ESM. `node --test` children inherit it | `.js` `.cjs` `.mjs` |
+  | `ruby` | runs ruby, rspec, rake, or rails | `RUBYOPT=-r` preloads a `RubyVM::InstructionSequence.load_iseq` hook: when Ruby loads the target (require, require_relative, load), it compiles the mutated copy in its place with the original path as `__FILE__`. A true replacement, not a load-after | `.rb` |
+  | `go` | runs `go test` | `GOFLAGS=-overlay=<json>` replacing the target with the mutated copy | `.go` |
+
+  An adapter is trusted only after a control break has been caught through it (see below); otherwise the setup falls back to a worktree for the rest of its runs, and `strategy_notes` says why. Known exclusions, which go straight to the worktree: Yarn Plug'n'Play (`.pnp.cjs`, no `node_modules`); jest and vitest (their own module runtime); commands that transpile (ts-node, tsx, `--loader`, swc, babel) and TypeScript or other sources a transpiler must see first; Rails and Zeitwerk apps (`config/application.rb`, or zeitwerk in `Gemfile.lock`) and bootsnap, whose loaders can bypass the hook; compiled extensions and any target outside the adapter's extensions; `--commit` when the working tree differs from that commit (the swap runs in the working tree). A call with `--test-file` under swap runs in a worktree, since test files are never replaced in the user's tree. Running the command in the repository writes what that command writes (coverage files, logs); bytecode and the pytest cache are turned off (`PYTHONDONTWRITEBYTECODE=1`, `-p no:cacheprovider`).
+- `none`: defect checks cannot run here; `errors` says why. Report the checks as Not Run.
+
+**Control.** No survivor is reported until a control break has been caught for that pair of target file and test set (the test paths plus any `--test-file` content), under the current strategy. `run --control` makes the caller's own break the control for its pair; otherwise, the first time a defect in a pair survives, `run` replaces the whole target file with a syntax error and runs the same tests (`auto_control`). Caught: the copy is under test (`control_ok: true`, kept for that pair for the rest of the setup; a control on one file never vouches for another). Survived through a swap adapter: the setup falls back to a worktree and both runs repeat there. Survived in a worktree or sandbox: these tests do not load that file from the copy, so `control_ok` is false and the survivor is not evidence of a weak test.
+
+**Outputs** (one JSON object per call, every value JSON-encoded; exit 0 whenever JSON is printed, 2 on a usage error):
+
+- `setup`: `id`, `strategy` (`swap`, `worktree`, `sandbox`, or `none`), `adapter`, `root`, `repo`, `cwd`, `language`, `test_cmd`, `test_argv`, `test_cmd_source`, `needs_setup` (true when a sandbox's dependencies must be installed by the user first), `setup_hint`, `sandbox_copy`, `strategy_notes` (the adapter chosen, or why each one considered was skipped), `notes`, `errors`. Running setup again with the same id tears the old one down first (when it passes the state checks).
+- `baseline`: `passed`, `exit_code`, `duration_s`, `timeout_s` (max(10, 5 × duration), capped at 100, used by later runs of the same test set and `--test-file` content), `strategy`, `output_tail`, `notes`, `errors`. A run against a test set whose baseline failed is `not_run`.
+- `run`: `label`, `file`, `test`, `applied`, `outcome` (`caught`, `survived`, `not_run`, `timeout`, or `error`), `exit_code`, `duration_s`, `timeout_s` (the limit this run used), `control`, `control_ok` (for this run's target and test set: true, false, or null before any control), `auto_control` (the automatic control's outcome when this run ran one, else null), `target_blob` and `test_blobs` (`git hash-object --no-filters` of the target's original content and of each test file as run, `--test-file` content included), `strategy`, `adapter`, `diff`, `output_tail`, `strategy_notes`, `notes`, `errors`.
+- `teardown`: `removed`, `errors`; safe to call twice.
+
+**Edits and runs:**
+
+- `--find`/`--replace` are literal text (multi-line allowed), the only mutation; `--find` must occur exactly once, else `applied: false` and outcome `error`. The edit is made on a copy; under worktree and sandbox the copy is written into that tree and the original restored after the run, on timeout and error too.
+- Interrupted runs: in a worktree or sandbox, each target's and `--test-file` path's original content is recorded once per setup; a later call that finds the copy different (a run killed before it could restore) puts the original back first and says so in `notes`.
+- Timeout: the baseline's `timeout_s`, else 100 seconds, or `--timeout` (not capped). Automatic timeouts stop at 100 seconds so a call fits the Bash tool's default 120-second limit. The command runs in its own process group. The runner itself owns the timeout: it polls its own child (`ps -o stat=`, not the group) and, only on timeout and only before reaping that child (so the group id is still its own), sends the group TERM and, two seconds later, KILL for anything that outlived TERM. After a normal exit nothing is signalled, and cleanup never signals a process group id read from state. A timeout's outcome is `timeout`.
+- `--test-file <path>=@<commit>` replaces a test file's content for this call with that path's version at a commit; `--test-file <path>=-` reads the content from stdin (one per call), so a fixed test can be passed with a quoted heredoc in the same call. A local file is not accepted. For checking a suggested test fix against planted defects, or comparing a rewritten test with its original. Under swap such a call runs in the setup's worktree; the replaced file is restored afterwards.
+- pytest exit 4 or 5 (usage error, no tests collected) and exit 126 or 127 (command could not run) are `error`, not `caught`.
+
+**Profile section** (read from `.claude/wb/testing.md` in the repository's working tree): a heading of any level whose text is `Defect sandbox` (matched case-insensitively; `## Defect sandbox` is the convention), then `key: value` lines until the next heading of any level. List markers, bold, and backticks around a value are ignored. Keys, exactly as parsed:
+
+| Key | Value |
+| --- | --- |
+| `strategy` | `auto`, `swap`, `worktree`, or `sandbox` (`--strategy` overrides) |
+| `test command` | the test command, split as above (the only source besides detection) |
+| `test directory` or `cwd` | the directory to run it in (`--cwd` overrides) |
+| `dependency dirs` | comma- or space-separated directories to link (worktree) or keep across refills (sandbox) |
+| `setup command` | ignored, with a note: the runner runs no setup commands |
+| `lockfile` (or `lockfiles`) | comma- or space-separated files whose content decides whether a new sandbox copy keeps the installed dependencies; named in `setup_hint` |
+| `env` | `KEY=value` pairs, space-separated, exported for test runs (repeatable; values without spaces; the denylist above applies), for example `TEST_ENV_NUMBER=wb` or a `DATABASE_URL` for an isolated test database |
+
+```markdown
+## Defect sandbox
+
+- strategy: sandbox
+- test command: `bundle exec rspec {tests}`
+- lockfile: Gemfile.lock
+- dependency dirs: vendor/bundle
+- env: RAILS_ENV=test DATABASE_URL=postgres://localhost/app_defects
+```
+
+**Features:**
+
+- Requires `/bin/bash` 3.2 or later, git, sed, diff, ps (perl only for sub-second durations on bash 3.2); the swap adapters run in the language's own runtime
+- Tests: `bash wb-defects/tests/run.sh` (Python flat and src layouts, Node CommonJS and ESM, Yarn PnP fallback, Ruby minitest, Go when `go` is installed, a repository runner script with `--cwd`, launcher refusals, startup environment, file names with dashes and spaces, hostile git config and an old git without `--attr-source` (a `git` on PATH that refuses it), state tampering, profile refusals, and the sandbox)
+
+## Known limits
+
+- Test code runs with the user's privileges. A test can read and change the runner's state for its own run (for example forge a control result or a recorded outcome under `${TMPDIR:-/tmp}/wb-defect-<id>/`), so a malicious test can fool the evidence, but it gains no access it did not already have: allowing the runner already means running that code. The runner validates what it reads back from state (no path to delete, no unparseable value is ever used) but does not try to defend its evidence against the code it is asked to run.
+- Swap adapters only accelerate: a control break must prove each one before a survivor counts, and anything they cannot serve goes to a worktree.
+- The detected Ruby command runs one test file per run; name a multi-file runner (`bundle exec rspec {tests}`, `bin/rails test {tests}`) in the profile.

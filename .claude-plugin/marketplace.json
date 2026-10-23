@@ -16,6 +16,12 @@
       "source": "./mods/wb-status",
       "description": "Prototype mod for wb: a read-only band above the prompt with the plan's stage while planning, then plan progress and test integrity, and a /wb-status pane.",
       "version": "0.4.3"
+    },
+    {
+      "name": "wb-defects",
+      "source": "./wb-defects",
+      "description": "Opt-in planted-defect runner for wb's verifiers: runs the repository's own test command against a one-file edit in a copy (wb-plant-defect on PATH).",
+      "version": "0.1.0"
     }
   ]
 }

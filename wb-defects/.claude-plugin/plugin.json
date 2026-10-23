@@ -1,0 +1,11 @@
+{
+  "name": "wb-defects",
+  "displayName": "Workbench Defects",
+  "version": "0.1.0",
+  "description": "Opt-in planted-defect runner for wb's verifiers: runs the repository's own test command against a one-file edit in a copy and reports whether the tests caught it.",
+  "author": {
+    "name": "Gabriel Varela"
+  },
+  "repository": "https://github.com/gvarela/workbench",
+  "keywords": ["wb", "tdd", "testing", "mutation", "defects"]
+}
