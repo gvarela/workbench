@@ -1002,6 +1002,417 @@ case "$(ls -ld "$TMP_ROOT/fresh/a")" in drwx------*) ok "sandbox: missing cache 
 pd teardown --id "$NEW_ID" >/dev/null
 [ -z "$(git status --porcelain)" ] && ok "sandbox: user's working tree clean throughout" || fail "sandbox: user's working tree clean throughout"
 
+# ================================================================ gate lock and batch
+# Helpers for the per-id gate: the gate directory, and a process's start
+# identity in the runner's format.
+gate_of() { printf '%s/wb-defect-lock-%s' "$DBASE" "$1"; }
+start_id() { LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed -e 's/^ *//' -e 's/ *$//'; }
+# fake_gate <id> <pid> [<start identity>]: a gate held by that process.
+fake_gate() {
+    local g
+    g="$(gate_of "$1")"
+    mkdir -m 700 "$g"
+    printf '%s %s %s %s\n' "$1" deadbeefdeadbeef "$2" "${3:-$(start_id "$2")}" > "$g/owner"
+}
+# bg_out <file> <args...>: run the runner in the background (by bash, so $!
+# is the runner's own process), output to file.
+bg_run() {
+    local out="$1"
+    shift
+    # Job control on: otherwise bash starts background jobs with SIGINT
+    # ignored, and an ignored-at-start signal cannot be trapped.
+    set -m
+    "$BASH_BIN" "$SCRIPT" "$@" > "$out" 2>/dev/null &
+    BG_PID=$!
+    set +m
+}
+
+GB="$TMP_ROOT/gate"
+mkdir -p "$GB/tests" && cd "$GB" || exit 1
+git init -q .
+printf 'add() { echo $(($1 + $2)); }\nsub() { echo $(($1 - $2)); }\n' > calc.sh
+printf 'v=1\nline\tTAB\nsay "hi" \\ back\n-dash\n$(touch PWN) `x` ; | &\nend\n' > text.sh
+command cp -f text.sh text.expected
+printf 'set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_calc.sh
+printf 'sleep 1\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_slow.sh
+printf 'cmp -s ./text.sh ./text.expected\n' > tests/test_text.sh
+printf 'chmod 444 calc.sh\nchmod 555 .\nexit 1\n' > tests/test_lock.sh
+runner run-tests
+profile './run-tests {tests}'
+commit_all start
+G_ID="$TAG-gate"
+IDS="$IDS $G_ID"
+
+# ---- ids that would collide with a gate path are refused
+exit_is 2 "gate: an id starting with lock- is a usage error (exit 2)" pd setup --id lock-x
+exit_is 2 "gate: --lock-wait must be a number (exit 2)" pd setup --id "$G_ID" --lock-wait soon
+
+pd setup --id "$G_ID" --working-tree >/dev/null
+pd baseline --id "$G_ID" --test tests/test_calc.sh >/dev/null
+
+# ---- same-id runs serialize: each sees only its own mutation (worktree)
+bg_run "$TMP_ROOT/g-a.json" run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh --label A
+sleep 0.3
+out_b="$(pd run --id "$G_ID" --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_slow.sh --label B)"
+wait "$BG_PID"
+out_a="$(cat "$TMP_ROOT/g-a.json")"
+check "$out_a" 'd["label"]=="A" and d["outcome"]=="caught" and "$1 * $2" in d["diff"]' "gate (worktree): run A sees only its own mutation (caught)"
+check "$out_b" 'd["label"]=="B" and d["outcome"]=="survived" and "$1 + $2" in d["diff"] and "*" not in d["diff"]' "gate (worktree): concurrent run B sees only its own mutation (survived)"
+cmp -s "$DBASE/wb-defect-$G_ID/wt/calc.sh" calc.sh && ok "gate (worktree): the copy is restored after both" || fail "gate (worktree): the copy is restored after both"
+[ ! -e "$(gate_of "$G_ID")" ] && ok "gate: released after the runs" || fail "gate: released after the runs"
+
+# ---- baseline and run at once: the baseline never sees the mutation
+bg_run "$TMP_ROOT/g-r.json" run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.3
+out_b="$(pd baseline --id "$G_ID" --test tests/test_slow.sh)"
+wait "$BG_PID"
+check "$out_b" 'd["passed"] is True' "gate: a baseline concurrent with a run does not see its mutation"
+check "$(cat "$TMP_ROOT/g-r.json")" 'd["outcome"]=="caught"' "gate: and the run is still judged on its own mutation"
+
+# ---- setup/setup, setup/run, teardown/run, teardown/setup
+bg_run "$TMP_ROOT/g-s1.json" setup --id "$G_ID" --working-tree
+out_s2="$(pd setup --id "$G_ID" --working-tree)"
+wait "$BG_PID"
+check "$(cat "$TMP_ROOT/g-s1.json")" 'd["strategy"]=="worktree" and d["errors"]==[]' "gate: setup/setup: the first setup completes"
+check "$out_s2" 'd["strategy"]=="worktree" and d["errors"]==[]' "gate: setup/setup: the second waits, then completes"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh)"
+check "$out" 'd["outcome"]=="caught"' "gate: setup/setup leaves a usable state"
+bg_run "$TMP_ROOT/g-sr.json" setup --id "$G_ID" --working-tree
+out_r="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh)"
+wait "$BG_PID"
+check "$out_r" 'd["outcome"] in ("caught","not_run") and (d["outcome"]=="caught" or d["errors"])' "gate: setup/run: the run is judged or cleanly not run, never half-set-up"
+check "$(cat "$TMP_ROOT/g-sr.json")" 'd["strategy"]=="worktree"' "gate: setup/run: the setup completes"
+bg_run "$TMP_ROOT/g-tr.json" run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.3
+out_t="$(pd teardown --id "$G_ID")"
+wait "$BG_PID"
+check "$(cat "$TMP_ROOT/g-tr.json")" 'd["outcome"]=="caught"' "gate: teardown/run: the run in progress finishes first"
+check "$out_t" 'd["removed"] is True' "gate: teardown/run: then teardown removes the state"
+[ ! -e "$DBASE/wb-defect-$G_ID" ] && [ "$(worktree_count)" = 1 ] && ok "gate: teardown/run: nothing left behind" || fail "gate: teardown/run: nothing left behind"
+pd setup --id "$G_ID" --working-tree >/dev/null
+bg_run "$TMP_ROOT/g-ts.json" teardown --id "$G_ID"
+out_s="$(pd setup --id "$G_ID" --working-tree)"
+wait "$BG_PID"
+check "$out_s" 'd["strategy"]=="worktree" and d["errors"]==[]' "gate: teardown/setup: setup after (or before) teardown leaves a valid state"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh)"
+check "$out" 'd["outcome"] in ("caught","not_run")' "gate: teardown/setup: a following run is consistent"
+pd setup --id "$G_ID" --working-tree >/dev/null
+
+# ---- lock timeouts: each command's normal JSON, exit 0, a clear error
+sleep 60 &
+HOLDER=$!
+fake_gate "$G_ID" "$HOLDER"
+start=$SECONDS
+out="$(pd setup --id "$G_ID" --working-tree --lock-wait 1)"; code=$?
+check "$out" 'd["strategy"]=="none" and [e for e in d["errors"] if "lock" in e]' "gate timeout: setup reports strategy none with a lock error"
+[ "$code" = 0 ] && ok "gate timeout: setup exits 0" || fail "gate timeout: setup exits 0"
+out="$(pd baseline --id "$G_ID" --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["passed"] is False and d["exit_code"] is None and [e for e in d["errors"] if "lock" in e]' "gate timeout: baseline reports not run with a lock error"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="not_run" and d["applied"] is False and [e for e in d["errors"] if "lock" in e]' "gate timeout: run reports not_run with a lock error"
+out="$(pd run --id "$G_ID" --test tests/test_calc.sh --lock-wait 1 --case --control --file calc.sh --find 'add()' --replace 'nope()' --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" 'd["total"]==2 and d["completed"]==0 and all(r["outcome"]=="not_run" for r in d["results"]) and [e for e in d["errors"] if "lock" in e]' "gate timeout: a batch reports every case not_run with a lock error"
+out="$(pd teardown --id "$G_ID" --lock-wait 1)"
+check "$out" 'd["removed"] is False and [e for e in d["errors"] if "lock" in e]' "gate timeout: teardown reports removed false with a lock error"
+end=$SECONDS
+[ $((end - start)) -le 15 ] && ok "gate timeout: each waits about --lock-wait ($((end - start))s for five)" || fail "gate timeout: each waits about --lock-wait ($((end - start))s for five)"
+start=$SECONDS
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 0)"
+end=$SECONDS
+check "$out" 'd["outcome"]=="not_run" and [e for e in d["errors"] if "lock" in e]' "gate: --lock-wait 0 fails fast"
+[ $((end - start)) -le 2 ] && ok "gate: --lock-wait 0 returns at once" || fail "gate: --lock-wait 0 returns at once"
+[ -d "$(gate_of "$G_ID")" ] && ok "gate: a live owner's lock is never stolen" || fail "gate: a live owner's lock is never stolen"
+# An old lock with a live owner is still not stolen.
+touch -t 202001010000 "$(gate_of "$G_ID")"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="not_run"' "gate: an old lock whose owner is alive is not stolen"
+# Different ids are independent.
+new_id gate-other
+pd setup --id "$NEW_ID" --working-tree >/dev/null
+out="$(pd run --id "$NEW_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 0)"
+check "$out" 'd["outcome"]=="caught"' "gate: a different id runs while this one's gate is held"
+pd teardown --id "$NEW_ID" >/dev/null
+# Same live pid, different start identity (pid reuse): reclaimed.
+rm -rf "$(gate_of "$G_ID")"
+fake_gate "$G_ID" "$HOLDER" "Mon Jan  1 00:00:00 2001"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="caught"' "gate: a lock whose pid now belongs to another process (start identity differs) is reclaimed"
+kill "$HOLDER" 2>/dev/null
+wait "$HOLDER" 2>/dev/null
+# Owner gone: reclaimed.
+sleep 0.1 &
+DEAD=$!
+wait "$DEAD"
+fake_gate "$G_ID" "$DEAD" "Mon Jan  1 00:00:00 2001"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="caught"' "gate: a lock whose owner has exited is reclaimed"
+# A fresh ownerless lock is held; an old one is reclaimable.
+mkdir -m 700 "$(gate_of "$G_ID")"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="not_run" and [e for e in d["errors"] if "lock" in e]' "gate: a fresh ownerless lock counts as held"
+touch -t 202001010000 "$(gate_of "$G_ID")"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="caught"' "gate: an old ownerless lock is reclaimed"
+# A gate that is a symlink is refused.
+mkdir -p "$TMP_ROOT/gate-target"
+ln -s "$TMP_ROOT/gate-target" "$(gate_of "$G_ID")"
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 0)"
+check "$out" 'd["outcome"]=="not_run" and [e for e in d["errors"] if "symlink" in e]' "gate: a symlinked gate is refused"
+[ -z "$(ls -A "$TMP_ROOT/gate-target")" ] && ok "gate: nothing written through a symlinked gate" || fail "gate: nothing written through a symlinked gate"
+rm -f "$(gate_of "$G_ID")"
+
+# ---- INT/TERM release the gate and restore; SIGKILL leaves a reclaimable lock
+for sig in TERM INT; do
+    bg_run "$TMP_ROOT/g-sig.json" run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+    sleep 0.5
+    kill -"$sig" "$BG_PID"
+    wait "$BG_PID" 2>/dev/null
+    [ ! -e "$(gate_of "$G_ID")" ] && ok "gate: $sig releases the gate" || fail "gate: $sig releases the gate"
+    cmp -s "$DBASE/wb-defect-$G_ID/wt/calc.sh" calc.sh && ok "gate: $sig restores the copy" || fail "gate: $sig restores the copy"
+done
+bg_run "$TMP_ROOT/g-kill.json" run --id "$G_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.5
+kill -KILL "$BG_PID"
+wait "$BG_PID" 2>/dev/null
+[ -d "$(gate_of "$G_ID")" ] && ok "gate: SIGKILL leaves the gate behind" || fail "gate: SIGKILL leaves the gate behind"
+sleep 1.2
+out="$(pd run --id "$G_ID" --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="survived" and [n for n in d["notes"] if "interrupted" in n]' "gate: the next call reclaims it and repairs the copy"
+
+# ---- batch
+bt() { pd run --id "$G_ID" --test tests/test_calc.sh "$@"; }
+out="$(bt --case --control --file calc.sh --find 'add()' --replace 'nope()' --label ctl \
+          --case --file calc.sh --find '$1 + $2' --replace '$1 * $2' --label guarded \
+          --case --file calc.sh --find '$1 - $2' --replace '$1 + $2' --label unguarded)"
+check "$out" 'd["total"]==3 and d["completed"]==3 and d["aborted"] is False and d["errors"]==[]' "batch: envelope with total, completed, aborted"
+check "$out" '[r["label"] for r in d["results"]]==["ctl","guarded","unguarded"] and [r["outcome"] for r in d["results"]]==["caught","caught","survived"]' "batch: caller order kept, each case judged"
+check "$out" 'd["results"][0]["control"] is True and d["results"][1]["control"] is False and all(r["control_ok"] is True for r in d["results"])' "batch: control flag per case, control_ok for the pair"
+check "$out" 'all(r["target_blob"] and r["test_blobs"].get("tests/test_calc.sh") for r in d["results"]) and d["results"][2]["auto_control"] is None' "batch: ledger blobs per case; no automatic control in batch mode"
+cmp -s "$DBASE/wb-defect-$G_ID/wt/calc.sh" calc.sh && ok "batch: copy restored after the batch" || fail "batch: copy restored after the batch"
+# Literal text: multiline, tab, quotes, backslash, leading dash, empty
+# replacement, and shell metacharacters, all as data.
+pd baseline --id "$G_ID" --test tests/test_text.sh >/dev/null
+out="$(pd run --id "$G_ID" --test tests/test_text.sh \
+    --case --control --file text.sh --find 'v=1' --replace 'v=2' \
+    --case --file text.sh --find "$(printf 'line\tTAB\nsay')" --replace "$(printf 'L\tT\nS')" --label multiline \
+    --case --file text.sh --find 'say "hi" \ back' --replace "say 'yo' // back" --label quotes \
+    --case --file text.sh --find '-dash' --replace '' --label empty \
+    --case --file text.sh --find '$(touch PWN) `x` ; | &' --replace '$(touch PWN2) && rm -rf x' --label meta)"
+check "$out" 'd["completed"]==5 and all(r["applied"] is True and r["outcome"]=="caught" for r in d["results"])' "batch text: tab, newline, quotes, backslash, leading dash, empty replacement, metacharacters all applied literally"
+check "$out" '"+L\tT" in d["results"][1]["diff"] and "-say \"hi\" \\ back" in d["results"][2]["diff"] and "--dash" in d["results"][3]["diff"]' "batch text: diffs show the literal edits"
+[ ! -e PWN ] && [ ! -e PWN2 ] && [ ! -e "$DBASE/wb-defect-$G_ID/wt/PWN" ] && [ ! -e "$DBASE/wb-defect-$G_ID/wt/PWN2" ] && ok "batch text: metacharacters are data, nothing ran" || fail "batch text: metacharacters are data, nothing ran"
+# Malformed batches run nothing.
+before="$(ls "$DBASE/wb-defect-$G_ID/state" | sort)"
+exit_is 2 "batch: a case without --replace is malformed (exit 2)" bt --case --control --file calc.sh --find 'add()' --replace 'x()' --case --file calc.sh --find '$1 + $2'
+exit_is 2 "batch: cases naming different files are refused (exit 2)" bt --case --control --file calc.sh --find 'add()' --replace 'x()' --case --file text.sh --find 'v=1' --replace 'v=2'
+exit_is 2 "batch: a case with an empty --find is refused (exit 2)" bt --case --control --file calc.sh --find '' --replace 'x'
+exit_is 2 "batch: a case path with .. is refused (exit 2)" bt --case --control --file ../calc.sh --find 'a' --replace 'b'
+exit_is 2 "batch: a shared option after --case is refused (exit 2)" pd run --id "$G_ID" --case --control --file calc.sh --find 'add()' --replace 'x()' --test tests/test_calc.sh
+exit_is 2 "batch: single-run flags mixed with --case are refused (exit 2)" pd run --id "$G_ID" --test tests/test_calc.sh --file calc.sh --case --control --file calc.sh --find 'add()' --replace 'x()'
+after="$(ls "$DBASE/wb-defect-$G_ID/state" | sort)"
+[ "$before" = "$after" ] && ok "batch: malformed batches ran nothing (no state written)" || fail "batch: malformed batches ran nothing (no state written)"
+# A defect needs a control for its exact pair, earlier in the batch or in state.
+new_id gate-pair
+P_ID="$NEW_ID"
+pd setup --id "$P_ID" --working-tree >/dev/null
+exit_is 2 "batch: a defect before any control of its pair is refused (exit 2)" pd run --id "$P_ID" --test tests/test_calc.sh --case --file calc.sh --find '$1 + $2' --replace '$1 * $2' --case --control --file calc.sh --find 'add()' --replace 'x()'
+pd run --id "$P_ID" --test tests/test_calc.sh --case --control --file calc.sh --find 'add()' --replace 'x()' >/dev/null
+out="$(pd run --id "$P_ID" --test tests/test_calc.sh --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" 'd["results"][0]["outcome"]=="caught" and d["results"][0]["control_ok"] is True' "batch: a control established in state for the same pair counts"
+exit_is 2 "batch: a control for other --test-file content does not count (exit 2)" pd run --id "$P_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@HEAD' --case --file calc.sh --find '$1 + $2' --replace '$1 * $2'
+pd run --id "$P_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@HEAD' --case --control --file calc.sh --find 'add()' --replace 'x()' >/dev/null
+out="$(pd run --id "$P_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@HEAD' --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" 'd["results"][0]["outcome"]=="caught"' "batch: the same --test-file content matches its pair's control"
+pd teardown --id "$P_ID" >/dev/null
+# Per-item failures continue.
+out="$(bt --case --control --file calc.sh --find 'add()' --replace 'nope()' \
+          --case --file calc.sh --find 'no such text' --replace 'x' --label missing \
+          --case --file calc.sh --find '$((' --replace '$(((' --label twice \
+          --case --file calc.sh --find '$1 + $2' --replace '$1 * $2' --label good)"
+check "$out" 'd["completed"]==4 and d["aborted"] is False and [r["outcome"] for r in d["results"]]==["caught","error","error","caught"]' "batch: per-item failures (find missing, not unique) are reported and the batch continues"
+check "$out" '[e for e in d["results"][1]["errors"] if "not found" in e] and [e for e in d["results"][2]["errors"] if "more than once" in e] and d["results"][3]["errors"]==[]' "batch: each item carries its own errors"
+# A failed control stops that pair's defects.
+out="$(bt --case --control --file calc.sh --find '$1 - $2' --replace '$1 + $2' --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" 'd["results"][0]["outcome"]=="survived" and d["results"][0]["control_ok"] is False and d["results"][1]["outcome"]=="not_run" and [e for e in d["results"][1]["errors"] if "control" in e]' "batch: a control that is not caught leaves its pair's defects not run"
+pd run --id "$G_ID" --test tests/test_calc.sh --case --control --file calc.sh --find 'add()' --replace 'nope()' >/dev/null
+# Caps.
+args=""
+i=0
+set --
+while [ $i -lt 51 ]; do set -- "$@" --case --file calc.sh --find '$1 + $2' --replace "\$1 * \$2 # $i"; i=$((i + 1)); done
+exit_is 2 "batch: more than 50 cases is refused (exit 2)" bt --case --control --file calc.sh --find 'add()' --replace 'x()' "$@"
+set --
+big="$(head -c 140000 /dev/zero | tr '\0' 'a')"
+exit_is 2 "batch: more than 256 KiB of find and replace text is refused (exit 2)" bt --case --control --file calc.sh --find 'add()' --replace "$big" --case --file calc.sh --find '$1 + $2' --replace "$big"
+long="$(head -c 6000 /dev/zero | tr '\0' 'b')"
+out="$(bt --case --file calc.sh --find '$1 + $2' --replace "\$1 * \$2 # $long")"
+check "$out" 'len(d["results"][0]["diff"]) <= 4100 and d["results"][0]["diff"].endswith("[truncated]")' "batch: a case's diff is truncated to about 4000 characters"
+# Batch deadline caps each case's timeout; later cases are not run.
+start=$SECONDS
+out="$(bt --batch-deadline 3 --timeout 30 \
+          --case --file calc.sh --find 'add() { echo $(($1 + $2)); }' --replace 'add() { while :; do :; done; }' --label loop \
+          --case --file calc.sh --find '$1 - $2' --replace '$1 + $2' --label late)"
+end=$SECONDS
+check "$out" 'd["results"][0]["outcome"]=="timeout" and d["results"][0]["timeout_s"]<=3 and d["results"][1]["outcome"]=="not_run" and [e for e in d["results"][1]["errors"] if "deadline" in e] and d["completed"]==1' "batch: --batch-deadline caps the running case and skips the rest"
+[ $((end - start)) -le 10 ] && ok "batch: the deadline bounds the whole call ($((end - start))s)" || fail "batch: the deadline bounds the whole call ($((end - start))s)"
+cmp -s "$DBASE/wb-defect-$G_ID/wt/calc.sh" calc.sh && ok "batch: copy restored after a timed-out case" || fail "batch: copy restored after a timed-out case"
+# An unverifiable restore aborts the rest.
+out="$(pd run --id "$G_ID" --test tests/test_lock.sh \
+    --case --control --file calc.sh --find 'add()' --replace 'nope()' \
+    --case --file calc.sh --find '$1 + $2' --replace '$1 * $2' --label after)"
+check "$out" 'd["aborted"] is True and d["results"][1]["outcome"]=="not_run" and [e for e in d["results"][0]["errors"] if "restore" in e] and d["completed"]==1' "batch: a restore that cannot be verified aborts the remaining cases"
+chmod -R u+w "$DBASE/wb-defect-$G_ID/wt"
+pd teardown --id "$G_ID" >/dev/null
+
+# ---- swap: same-id concurrency and fallback mid-batch
+PSW="$TMP_ROOT/py-gate"
+mkdir -p "$PSW/tests" && cd "$PSW" || exit 1
+git init -q .
+printf '[pytest]\n' > pytest.ini
+printf 'import os, sys\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\n' > conftest.py
+printf 'def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n' > calc.py
+printf 'import time\n\n\ndef test_add():\n    time.sleep(1)\n    from calc import add\n    assert add(2, 3) == 5\n' > tests/test_slow.py
+printf 'from calc import add\n\n\ndef test_add():\n    assert add(2, 3) == 5\n' > tests/test_calc.py
+profile "$PY_CMD"
+commit_all start
+new_id gate-swap
+S_ID="$NEW_ID"
+pd setup --id "$S_ID" --working-tree >/dev/null
+bg_run "$TMP_ROOT/s-a.json" run --id "$S_ID" --file calc.py --find 'return a + b' --replace 'return a * b' --test tests/test_slow.py --label A
+sleep 0.3
+out_b="$(pd run --id "$S_ID" --file calc.py --find 'return a - b' --replace 'return a + b' --test tests/test_slow.py --label B)"
+wait "$BG_PID"
+check "$(cat "$TMP_ROOT/s-a.json")" 'd["outcome"]=="caught" and d["strategy"]=="swap"' "gate (swap): run A sees only its own mutation"
+check "$out_b" 'd["outcome"]=="survived" and d["strategy"]=="swap"' "gate (swap): concurrent run B sees only its own mutation"
+ls -d "$DBASE/wb-defect-$S_ID"/call.* >/dev/null 2>&1 && fail "gate (swap): per-call scratch is removed" || ok "gate (swap): per-call scratch is removed"
+pd teardown --id "$S_ID" >/dev/null
+# Fallback mid-batch: the control survives the swap, later cases use the worktree.
+profile 'python3 -m pytest -q -p no:wb_defect_swap {tests}'
+new_id gate-fb
+pd setup --id "$NEW_ID" --working-tree >/dev/null
+out="$(pd run --id "$NEW_ID" --test tests/test_calc.py \
+    --case --control --file calc.py --find 'return a + b' --replace 'return 0' \
+    --case --file calc.py --find 'return a - b' --replace 'return a + b' \
+    --case --file calc.py --find 'return a + b' --replace 'return a * b')"
+check "$out" '[r["strategy"] for r in d["results"]]==["worktree","worktree","worktree"] and [r["outcome"] for r in d["results"]]==["caught","survived","caught"] and [n for n in d["results"][0]["strategy_notes"] if "fell back" in n]' "batch: swap falls back to a worktree at the control; later cases use it"
+pd teardown --id "$NEW_ID" >/dev/null
+
+# ---- sandbox: same-id runs serialize; setup during a run does not deadlock
+SBG="$TMP_ROOT/sb-gate"
+mkdir -p "$SBG/tests" && cd "$SBG" || exit 1
+git init -q .
+printf 'add() { echo $(($1 + $2)); }\nsub() { echo $(($1 - $2)); }\n' > calc.sh
+printf 'sleep 1\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_slow.sh
+runner run-tests
+profile './run-tests {tests}' 'strategy: sandbox' 'dependency dirs: deps'
+commit_all start
+new_id gate-sb
+B_ID="$NEW_ID"
+out="$(pd setup --id "$B_ID" --commit HEAD)"
+mkdir -p "$(field "$out" 'd["sandbox_copy"]')/deps/x"
+pd setup --id "$B_ID" --commit HEAD >/dev/null
+bg_run "$TMP_ROOT/b-a.json" run --id "$B_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.3
+out_b="$(pd run --id "$B_ID" --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_slow.sh)"
+wait "$BG_PID"
+check "$(cat "$TMP_ROOT/b-a.json")" 'd["outcome"]=="caught" and d["strategy"]=="sandbox"' "gate (sandbox): run A sees only its own mutation"
+check "$out_b" 'd["outcome"]=="survived" and d["strategy"]=="sandbox"' "gate (sandbox): concurrent run B sees only its own mutation"
+bg_run "$TMP_ROOT/b-r.json" run --id "$B_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.3
+start=$SECONDS
+out_s="$(pd setup --id "$B_ID" --commit HEAD)"
+end=$SECONDS
+wait "$BG_PID"
+check "$out_s" 'd["strategy"]=="sandbox"' "gate (sandbox): a setup during a run waits for the gate, then takes the sandbox lock (no deadlock)"
+[ $((end - start)) -le 10 ] && ok "gate (sandbox): and returns in bounded time ($((end - start))s)" || fail "gate (sandbox): and returns in bounded time ($((end - start))s)"
+pd teardown --id "$B_ID" >/dev/null
+
+
+# ================================================================ review fixes (lock/batch)
+cd "$GB" || exit 1
+printf 'set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_calc2.sh
+R_ID="$TAG-rev"
+IDS="$IDS $R_ID"
+pd setup --id "$R_ID" --working-tree >/dev/null
+rt() { pd run --id "$R_ID" "$@"; }
+# Malformed owner record (live pid, no start identity): held while young,
+# never reclaimed as if its owner were gone.
+sleep 60 &
+HOLDER2=$!
+mkdir -m 700 "$(gate_of "$R_ID")"
+printf '%s %s %s\n' "$R_ID" deadbeefdeadbeef "$HOLDER2" > "$(gate_of "$R_ID")/owner"
+out="$(rt --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --lock-wait 1)"
+check "$out" 'd["outcome"]=="not_run" and [e for e in d["errors"] if "lock" in e]' "review: a gate whose live owner has no start identity is held, not reclaimed"
+rm -rf "$(gate_of "$R_ID")"
+kill "$HOLDER2" 2>/dev/null
+wait "$HOLDER2" 2>/dev/null
+# A gate whose owner record changed under the call is not deleted at release.
+bg_run "$TMP_ROOT/r-own.json" run --id "$R_ID" --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_slow.sh
+sleep 0.5
+printf '%s %s %s %s\n' "$R_ID" feedfacefeedface 1 "Mon Jan  1 00:00:00 2001" > "$(gate_of "$R_ID")/owner"
+wait "$BG_PID"
+[ -d "$(gate_of "$R_ID")" ] && ok "review: a gate whose owner changed under the call is not deleted" || fail "review: a gate whose owner changed under the call is not deleted"
+check "$(cat "$TMP_ROOT/r-own.json")" '[e for e in d["errors"] if "lock" in e]' "review: and the call reports it"
+rm -rf "$(gate_of "$R_ID")"
+# stdin --test-file is refused in a batch (no unbounded read in a batch).
+exit_is 2 "review: --test-file <path>=- is refused in a batch (exit 2)" rt --test tests/test_calc.sh --test-file 'tests/test_calc.sh=-' --case --control --file calc.sh --find 'add()' --replace 'x()'
+# The pair key keeps the exact --test order (and duplicates).
+rt --test tests/test_calc.sh --test tests/test_calc2.sh --case --control --file calc.sh --find 'add()' --replace 'x()' >/dev/null
+exit_is 2 "review: a control on --test a --test b does not satisfy --test b --test a (exit 2)" rt --test tests/test_calc2.sh --test tests/test_calc.sh --case --file calc.sh --find '$1 + $2' --replace '$1 * $2'
+exit_is 2 "review: nor --test a --test b --test b (exit 2)" rt --test tests/test_calc.sh --test tests/test_calc2.sh --test tests/test_calc2.sh --case --file calc.sh --find '$1 + $2' --replace '$1 * $2'
+out="$(rt --test tests/test_calc.sh --test tests/test_calc2.sh --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" 'd["results"][0]["outcome"]=="caught"' "review: the same order matches its control"
+# --file may not be a --test-file path; per-case heal leaves active overrides alone.
+exit_is 2 "review: --file equal to a --test-file path is refused (exit 2)" rt --file tests/test_calc.sh --find 'set -e' --replace 'set +e' --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@HEAD'
+rt --file tests/test_calc.sh --find 'set -e' --replace 'set +e' --test tests/test_calc.sh >/dev/null
+printf 'set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\necho variant-ran\n' > "$TMP_ROOT/variant2.sh"
+out="$(rt --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_calc.sh --test-file 'tests/test_calc.sh=-' < "$TMP_ROOT/variant2.sh")"
+check "$out" '"variant-ran" in d["output_tail"] and not [n for n in d["notes"] if "restored tests/test_calc.sh" in n]' "review: the per-case heal does not undo an active --test-file override"
+# Long strings take a different escaping path: they still round-trip exactly.
+longl=""
+i=0
+while [ $i -lt 200 ]; do longl="$longl"$'q"\\\t\001%x\n'; i=$((i + 1)); done
+longl="${longl}end"
+printf '%s' "$longl" > "$TMP_ROOT/longlabel"
+out="$(rt --file calc.sh --find '$1 + $2' --replace '$1 * $2' --test tests/test_calc.sh --label "$longl")"
+check "$out" 'd["label"]==open("'"$TMP_ROOT"'/longlabel","rb").read().decode()' "review: a long label with quotes, backslashes, tabs, control characters, and newlines round-trips exactly"
+# Output cap: many large quote-heavy labels still give valid JSON under 1 MiB.
+rt --test tests/test_calc.sh --case --control --file calc.sh --find 'add()' --replace 'x()' >/dev/null
+qlabel="$(head -c 14000 /dev/zero | tr '\0' '"')"
+set --
+i=0
+while [ $i -lt 50 ]; do set -- "$@" --case --label "$qlabel$i" --file calc.sh --find '$1 + $2' --replace '$1 * $2'; i=$((i + 1)); done
+rt --test tests/test_calc.sh "$@" > "$TMP_ROOT/big.json"
+set --
+size="$(wc -c < "$TMP_ROOT/big.json" | tr -d ' ')"
+[ "$size" -le 1048576 ] && ok "review: batch output stays within 1 MiB ($size bytes)" || fail "review: batch output stays within 1 MiB ($size bytes)"
+check "$(cat "$TMP_ROOT/big.json")" 'd["total"]==50 and len(d["results"])==50 and [e for e in d["errors"] if "output truncated" in e] and all(r["outcome"]=="caught" and "control_ok" in r and r["target_blob"] for r in d["results"])' "review: an oversized batch falls back to valid minimal summaries with an output truncated error"
+pd teardown --id "$R_ID" >/dev/null
+# TERM during a sandbox setup releases the sandbox lock.
+SBT="$TMP_ROOT/sb-term"
+mkdir -p "$SBT/tests" "$SBT/many" && cd "$SBT" || exit 1
+git init -q .
+i=0
+while [ $i -lt 3000 ]; do printf '%s\n' "$i" > "many/f$i.txt"; i=$((i + 1)); done
+printf 'add() { echo $(($1 + $2)); }\n' > calc.sh
+printf '. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_calc.sh
+runner run-tests
+profile './run-tests {tests}' 'strategy: sandbox'
+commit_all start
+new_id sbterm-a
+T_A="$NEW_ID"
+bg_run "$TMP_ROOT/t-a.json" setup --id "$T_A" --working-tree
+sleep 1.5
+kill -TERM "$BG_PID"
+wait "$BG_PID" 2>/dev/null
+new_id sbterm-b
+out="$(WB_DEFECT_LOCK_WAIT=1 pd setup --id "$NEW_ID" --working-tree)"
+check "$out" 'not [e for e in d["errors"] if "lock" in e]' "review: TERM during a sandbox setup releases the sandbox lock (another id sets up at once)"
+pd teardown --id "$NEW_ID" >/dev/null
+pd teardown --id "$T_A" >/dev/null
+cd "$GB" || exit 1
+
+
 echo
 echo "bash $BASH_VERSION: $PASS passed, $FAIL failed, $SKIP skipped"
 [ "$FAIL" = 0 ]
