@@ -63,8 +63,8 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
 
 1. `wb-plant-defect setup --id <phase> --commit <end>`, once for the review. The test command comes from the profile's Defect sandbox section, as that file says. Report the `strategy` it used, and a `test_cmd_source` of `detected` as a caveat, since a detected command is a guess.
 2. `baseline --id <phase> --test <guarding test file>`, one guarding test file at a time, before any defect against it.
-3. `run --control --label control` once per target file and guarding test file, before the other defects against that pair.
-4. One `run` per defect, with `--find`/`--replace`, `--label <kind>@<location>` (the kinds are under "Ledger line" in that file), and only that guarding test file, never the whole suite or a filter over it.
+3. One batch `run` per target file and guarding test file: its first `--case` is `--control --label control@<location>`, then one `--case` per defect, with `--file`, `--find`/`--replace`, and `--label <kind>@<location>` (the kinds are under "Ledger line" in that file), at most 50 cases, and only that guarding test file, never the whole suite or a filter over it. Set the Bash `timeout` above the sum of the cases' `timeout_s` plus a margin, and `--batch-deadline` just under it.
+4. Read each entry of the batch's `results` as one ledger line, and check `aborted` and `completed`. Make one call at a time on an id, and never put two `wb-plant-defect` calls in one message; a lock error is retried once, after the other call ends.
 5. `teardown --id <phase>` before you hand back, even when a step failed.
 
 On the mutation-tool route, scope the run to the phase's changed production files and report the exact command.
