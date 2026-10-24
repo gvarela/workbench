@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — output templates and the beads
 
 ## Initial Response
 
-This stage needs from you: the phase to run, and a go-ahead at each phase checkpoint.
+This stage needs from you: the phase to run, a go-ahead at each phase checkpoint after reading its test review, acknowledging each blocking item and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction.
 
 When invoked, check for arguments:
 
@@ -59,27 +59,9 @@ If you find a pre-existing bug, a performance concern, or behavior the task does
 
 When it will not affect the end result, edit a file in place rather than rewriting it — fewer tokens, same outcome.
 
-### TDD Implementation Flow
+### Who Writes Tests
 
-For each implementation task:
-
-```
-1. RED Phase (Write Failing Test First)
-   - Write test that defines the expected behavior
-   - Run test to confirm it fails
-   - Tracked in beads as testing task
-
-2. GREEN Phase (Minimal Implementation)
-   - Write just enough code to make test pass
-   - No optimization, just make it work
-   - Run test to confirm it passes
-   - Tracked in beads as implementation task
-
-3. REFACTOR Phase (Improve Without Breaking)
-   - Clean up code while tests stay green
-   - Run tests after each change
-   - Close beads issue: `bd close [task-id]`
-```
+You never edit test cases: `wb:test-writer` writes and changes every test, outer and inner, including harness proofs. Keeping test authorship apart from the code is what lets the phase's test review trust a test, since whoever writes the code never shapes the check on it. A harness task's support code (fakes, fixtures, factories, harness modules) is yours to write, even under a test path, because it carries no assertions of its own; the review counts it as declared on that task only. Before the task's commit, post those files as a record on the task with `bd comments add [task-id] -f /dev/stdin` and the quoted heredoc that "Evidence in Beads" in [implement/reference.md](../implement/reference.md) describes, first line `support files:` and one repository-relative path per line, so the review and a resumed session read the list from beads. On a setup task whose description carries a `Setup files:` line, you may edit only the setup it names (fixtures, factories, `let`/`let!` lines, `before` blocks, test data) in the files it names, and post them the same way with first line `setup files:`: setup carries no assertion, so the authorship rule does not reach it, and the review still checks that nothing assertive changed. A test-file change no route covers is not yours to make: raise it as an Implementation Variance framed as the "Rule-Gap Halt" in [implement/reference.md](../implement/reference.md) frames it (the design is sound, a setup-only change puts no product behavior at risk, and its named option adds the `Setup files:` line to the task's beads description, as the Rule-Gap Halt's "Declare setup files" reply does, not to tasks.md alone), not as a plan defect. You write production code, run the tests, and commit. Step 3 gives the cycle.
 
 ## Process Steps
 
@@ -176,6 +158,8 @@ This shows:
 - Tasks whose dependencies are all closed (newly unblocked)
 - Both granular tasks and phase milestones
 
+Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit; the Step 5 test review diffs from it. Run one plain command per Bash call, as [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says: permission rules deny loops, `cd … &&` chains, and shell variables, and a denied call stalls the step.
+
 #### Claim and Track Tasks
 
 For each task you work on:
@@ -209,10 +193,10 @@ bd ready
 - Close the phase milestone only after ALL phase tasks are done AND manual verification passes
 - Use `bd show [phase-milestone-id]` to see which tasks still block the milestone
 
-| Tool | Use Case |
-|------|----------|
-| Beads | ALL task tracking (granular tasks AND phase milestones) |
-| Markdown | Documentation only (what the plan is, not status) |
+| Tool     | Use Case                                                |
+| -------- | ------------------------------------------------------- |
+| Beads    | ALL task tracking (granular tasks AND phase milestones) |
+| Markdown | Documentation only (what the plan is, not status)       |
 
 ### Step 3: Implement Phase Tasks
 
@@ -224,18 +208,23 @@ bd ready
 🔴 Writing test for: [task description]
 ```
 
-1. Create/update test file
-2. Write test that captures the requirement
-3. Run test to confirm failure:
+Spawn `wb:test-writer` with a complete Agent call, because the tool rejects a call without `description`: `Agent(description: "Write test for <AC-n or behavior>", subagent_type: "wb:test-writer", prompt: "<the request>")`. In an interactive session the spawn runs in the background: the call returns at once and its block arrives later as a completion notification. Do not `sleep` or poll while it runs, since the harness blocks sleep; end the turn, or continue work that does not depend on the test, until the notification arrives. Where the Agent tool offers a `run_in_background` parameter (fork mode off, as in `claude -p`), pass `run_in_background: false` so the call returns the block itself.
 
-   ```bash
-   # Example commands (adapt to project):
-   npm test path/to/test.spec.ts
-   go test ./path/to/package -run TestName
-   pytest tests/test_feature.py::test_name
-   ```
+Give every `wb:test-writer` spawn the task id: it posts its report verbatim as a comment on that task, so the Step 5 review and a resumed session can read it after this session ends, and you do not post it again. It returns a short block per report, in both modes, with a `Full report:` line naming the comment; if that line says the report was not posted, post the report it returns with `bd comments add [task-id] -f /dev/stdin` and the quoted heredoc that "Evidence in Beads" in [implement/reference.md](../implement/reference.md) describes (no file is written, so nothing lands in the task's commit). Read reports back with `bd comments [task-id] --json`, taking each comment's `text` field; the plain `bd comments` and `bd show` render markdown and drop backticks and `<...>` spans.
 
-4. Confirm test fails for the right reason
+1. **Write missing outer tests**: an outer test step (a `phaseN_outer_n` key in the tasks.md frontmatter) is done inside the implementation task it blocks, so when `bd ready` offers one, take that implementation task (`bd show` lists it) once its other open blockers are only outer test steps; a step that blocks no implementation task gets this item on its own. Spawn `wb:test-writer` for the task, with caller "the inline session, outer mode", the task id, that the earlier `wb:test-writer` reports for this task are in its comments, the plan directory, and for each criterion the task cites that has no `red(AC-n)` commit yet: the criterion's id and the target test file named in its outer test step. Name at most one criterion per test file: criteria that share a file are written and committed one at a time, with one more spawn after each round's commits, because a commit takes the whole file and each `red(AC-n)` commit should add only its own test; criteria in separate files share the spawn. It reads each criterion's text, example, observed-at boundary, and seam from the plan, and the conventions from their source, itself. It returns one block per criterion, carrying the test file and the red line, so you need not read the full reports. When the blocks arrive, re-run the done criteria's tests yourself in one command per boundary's test command and confirm each fails on an assertion. Then, in one Bash call, commit each test on its own as `red(AC-n): <criterion title>` (`git add <its test file> && git commit -F - -- <its test file> <<'WB_REPORT_END'`, then the message line and `WB_REPORT_END`, both at column 0, one criterion after another on separate lines; the quoted heredoc keeps a backtick or `$` in the title from expanding), because the phase review's identity check compares each outer test with its own red commit; the pathspec keeps a commit to its own file even when an earlier commit in the call failed and left its file staged. Read the new commits with `git log --oneline`; a criterion with no commit there gets no close until its commit succeeds. Close each step with its commit's short sha and the one assertion-failure line from your re-run: with the id (a bare `bd close` closes the last issue touched), in this form, because `--reason "..."` breaks on a quote in the assertion line; several steps can close in one Bash call, one heredoc each. Run it as one Bash call with every line, the closing `WB_REPORT_END` included, at column 0, not at this list's indentation ("Evidence in Beads" in [implement/reference.md](../implement/reference.md) gives the rest of the delimiter rule):
+
+    ```bash
+    bd close [outer-step-id] --reason-file - <<'WB_REPORT_END'
+    red <sha>: <assertion line>
+    WB_REPORT_END
+    ```
+
+    The close reason is the durable record that the test went red on an assertion. Then spawn again for any criterion still waiting on a shared file, including one returned blocked with `shares <file> with <id>`, which is a deferral, not a failure. Any other block of blocked, or a failure that is not an assertion (an import or setup error), proves nothing about the behavior: commit nothing for that criterion, commit and close the done ones as above, and raise it as an Implementation Variance (see Handling Mismatches) before implementing the task. A criterion waiting behind it in the same test file waits for that answer too, because the blocked test is still in the file and the next red commit would take it in; criteria waiting on other files go on. For a `criterion not found` block, first check the id and plan directory you sent against the task's Serves line and tasks.md, and spawn again with them corrected; raise the Variance only when the plan itself lacks the criterion.
+2. **Write inner tests and harness proofs**: spawn `wb:test-writer` with caller "the inline session, inner mode", the task id, the behavior to pin as inputs and observable results, the id of the criterion it serves and the plan directory (for a harness proof, the boundary and an existing behavior there), the target test file, and that the earlier reports are in the task's comments. Inner mode is the one that covers harness proofs: outer mode reports a passing run as blocked, and a harness proof's restored run passes by design. If the run stops at a load or import error, add only the stub needed to load the code and ask for a re-run. A `criterion not found` block gets the same input check as in item 1.
+3. Confirm each new test fails on an assertion; a harness proof instead shows its failing run and its passing restored run in the report. To change a test later, ask `wb:test-writer`; outer tests stay as committed, apart from a rewrite a person sanctions at a phase checkpoint (Step 5).
+
+**No acceptance criteria: plan predates 5.0.0.** When the phase has no outer test steps and its tasks cite no criteria, skip item 1, and say in your output that the plan has no acceptance criteria because it predates 5.0.0, so outer tests are skipped and no red commits will appear (the human needs to know why). Inner tests still go through `wb:test-writer`, because the no-test-edit rule protects the tests however the plan was written.
 
 **B. Implementation (GREEN)**
 
@@ -261,7 +250,7 @@ bd ready
 
 **D. Update Progress**
 
-After completing each task:
+After completing each task (and, if the phase has already compacted once and is heading for another, ask the handoff question in Resume Logic before the next task):
 
 1. Close the beads issue:
 
@@ -279,7 +268,7 @@ After completing each task:
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Completed [task-id]: [brief note about discoveries or deviations]
+   - [YYYY-MM-DD] Completed [what the task built, in plain words] ([task-id]): [brief note about discoveries or deviations]
    ```
 
 **Do NOT**:
@@ -288,23 +277,7 @@ After completing each task:
 - ❌ Use TaskCreate/TaskUpdate (not persisted)
 - ❌ Update frontmatter counts manually (beads is source of truth; /wb:update_status is the sole writer of those fields)
 
-### Step 4: Handle Testing Tasks
-
-For dedicated testing tasks:
-
-1. **Unit Tests**:
-   - Test individual functions/methods
-   - Mock external dependencies
-   - Aim for edge cases identified in design.md
-
-2. **Integration Tests**:
-   - Test component interactions
-   - Use real implementations where possible
-   - Verify data flow matches research findings
-
-Follow project testing patterns identified in research.md.
-
-### Step 5: Run Phase Verification
+### Step 4: Run Phase Verification
 
 **⛔ BARRIER 2: every phase task closed — verification on a partial phase reports work that has not landed**
 
@@ -326,11 +299,11 @@ Fix any issues before proceeding.
 
 After implementation, update the "Modified Files" section in tasks.md. Read the "Modified Files Section" template in [templates.md](templates.md) NOW and follow it exactly.
 
-### Step 6: Phase Checkpoint
+### Step 5: Phase Checkpoint
 
 **⛔ CHECKPOINT: Phase [N] Complete — the next phase builds on what a human has accepted**
 
-Complete these steps IN ORDER before proceeding to next phase:
+Complete these steps IN ORDER before proceeding to next phase. If this phase already compacted, suggest a fresh session for the next phase in the report; the user's go-ahead decides:
 
 #### 1. Verify All Phase Tasks Closed
 
@@ -357,26 +330,38 @@ make build          # or npm run build, go build
 
 **Requirement**: All automated checks must pass.
 
-#### 3. Request Manual Verification
+#### 3. Review the Phase's Tests and Verify the Phase
 
-Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly — automated results, beads state, then the manual checks from design.md.
+No per-task verifier ran, so this review is where test integrity gets checked, across the whole phase diff. Spawn `wb:test-reviewer` and, in the same message, `wb:phase-verifier`, both with no `model` parameter (their definitions pin Opus at `high`). The phase verifier checks the phase diff against its tasks and reports Intent progress; build its prompt from the "Phase Verifier Prompt" in [implement/sub-agent-prompts.md](../implement/sub-agent-prompts.md), and take its values, verdict rule, barrier (wait for both agents before going on), and how its findings enter the checkpoint report from "Phase Verification" in [implement/reference.md](../implement/reference.md). Give the reviewer the phase's starting commit (Step 2), the phase's criteria with their examples, observed-at boundaries, and seams, the red commits (the latest per criterion), every `wb:test-writer` report in the phase tasks' comments, the support files from each harness task's `support files:` comments, by task with its type, the setup files from each setup task's `setup files:` comments, by task with its `Setup files:` line, the conventions source, and mode `inline`. It reviews the phase's tests as a whole and proposes findings; it edits nothing.
 
-**Requirement**: Wait for user confirmation before proceeding.
+Then settle its Majority Candidates, because a judgment-only Remove or Rewrite needs three independent judgments and a second reading in the reviewer's own context is not independent. Spawn `wb:test-reviewer` again with the Candidates input (each candidate's location, rubric item, and proposed verdict, without the first review's reasoning) and the criteria those candidates cite, with their examples, since each judgment weighs the test against its criterion. Spawn a third time, with the same inputs, for each candidate the first two judgments split on. A candidate that 2 of 3 judgments agree with becomes a finding, recorded as "n of 3"; any other goes under "review these".
 
-#### 4. Close Phase Milestone
+File each escalated integrity finding and each "n of 3" finding as an issue linked to the task whose commit last changed the test (`git log -1 -- <test file>`), or to the phase milestone when no task did, so a Rewrite or Remove proposal outlives the checkpoint summary: `bd create "Test review: <verdict> <file:line>" --type=task --priority=2 --deps discovered-from:[task-id] -d "<rubric item, quoted excerpt, evidence type, and n of 3 or escalated>"`. The `discovered-from` link records the source without blocking anything.
 
-**ONLY after user confirms manual verification**, close the milestone:
+A Rewrite of an outer test that the person sanctions by name in their reply runs as a task before you close the milestone, filed, run, and committed as "Sanctioned Outer-Test Rewrite" in [implement/reference.md](../implement/reference.md) describes, because the rewrite must keep everything the red-commit version catches: you file it only after that reply, with the `Sanctioned rewrite:` line in its description, claim it, and on success commit the rewritten test as `red(AC-n): <criterion title> (rewrite sanctioned at the phase <N> checkpoint)`, with the task's beads id on a second message line, before closing it. From then on the latest `red(AC-n)` commit for a criterion is its baseline wherever you pass red commits; the earliest still gives a starting commit. Ask `wb:test-writer` for it yourself, with caller "the inline session, inner mode", the task id, and that section's differential requirement: it plants one defect for each case the red-commit version catches, as the test-quality skill's Part 3 defines them (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion), and one for the gap the review found, runs both versions against each, and lists each defect with both results in its report. The rewrite must fail on all of them, and the review's suggested fix is a starting point, not the specification. No per-task verifier runs here, so check that differential yourself before committing, planting your own defects across the original's predicate as task-verifier's Step 6 describes, with `wb-plant-defect`, probed and routed exactly as task-verifier's Step 6 says (without it, not run; never plant a defect any other way, as "Planted defects" in [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says): a defect the original fails on and the rewrite passes is lost coverage, and the whole class of lost cases goes back to `wb:test-writer` in one request, not one case at a time. Before sending it, check the fix you ask for restores the original's reach by construction rather than by listing cases, as the test-quality skill's Part 3 rule for suggested fixes says (a class fix, not an enumeration): "skip X unless it is read back through A, B, or C" leaves out members of an open-ended set, so ask instead for the one rule that removes the list, and run it against your planted defects in the copy before you send it.
+
+Two things hold the go-ahead: the reviewer's Blocking section and each unexplained deviation in the phase verifier's report ("Holding the go-ahead" under "Phase Verification" in [implement/reference.md](../implement/reference.md)). The Blocking section lists deterministic failures in tests this phase changed: a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, and a planted defect that survives. The evidence for a changed outer test or an undeclared change comes from the integrity script, which the reviewer runs over the phase; the reviewer finds the rest itself. The rule is this narrow because repositories the user does not control hold legacy tests that belong to others, so a test the phase did not change never blocks, and judgment-only findings stay advisory and inform the go-ahead without holding it. The integrity-finding counts, total and escalated, are the reviewer's Integrity line; they go into the checkpoint summary and the Step 6 Implementation Notes.
+
+#### 4. Request Manual Verification
+
+Present the manual verification checklist to the user. Read the "Manual Verification Request" template in [templates.md](templates.md) NOW and follow it exactly: its sections keep decisions, delivered behavior, test integrity, and follow-ups apart, and every item is written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, so the user can decide without opening beads.
+
+**Requirement**: Wait for user confirmation before proceeding. Blocking items, unexplained deviations, and final-phase FAIL verdicts need an answer each by name; a general go-ahead does not clear them, because a person has to have seen each one before the next phase builds on it.
+
+#### 5. Close Phase Milestone
+
+**ONLY after user confirms manual verification**, and after applying each deviation answer and, on the final phase, writing the README verdict echo ("Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md)), close the milestone:
 
 ```bash
 bd close [phase-milestone-id] --reason "Phase [N] complete: [summary]. All tasks closed, automated verification passed, manual verification confirmed."
 bd ready  # Check what's now unblocked (next phase milestone tasks)
 ```
 
-#### 5. Report Completion
+#### 6. Report Completion
 
 Report using the "Phase Completion Report" template in [templates.md](templates.md) — read it before writing the report.
 
-### Step 7: Update Status
+### Step 6: Update Status
 
 After phase completion and verification:
 
@@ -390,11 +375,11 @@ After phase completion and verification:
 
 2. **Reconcile tasks.md frontmatter via `/wb:update_status`**: run `/wb:update_status [project-directory]` to update `status`, `current_phase`, and `completed_tasks` from beads state — `update_status` is the sole writer of those fields, so do not hand-edit them here.
 
-3. **Add implementation notes** if there were discoveries:
+3. **Add implementation notes** with the phase's integrity-finding counts from Step 5 and any discoveries:
 
    ```markdown
    ## Implementation Notes
-   - [YYYY-MM-DD] Phase [N] complete: [key learnings, deviations from plan]
+   - [YYYY-MM-DD] Phase [N] complete: integrity findings [total] ([escalated] escalated); phase verification [PASS, or FAIL with each deviation and the answer given]; [key learnings, deviations from plan, each named in plain words with any id in parentheses]
    ```
 
 4. **Record durable learnings.** If this phase established something the next session would otherwise rediscover — a repository convention, a tool quirk, a constraint the plan did not state — record it:
@@ -417,26 +402,39 @@ After phase completion and verification:
 
 ## Handling Mismatches
 
-When implementation differs from tasks:
+When implementation differs from tasks, present this, written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says, with the four parts of its "Decision and halt messages" section. Offer only the options that are real choices for this variance, and name the actual ones when they differ:
 
 ```
 ⚠️ Implementation Variance Detected
 
-**Task states**: [what the task says to do]
+**Task states**: [what the task says to do, in plain words] ([task id])
 **Reality found**: [actual situation in code]
-**Impact**: [why this matters]
+**Impact**: [what breaks or is at risk for the user if nothing changes]
 
-**Options**:
+**Quality question**: [the product behavior at risk, in plain words, not test mechanics]
+**Judgment or friction**: [a real trade-off that needs you, or the process got stuck; if stuck, what the plugin should have done]
+
+**Options** (each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo):
 1. Adapt implementation to match codebase reality
 2. Update task to reflect necessary changes
 3. Skip task with documentation of why
 
-How should I proceed?
+Recommendation: [option and the reason]. How should I proceed?
+**Paste-ready reply**: [the exact reply that takes the recommended option: "adapt", "adapt: <guidance>", "update task", "skip", or the words of an option named in place of these]
 ```
 
-Document any deviations in the "Implementation Notes" section of tasks.md.
+On the reply, because a paste-ready reply is only useful if it does what its option said:
+
+- **adapt** (or `adapt: <guidance>`): continue the task's TDD cycle against the code as it is, following the guidance when the reply carries one.
+- **update task**: edit the task's text in tasks.md to the necessary change, in its own commit between tasks, then continue the task as updated.
+- **skip**: stop work on the task and leave its issue unclosed, so the tasks that depend on it stay blocked; say why in Implementation Notes and go on to the next ready task.
+- **An option named in place of these**: do what its line said it would do. When it drops the task's uncommitted changes, ask before deleting an untracked file you did not create, since it may be the user's. Ask before committing work whose tests do not pass.
+
+Record each answered variance in tasks.md's "Implementation Notes" when you apply the answer, in its own commit between tasks, so the phase verifier finds it as an explanation.
 
 ## Resume Logic
+
+If this phase has already compacted once and is heading for another, stop at a task or phase boundary and ask the user: "This phase has already compacted once and is heading for another. Write a handoff for a fresh session, or keep going and compact?", naming the tasks done and left in plain words, with the four parts of the "Decision and halt messages" section in [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md): the quality question (a second compaction works from a summary of a summary, so later tasks may drift from the plan), that this is a real trade-off for the user rather than friction, each option with what it costs and how hard it is to undo (a handoff ends this session but the next one re-reads the plan in full; compacting keeps the session but leaves paraphrase), and one recommended choice with its reason and a paste-ready reply ("write a handoff" or "keep going"). You write a handoff with `/wb:create_handoff` only if they say so, because the session is theirs and a handoff ends it. If they choose to keep going, continue, and after the compaction re-read research.md, design.md, and tasks.md in full before the next task, because what you recall of them is paraphrase.
 
 When resuming work (phase = "continue"):
 
@@ -468,7 +466,10 @@ When resuming work (phase = "continue"):
    [test command from tasks.md]
    ```
 
-4. **Continue from next available task**:
+4. **Pick up unfinished tasks**: for each `in_progress` task in this phase, an earlier session left it unfinished and `bd ready` will not offer it, so inspect the landed work before any new task: `git status` and `git diff`, plus the task's comments (`bd comments [task-id] --json`: the `wb:test-writer` reports, `support files:` and `setup files:` records, and any `worker report:` or `created files:` an earlier `/wb:implement` run left). Then finish or restart it as the "Worker Failure Playbook" in [implement/reference.md](../implement/reference.md) does for truncated work: keep landed work and a committed `red(AC-n)` test and finish the remainder, and restart only when little landed, from Step 3 with the committed `red(AC-n)` tests kept.
+
+5. **Continue from next available task**:
+   - Recover the phase's starting commit (Step 2) for the test review: the parent of the phase's earliest task or `red(AC-n)` commit in `git log` (a sanctioned rewrite's `red(AC-n)` commit is later, so it does not move this), or HEAD if the phase has none; the red commits to pass are the latest per criterion; the earlier test-writer reports are in the phase tasks' comments
    - `bd ready` shows what's available (no blockers)
    - `bd show [task-id]` to review task details
    - `bd update [task-id] --claim` to claim it
@@ -476,26 +477,9 @@ When resuming work (phase = "continue"):
    - `bd close [task-id]` when complete
    - Trust completed work (closed beads issues) unless tests fail
 
-## TDD Best Practices
+## When to Skip TDD
 
-### Test Quality
-
-- **Test behavior, not implementation**
-- **One assertion per test** (when practical)
-- **Descriptive test names**: `should_return_error_when_payment_exceeds_limit`
-- **Arrange-Act-Assert** pattern
-- **Test edge cases** identified in design.md
-
-### When to Skip TDD
-
-These task types are the named exceptions to tdd-discipline's Iron Law, because they add no new production behavior:
-
-- Configuration changes
-- Documentation updates
-- Refactoring with existing tests
-- Build/deployment scripts
-
-For these, update tasks.md appropriately but skip RED phase.
+Only the work in tdd-discipline's exceptions section skips the RED step; anything else needs a failing test first.
 
 ## Special Considerations
 
@@ -574,7 +558,7 @@ If automated verification fails after implementation:
 
 ### Do not
 
-- Skip writing tests first (except for the noted exceptions).
+- Skip writing tests first (except for tdd-discipline's exceptions), or edit a test file yourself instead of asking `wb:test-writer`.
 - Move to the next phase without verification, or implement multiple phases without checkpoints unless explicitly instructed.
 - Close manual verification without user confirmation.
 - Act on a partial read: if Read returns a partial view of a large file, page through the rest with offset/limit.
@@ -582,6 +566,6 @@ If automated verification fails after implementation:
 
 ## Synchronization Points
 
-1. **⛔ BARRIER 1**: After reading all documentation - full context required
-2. **⛔ BARRIER 2**: After phase completion - all tasks must be done
-3. **⛔ CHECKPOINT**: Between phases - requires human verification
+1. **⛔ BARRIER 1**: research.md, design.md, and tasks.md read in full, because implementing from partial reads produces work that misses the plan
+2. **⛔ BARRIER 2**: every phase task closed, because verification on a partial phase reports work that has not landed
+3. **⛔ CHECKPOINT**: between phases, because the next phase builds on what a human has accepted

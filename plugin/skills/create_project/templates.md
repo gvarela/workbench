@@ -211,8 +211,11 @@ depends_on: research.md
 
 ## Success Criteria
 
-### Functional Requirements
+### Acceptance Criteria
 - [ ] [To be defined]
+
+### Harness Decisions
+- [To be defined]
 
 ### Non-Functional Requirements
 - [ ] [To be defined]

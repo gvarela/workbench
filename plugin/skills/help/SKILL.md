@@ -27,17 +27,17 @@ Run this first, before any topic. It decides which of three cases you are in.
    - `research.md`, `design.md`, `tasks.md`: the frontmatter `status:` of each; research's `## Intent Coverage` lists; design's Success Metrics with their `(refines: ...)` markers and `Deferred:` line; tasks.md's `current_phase`, `completed_tasks`, `total_tasks`, and `beads_epic`.
    - Beads, after the session-start sanity check from [docs/reference/beads-mode.md](../../docs/reference/beads-mode.md) (`bd context`, `bd show <beads_epic>`, `bd stats`; stop with the Wrong database case if the epic does not resolve): `bd show <beads_epic>` for milestone state, and `bd list -n 0 --status=open | grep -E "Q:|Decide:|Validate:|UI Q:"` for open planning issues (count only titles that begin with the prefix).
    - Structural checks (files present, frontmatter fields, beads IDs resolve): reuse the "Validation Checklist" section of [../validate_project/SKILL.md](../validate_project/SKILL.md); do not restate it here, and do not run the full validation unless asked.
-4. **Report**, in this order, before any requested topic:
+4. **Report**, in this order, before any requested topic, naming each item in plain words with its id in parentheses, as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says:
 
    ```
    📍 Plan: docs/plans/<dir> (others active: <list or none>)
    Documents: research.md <status>; design.md <status>; tasks.md <status>, phase <n>, <closed>/<total> tasks
-   Beads: epic <id> <open/closed>; milestones: <phase: state, ...>; open planning issues: <Q:/Decide:/Validate: titles, or none>
+   Beads: epic <title> (<id>) <open/closed>; milestones: <phase name: state, ...>; open planning issues: <Q:/Decide:/Validate: titles, each with its id in parentheses, or none>
    Next stage: /wb:<stage> — needs from you: <that stage's "You provide / You decide / You confirm" cells from the table below>
-   Left undone by the previous stage: <gaps, or none>
+   Left undone by the previous stage: <gaps, each in plain words with what it puts at risk, or none>
    ```
 
-   The next stage is the first in the chain whose document is missing or whose status is not `complete` (research), `ready`/`implementing` (design), or whose phase milestone is open (implementation), then validation. Gaps come from the evidence: success statements research's Intent Coverage lists as not touched; statements with no `(refines:)` metric and no `Deferred:` entry; metrics that refine nothing; statements without a verdict suffix after validation ran; open `Q:` or `Decide:` issues; a milestone whose tasks are all closed but that is still open.
+   The next stage is the first in the chain whose document is missing or whose status is not `complete` (research), `ready`/`implementing` (design), or whose phase milestone is open (implementation), then `/wb:validate_phase <dir> all` when the README statements carry no verdict. Gaps come from the evidence: success statements research's Intent Coverage lists as not touched; statements with no `(refines:)` metric and no `Deferred:` entry; metrics that refine nothing; statements without a verdict suffix after the final checkpoint or validation ran; open `Q:` or `Decide:` issues; a milestone whose tasks are all closed but that is still open.
 5. **The three cases**:
    - **Case A, no active plan**: print `No active plan here (no docs/plans, or every plan is complete).` and render the reference card (Topics and Command Workflow below, plus the requested topic).
    - **Case B, active plan without an Intent section**: print the position block with `Left undone by the previous stage: not measurable without an Intent section (plan predates 3.0.0)`, then the requested topic.
@@ -68,19 +68,19 @@ Run this first, before any topic. It decides which of three cases you are in.
          ↓
 /wb:create_tasks  → Plan HOW to implement (creates beads issues)
          ↓
-/wb:implement          → Execute with workers (one per task, verified, escalated)
+/wb:implement          → Execute with workers (one per task, verified, escalated); each checkpoint verifies the phase
+                         (or /wb:implement_inline: the same plan, coded inline by this session, TDD)
          ↓
-/wb:implement_inline   → Same plan, coded inline by this session (TDD)
-         ↓
-/wb:validate_execution → Verify implementation matches plan
+/wb:validate_phase     → (optional) Re-check a phase, or all phases plus the Intent verdicts, on demand
 ```
 
 **Session Management:**
 
 ```
 /wb:create_handoff    → Save context for later
-/wb:resume_handoff    → Restore context and continue
+/wb:resume_handoff    → Restore context, then name the command to run next
 /wb:update_status     → Sync status across all files
+/wb:validate_project  → Repair tool, not a stage: audit a plan directory when its documents look inconsistent
 ```
 
 **UI Mockup Workflow:**
@@ -99,17 +99,19 @@ One row per stage. "Did enough" names the evidence the stage leaves behind; `/wb
 | Stage | You provide | You decide | You confirm | How you know it did enough |
 | ----- | ----------- | ---------- | ----------- | -------------------------- |
 | `create_project` | the goal, what success looks like, non-goals (or prose that carries them); name, base directory, ticket | — | the intent as read back to you | README has an Intent section: a Goal, two to four success statements, non-goals; nothing was written before you confirmed |
-| `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references |
+| `create_research` | the research question, or confirmation of the one derived from the Goal; files to read first | whether to explore design (findings show more than one viable approach) | — | research.md's Intent Coverage lists every success statement in exactly one of its two lists; findings carry file:line references; a Testing Conventions section records frameworks, commands, and harness |
 | `explore_design` | reactions to each direction as it is drafted | the direction, by explicit approval only | the framing of the decision space | a thoughts doc with a Synthesis section and a closed `Decide:` issue whose description starts with the Goal; a Goal change is a dated Amendments line in the README |
-| `create_design` | the approach, when no decision record exists | the approach; the refined metrics | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; a Goal or Non-goal change has a `Decide:` record and an Amendments line |
-| `create_tasks` | — | — | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; the beads epic, milestones, and tasks exist and gate in order; Target State names the Intent-refining metrics |
-| `implement` / `implement_inline` | the phase to run | escalation after a verified failure; what to do at a plan-defect halt | the phase report at each checkpoint (your go-ahead) | every task in the phase is closed in beads, verified, one commit each; the milestone closes only on your go-ahead |
-| `validate_execution` | the manual checks only you can run | whether deviations stand | your reading of the verdict per statement | a report with a verdict per Intent statement, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
+| `create_design` | the approach, when no decision record exists | the approach; the refined metrics; the acceptance criteria with their harness decisions; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question | the recorded decision, when one exists | every Intent statement is refined by a metric marked `(refines:)` or listed as deferred with a reason; every acceptance criterion names the metric it refines; a Goal or Non-goal change has a `Decide:` record and an Amendments line; each of this plan's open `Q:` questions was put to you by name and is closed with your answer, deferred with its owner in design.md and on the issue, or marked not this plan's |
+| `create_tasks` | — | each design item or metric no task delivers: add a task, defer it in design.md, or drop it from scope | that the phases and checkpoints match how you want to review | tasks.md phases carry file:line targets and verification; its Design Coverage table maps every design.md scope item and metric to a task or a stated deferral; the beads epic, milestones, and tasks exist and gate in order; every acceptance criterion has an outer-test step (or a manual check, where design chose manual), and implementation tasks cite the criteria they serve; Target State names the Intent-refining metrics |
+| `implement` / `implement_inline` | the phase to run | an answer for each unexplained deviation the phase verifier finds (accept, fix, or plan defect); escalation after a verified failure; what to do at a plan-defect halt; whether to hand off or keep going when a phase that has already compacted heads for another compaction | the phase report at each checkpoint, with the test review's findings (your go-ahead, acknowledging each blocking item by name) | every task in the phase is closed in beads, one commit each (under `implement`, each verified by a task-verifier); each cited criterion's outer test is committed as `red(AC-n)` before its code; each checkpoint carries a phase verification; the milestone closes only on your go-ahead, with each blocking item acknowledged and each deviation answered; after the final phase, the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
+| `validate_phase` | the phase to check, or all; the manual checks only you can run | an answer for each unexplained deviation | for all, your reading of the verdict per statement | a report with a phase verification per phase checked and a test review of the tests that range changed; for all, a verdict per Intent statement, and the README statements carry `→ PASS`, `→ FAIL`, or `→ DEFERRED` with a date |
 | `update_status` | — | any backward transition, with a reason | the proposed transitions | frontmatter status, phase, and counts match beads |
-| `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary | the handoff carries decisions, discoveries, and next steps; resume ran the sanity check and `bd ready` shows the next task |
-| `validate_project` | — | which findings to fix | — | every checklist item reported with a fix for each finding |
+| `create_handoff` / `resume_handoff` | the reason for handing off; the handoff path when resuming | — | the resumption summary, which ends with the command to run next | the handoff carries decisions, discoveries, and the next stage command; resume ran the sanity check, started no work, and `bd ready` shows the next task |
+| `validate_project` (repair tool, not a stage) | — | which findings to fix | — | every checklist item reported with a fix for each finding |
 | `create_mockup` / mockup-iteration | the feature; keep, remove, and change feedback on each version | the open `UI Q:` questions | each version | `UI Q:` issues resolved before finalization; the mockup log records the decisions |
 | `create_product_research` | the product question, or confirmation of the one derived from the Goal | — | — | research.md in product language answering the question with user-visible behaviors and Intent Coverage |
+| `test-audit` | the scope: a plan directory, a path, or nothing for the whole repository; optionally a depth (tests per area, or `full`; given alone, the audit covers the whole repository) | which findings to act on; on a large repository, whether to narrow the scope or depth or widen it to `full` | on a large repository, the scope, planned auditor spawns, and cost class, before any spawn; the findings, by spot-check | a report with the conventions source, the tests triaged out and how to expand, a verdict and evidence type on every finding, suite-level checks run or "not run" with a reason, and the statement that hollow reds and post-red edits cannot be checked cold; the audited repository is unchanged |
+| `testing-profile` | whether you control the repository's tooling, an answer for each gap, and edits to the drafted profile | the team's Choices, Planned and Open items, and mutation level | the draft, before anything is written | `.claude/wb/testing.md` exists with the research headings plus Choices and Mutation, and Planned and Open when gaps produced them; one beads issue per adopted gap; nothing else changed |
 
 ## Beads Integration
 
@@ -121,7 +123,7 @@ Beads helps ensure nothing falls through the cracks during planning:
 
 | What to Track | When | Why |
 | --------------- | ------ | ----- |
-| `Q: [question]` | Research finds unknowns | Blocks design until answered |
+| `Q: [question]` | Research finds unknowns | create_design puts it to you: answer, defer to a named owner, or not this plan's |
 | `Decide: [choice]` | Design needs stakeholder input | Blocks execution until decided |
 | `Validate: [assumption]` | Design assumes something | Must verify during implementation |
 | `UI Q: [question]` | Mockup iteration raises issue | Blocks finalization |
@@ -170,11 +172,6 @@ Use these instead of CLI when working in Claude Code:
 | `/beads:blocked` | See what's stuck and why |
 | `/beads:dep` | Manage dependencies between issues |
 | `/beads:stats` | Project health and progress |
-
-**Less Common:**
-
-| Command | When to Use |
-| --------- | ------------- |
 | `/beads:init` | First time setup in a project |
 | `/beads:search` | Find issues by text |
 | `/beads:epic` | Manage epics and their children |
@@ -185,17 +182,7 @@ Use these instead of CLI when working in Claude Code:
 
 ### CLI vs Slash Commands
 
-Both work - use whichever fits your flow:
-
-```bash
-# CLI (in terminal or scripts)
-bd ready
-bd close prompts-abc --reason "Done"
-
-# Slash commands (in Claude Code conversation)
-/beads:ready
-/beads:close prompts-abc
-```
+Both work: the CLI in a terminal or scripts (`bd ready`, `bd close prompts-abc --reason "Done"`), the slash commands in conversation (`/beads:ready`, `/beads:close prompts-abc`).
 
 ### Beads persistence
 
@@ -216,7 +203,7 @@ Creates project structure with research.md, design.md, tasks.md.
 
 ### `/wb:create_research [directory]`
 
-Spawns parallel agents to document codebase. Facts only, no opinions.
+Spawns parallel agents to document codebase, including its testing conventions. Facts only, no opinions.
 
 ### `/wb:create_product_research [directory]`
 
@@ -228,27 +215,35 @@ Researches the codebase from the product perspective: features, user flows, user
 
 ### `/wb:create_design [directory]`
 
-Interactive design session. Captures WHAT and WHY, not HOW. Formalizes a recorded decision when explore_design ran; generates options itself when not.
+Interactive design session. Captures WHAT and WHY, not HOW, including acceptance criteria (Given/When/Then with examples and where each is observed) and a harness decision per boundary. Formalizes a recorded decision when explore_design ran; generates options itself when not. Puts each of this plan's open `Q:` questions and pending decisions to you by name before approval: answer it now, defer it to a named owner, or rule it not this plan's; it never defers one on its own.
 
 ### `/wb:create_tasks [directory]`
 
-Transforms design into phased plan. Creates beads issues for tracking.
+Transforms design into phased plan. Writes one outer-test step per acceptance criterion not left to manual verification, a harness task wherever design chose to add a harness, and implementation tasks that cite the criteria they serve. Creates beads issues for tracking.
 
 ### `/wb:implement [directory] [phase|continue]`
 
-The default execution path: coordinates fresh-context workers, one per task, each verified by a task-verifier; verified failures escalate once. Claims and closes beads issues per task; one commit per verified task.
+The default execution path: coordinates fresh-context workers, one per task, each verified by a task-verifier; verified failures escalate once. Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites and commits it as `red(AC-n)`; workers never edit test cases (a harness task's support code is theirs to write and declare), and the verifier fails any test change that neither a test-writer report nor a harness or setup task's declared files cover. Each phase checkpoint adds a `wb:test-reviewer` review of the phase's tests and a `wb:phase-verifier` check of the phase against its tasks: planned changes missing, changes no task covers, earlier phases' tests changed again, and progress toward each Intent statement. Each unexplained deviation needs your answer by name; the final checkpoint writes the Intent verdicts to the README. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name; other review findings are advisory. Claims and closes beads issues per task; one commit per verified task. When a phase that has already compacted once heads for another compaction, it asks you whether to write a handoff for a fresh session or keep going, and writes one only if you say so.
 
 ### `/wb:implement_inline [directory] [phase|continue]`
 
-The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model.
+The same plan, coded inline by this session with TDD (Red → Green → Refactor); use when the work should run on the session model. The session never edits test cases (a harness task's support code is its own): `wb:test-writer` writes the outer test for each cited criterion, committed as `red(AC-n)` before its code, and every inner test. With no per-task verifier, each phase checkpoint's `wb:test-reviewer` review also checks test integrity across the phase; the same `wb:phase-verifier` check and final Intent verdicts as `/wb:implement` apply. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name; other review findings are advisory. The same handoff question applies when a phase that has already compacted once heads for another compaction, and on resume the session finishes or restarts any task an earlier session left in progress before taking new ones.
 
-### `/wb:validate_execution [directory]`
+### `/wb:validate_phase <directory> [phase|all]`
 
-Verifies implementation matches plan. Run after completing work.
+Re-runs a checkpoint's checks on demand. With a phase number: `wb:phase-verifier` on that phase and a `wb:test-reviewer` review of its tests. With `all` (the default once every phase milestone is closed; otherwise it asks which phase): a phase verifier per phase, a review of the tests the whole plan changed, a verdict per Intent statement written back to the README, and the deferred design questions still open. Automated verification runs once per run; judgment-only Remove or Rewrite proposals are settled by a majority of three independent readings.
+
+### `/wb:test-audit [scope] [N | full]`
+
+Audits an existing test suite cold, with no plan required, outside the stage chain. Detects the stack (or takes it from a plan's research or `.claude/wb/testing.md`), runs the project's own test-quality detectors with explicit rule selections, and triages: detectors and read-only heuristics rank tests by suspicion per area. It then states the scope, the planned auditor spawns, and a cost class; on a large repository (more than 30 planned spawns, which more than 10 areas always reach) it asks you to confirm, narrow, or widen the scope before spawning. One `wb:test-auditor` per area inspects the top-ranked tests (15 by default; `full` reads every test; a depth alone audits the whole repository), and the report says what was triaged out and how to expand. Writes a report of proposed Remove, Rewrite, and Consolidate verdicts with evidence for you to spot-check; it never edits or deletes tests and leaves the audited repository unchanged.
+
+### `/wb:testing-profile`
+
+Drafts `.claude/wb/testing.md` from the detected stack, adding Choices and a Mutation level (`off` or `advisory`). Compares the stack with the tooling the testing agents rely on and asks, for each gap, whether to adopt it (recorded as planned, with a beads issue filed after you confirm), record it as a choice, or decide later; if you do not control the repository's tooling, it offers only the last two. Writes only after you confirm; installs nothing.
 
 ### `/wb:validate_project [directory]`
 
-Checks that a plan directory follows the wb workflow: required files, frontmatter, status transitions, beads tracking, stage ordering.
+A repair tool, not a stage: checks that a plan directory follows the wb workflow (required files, frontmatter, status transitions, beads tracking, stage ordering) when its documents look inconsistent or before resuming an old plan.
 
 ### `/wb:update_status [directory]`
 
@@ -260,11 +255,11 @@ Researches existing UI patterns, asks clarifying questions, creates versioned mo
 
 ### `/wb:create_handoff [directory] [reason]`
 
-Captures context for session transfer. Includes beads state. A phase that has already needed one `/compact` should hand off rather than compact again.
+Captures context for session transfer. Includes beads state. `/wb:implement` and `/wb:implement_inline` offer it when a phase that has already needed one `/compact` heads for another; you decide whether to hand off.
 
 ### `/wb:resume_handoff [handoff-file]`
 
-Restores context from handoff. Syncs beads and continues work. A phase that has already needed one `/compact` should hand off rather than compact again.
+Restores context from handoff and checks beads state, then stops and names the stage command to run next (for example `/wb:implement <plan-dir> <phase>`); it does not start the work, because implementation must go through the stage skill that enforces its discipline.
 
 ## Core Principles
 

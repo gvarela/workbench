@@ -116,11 +116,11 @@ validation_status: not-yet-run
 
 ## Open Questions
 
-Questions requiring resolution are tracked in beads:
+Questions requiring resolution are tracked in beads ([plan-dir-name] is the plan directory's name, for example `2025-01-08-my-project`, so create_design can find this plan's questions):
 
 ```bash
 bd create "Q: [your question]" --type=task --priority=2 \
-  -d "Product research question. Context: [what this affects]"
+  -d "Product research question for [plan-dir-name]. Context: [what this affects]"
 ```
 
 **Active questions** — use `bd list --status=open` for current list.

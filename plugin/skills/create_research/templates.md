@@ -81,7 +81,23 @@ Against the README Intent's "Success looks like" statements:
 
 - Files are organized by [observed pattern]
 - Naming follows [observed convention]
-- Testing uses [observed approach]
+- Testing: see Testing Conventions below
+
+## Testing Conventions
+
+Facts about how tests are written and run here; the test-writer, verifier, and test-reviewer read this section first. Record what exists, with file:line references and no recommendations.
+
+- **Frameworks and versions**: [test framework(s), assertion/mocking libraries, versions]
+- **Commands**: fast: `[command]`; full: `[command]`
+- **Test file grouping**: [how tests are split into files (for example one file per class, module, endpoint, or feature) and where acceptance-level tests live, with an example path]
+- **Levels and harness per boundary**: [levels present (unit, integration, system, end-to-end) and, for each boundary the code crosses (database, HTTP, queue, UI), the harness that exists]
+- **Fixtures vs factories**: [which are used, where defined]
+- **Seams and mocking patterns**: [how collaborators are replaced or stubbed, with examples]
+- **Skip markers**: [skip/pending markers in use and how many]
+- **Test-quality linters and profilers**: [installed tools (for example rubocop-rspec, rubocop-minitest, ruff, eslint test plugins, TestProf) and what each currently enables]
+- **Mutation tool**: [installed tool, or "none installed"]
+- **Services the suite needs**: [for example Postgres or Redis, or "none"]
+- **Profile**: [when `.claude/wb/testing.md` exists in the repository, cite it as the baseline and record where it and the code differ, and list its Planned entries as not present; otherwise "no profile"]
 
 ## Code References
 
@@ -111,11 +127,11 @@ This pattern is also used in:
 
 Questions that require resolution before proceeding are tracked in beads, NOT in this document.
 
-**To add a question**:
+**To add a question** ([plan-dir-name] is the plan directory's name, for example `2025-01-08-my-project`, so create_design can find this plan's questions):
 
 ```bash
 bd create "Q: [your question]" --type=task --priority=2 \
-  -d "Research question. Blocks: [what can't proceed without this answer]"
+  -d "Research question for [plan-dir-name]. Blocks: [what can't proceed without this answer]"
 # → Returns issue ID (e.g., prompts-abc)
 ```
 

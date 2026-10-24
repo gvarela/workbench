@@ -39,7 +39,7 @@ Do NOT block — if the user chooses to continue, proceed.
 
 ## Initial Response
 
-This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work.
+This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work, and a decision on each design item or metric no task delivers: add a task, defer it in design.md, or drop it from scope.
 
 When invoked, check for arguments:
 
@@ -80,15 +80,16 @@ const tasksFile = `${projectDir}/tasks.md`;
 
 1. **Read research.md completely**:
    - Current implementation details
-   - File locations and patterns
+   - File locations and patterns, and the Testing Conventions, whose test file grouping sets each outer test's file
    - Constraints to respect
    - Knowledge gaps identified
 
 2. **Read design.md completely**:
    - Design decisions made
-   - Success criteria defined
-   - Scope boundaries set
-   - Technical specifications
+   - Acceptance Criteria (`AC-n`) and Harness Decisions: they set the outer tests and harness tasks
+   - Success criteria, scope boundaries, technical specifications
+
+   When design.md has no Acceptance Criteria section, say "no acceptance criteria: plan predates 5.0.0" and plan as before, without outer-test or harness tasks.
 
 3. **Read existing tasks.md if present**:
    - Check current status
@@ -121,9 +122,9 @@ Based on the gap between current and target state, and agent findings:
    - What can be done in parallel?
    - What requires prerequisites?
 
-2. **Assess risk** (from test coverage agent):
+2. **Assess risk** (from test coverage agent, which maps each criterion to its boundary, harness, and inner cases):
    - What changes are highest risk?
-   - What needs extra testing?
+   - Which boundaries need a harness task?
 
 3. **Plan phases** (synthesize all findings):
    - Group related changes
@@ -138,6 +139,14 @@ Update or create tasks.md with the following structure:
 Read the "tasks.md Document Template" section of [templates.md](templates.md) NOW and follow it exactly.
 
 ⛔ BARRIER 3: no placeholder values remain — a placeholder that ships becomes a task nobody can execute
+
+### Step 4a: Check Design Coverage
+
+Before any beads issue exists, map every design.md In Scope item and every Success Metric (each `M<n>`, and each statement on its `Deferred:` line) to the tasks that deliver it, in tasks.md's Design Coverage table: read the "Design Coverage Table" section of [templates.md](templates.md) NOW. A row is mapped when it names task keys, or a deferral design.md already states, cited by line. `wb:phase-verifier` reads this table at each checkpoint to know which design items a phase delivers.
+
+⛔ BARRIER: every row mapped before Step 5 — an unmapped item is silently dropped, or silently added later by whoever notices. When rows are unmapped, ask about each one with the "Design Coverage Gap Message" in [templates.md](templates.md) (add a task, defer it in design.md, or drop it from scope) and apply the answers, because the choice is the user's, not yours; when every row is mapped, go on without asking.
+
+Then check the plan itself against the agents' findings: research.md's knowledge gaps and design.md's risk mitigations are handled, every task is specific and executable, dependencies follow the agent-identified order, and every acceptance criterion has an outer-test step (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task.
 
 ### Step 5: Create Beads Issues
 
@@ -200,7 +209,7 @@ Read the "Task Creation Examples (Step 5d)" section of [examples.md](examples.md
 **Task Creation Guidelines**:
 
 - Title should match the task description from tasks.md
-- Description includes phase, task type (setup/implementation/testing/integration), and key details
+- Description includes phase, task type (setup/harness/outer-test/implementation/integration), the criterion ids it serves, and key details. A setup task that must add setup to existing test files also carries a `Setup files:` line naming each file and the setup to add, and saying no example or assertion changes (the form is under Setup Tasks in [templates.md](templates.md)), because workers edit test files only through a planned route, and without the line the worker has none and the verifier fails the edit
 - All tasks start with priority 2 (medium)
 - Use --type=task for all granular tasks
 
@@ -217,7 +226,7 @@ bd dep add [PHASE1_MILESTONE_ID] [TASK4_ID]
 
 # Task-to-task edges: only where the earlier task's OUTPUT is consumed
 bd dep add [TASK2_ID] [TASK1_ID]   # TASK2 builds in the directory TASK1 creates
-bd dep add [TASK3_ID] [TASK2_ID]   # TASK3 tests the interface TASK2 defines
+bd dep add [TASK3_ID] [TASK2_ID]   # TASK3 calls the interface TASK2 defines
 bd dep add [TASK4_ID] [TASK1_ID]   # TASK4 also consumes TASK1's output — but is
                                    # independent of TASK2/TASK3, so no edge to them
 ```
@@ -235,14 +244,11 @@ TASK1 ──► TASK2 ──► TASK3
 - The test is concrete: name the artifact of A that B consumes. If you cannot name one, there is no edge
 - Listing order alone NEVER creates an edge — a near-linear chain over 4+ tasks is a signal you encoded authoring order, not data flow; re-examine it
 - **File-overlap exception**: two data-independent tasks that modify the same file will collide if drawn in parallel — pick an order, add the edge, and say in the dependent task's description that it serializes file access (so a future planner doesn't mistake it for data flow)
-- **Structure-before-behavior exception**: when a phase includes a structural task (pure refactoring/moving, no behavior change), every behavioral task in that phase takes an edge to it — the tidying lands first, behavior builds on the tidied code
+- **Structure-before-behavior exception**: when a phase includes a structural task (pure refactoring/moving, no behavior change), every behavioral task in that phase takes an edge to it — the tidying lands first, behavior builds on the tidied code. A structural task that keeps existing tests valid by adding setup to them (fixtures, factories, `let`/`let!` lines, `before` blocks, test data) carries a `Setup files:` line, as the task description guideline above says
 - Phase milestone depends on ALL phase tasks
 - Next phase milestone depends on previous phase milestone
 
-**Tip**: Use parallel task creation for efficiency:
-
-- Spawn multiple `bd create` commands using parallel agents
-- Capture all IDs, then set up dependencies in a second pass
+**Tip**: Create tasks in parallel, capture all IDs, then set up dependencies in a second pass. An implementation task takes an edge to the outer-test step of each criterion it cites, because the outer test is the artifact it consumes; an outer-test step takes an edge to the harness task at its boundary, when there is one.
 
 **Important**: Capture ALL task IDs. You'll need them for frontmatter tracking.
 
@@ -263,19 +269,7 @@ Add a quick reference section with key commands:
 
 Read the "Beads Issue Tracking Section (Step 5f)" section of [templates.md](templates.md) NOW and follow it exactly.
 
-### Step 6: Validate Completeness
-
-Verify with agent findings:
-
-1. **All success criteria** from design.md have corresponding tasks
-2. **All scope items** from design.md are addressed
-3. **Knowledge gaps** from research.md are handled
-4. **Risk mitigations** from design.md are incorporated
-5. **Every task is specific and executable**
-6. **Test coverage** matches test agent recommendations
-7. **Dependencies** follow agent-identified order
-
-### Step 7: Present the Plan
+### Step 6: Present the Plan
 
 ```
 ✅ Execution plan created at: [path]/tasks.md
@@ -289,11 +283,12 @@ Total tasks: [total count]
 
 Agent findings incorporated:
 - Dependency order: [key dependency from agent]
-- Test coverage: [X] unit tests, [Y] integration tests
+- Test coverage: [X] outer-test steps, [Y] harness tasks
+- Design coverage: [X] scope items and [Y] Success Metrics mapped to tasks; [Z] deferred in design.md, each named
 - Similar patterns: [reference to pattern agent findings]
 
 Beads tracking:
-- Epic: [epic-id]
+- Epic: [epic title] ([epic-id])
 - Phase milestone issues created with dependencies
 - ALL granular tasks created as beads issues
 - Task dependencies set from consumed outputs (branching where tasks are independent)
@@ -303,7 +298,7 @@ Beads tracking:
 Key features of the plan:
 - Clear implementation sequence based on dependency analysis
 - Specific code changes with before/after context
-- Comprehensive test coverage from agent analysis
+- Every acceptance criterion pinned by an outer test, or by a manual check where design chose manual
 - Automated and manual verification per phase
 - Quick test commands to avoid running full suite
 - Complete beads integration for ALL task tracking (no markdown checkboxes)
@@ -335,7 +330,7 @@ Next steps:
 3. **Make Tasks Executable**:
    - Specific file and line references
    - Exact code to add/change
-   - Clear test scenarios from agent
+   - Criterion examples as the test scenarios
    - Runnable commands
 
 4. **Enable Incremental Progress**:
@@ -349,7 +344,7 @@ Next steps:
 - ✅ Phase sequencing and dependencies
 - ✅ Specific code changes
 - ✅ File modifications with line numbers
-- ✅ Test writing tasks
+- ✅ Outer-test steps and harness tasks
 - ✅ Command sequences
 
 **Design (design.md)**:
@@ -410,6 +405,7 @@ Project each task's cost with rough arithmetic:
 | Convert/update N test files | 1-2 each |
 | Run the suite (RED, GREEN, after refactor, final) | 3-5 |
 | Lint, verification, close the issue | 3-5 |
+| Each expected test-writer request | ~3 |
 
 **A task projecting past ~50 calls should be split at its natural seam** — usually source change, then test conversion, which are separately verifiable anyway. Write the split as separate tasks with a dependency between them.
 
@@ -418,5 +414,5 @@ Project each task's cost with rough arithmetic:
 1. **⛔ BARRIER 1**: After reading documents - ensure full context
 2. **⛔ BARRIER 2**: After spawning agents - wait for every agent's completion notification
 3. **⛔ BARRIER 3**: Before writing tasks.md - verify no placeholders
-4. **Step 5**: Create beads issues for phase tracking
+4. **⛔ BARRIER (Step 4a)**: Before creating beads issues - every design item and metric mapped to a task or a stated deferral; the user decides each unmapped one
 5. **⛔ CHECKPOINT**: Between phases - require human verification

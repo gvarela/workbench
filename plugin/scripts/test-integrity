@@ -1,0 +1,516 @@
+#!/bin/bash -p
+#
+# test-integrity: deterministic test-integrity evidence since a starting commit.
+#
+# Reports, as JSON on stdout, the test files changed since --start (committed,
+# staged, unstaged, and untracked), whether each outer test is unchanged since
+# its red commit (the whole file byte for byte; or, when several --red name
+# the same file, every line that red commit added, still present and still
+# blamed on it), skip or focus markers added since --start, deleted test
+# files and removed test definitions, and changed test files missing from a
+# declared list. With --plan-start, it also lists the test files changed
+# between the plan's start and --start that are changed again since --start.
+# It decides nothing: the caller interprets the result.
+#
+# It is safe in repositories you do not control: bash 3.2 and git only, and
+# read-only (git reads a temporary copy of the index; nothing in the
+# repository is written).
+#
+# Exit status: 0 whenever it produced JSON (problems go in "errors"),
+# 2 on a usage error.
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: test-integrity --start <commit> [options]
+
+  --start <commit>          Commit the task began from (required).
+  --red <commit>:<path>     An outer test file and its red commit (repeatable).
+  --declared <file>         File listing, one per line, the test files the
+                            reports declare.
+  --declared-path <path>    One declared test file (repeatable; combines with
+                            --declared), so no list file is needed.
+  --declared-none           A declared set with nothing in it: every changed
+                            test file is undeclared. Without any of the three
+                            declared options, undeclared_changes is null.
+  --test-paths <spec>       What counts as a test file (repeatable; replaces the
+                            defaults). "dir/" matches a directory anywhere in the
+                            path, a spec with "/" is a glob on the whole path,
+                            anything else is a glob on the file name. A plain
+                            name that is a directory at the top level ("tests")
+                            counts as "tests/".
+                            Default: spec/ test/ tests/ __tests__/ *_test.*
+                            *_spec.* test_*.py *.test.* *.spec.*
+  --skip-pattern <regex>    Extended regex for a skip or focus marker (repeatable;
+                            added to the built-in RSpec, pytest, Jest/Vitest, Go,
+                            and Minitest patterns).
+  --plan-start <commit>     Commit the plan began from. Lists the test files
+                            changed between it and --start (earlier phases) that
+                            are changed again since --start. Without it,
+                            earlier_phase_tests is null.
+
+Paths in --red, --declared, --declared-path, and the output are relative to the
+repository root.
+EOF
+    exit 2
+}
+
+# Take no optional locks; the index itself is protected by the temporary copy
+# set up after the cd below.
+export GIT_OPTIONAL_LOCKS=0
+# Run nothing the repository configures: no system config, hooks, fsmonitor,
+# global attributes, external diff, or pager, and (where git supports it)
+# attributes read from the empty tree, so no filter or textconv driver named
+# in .gitattributes runs.
+# The "-p" on the first line keeps bash from sourcing BASH_ENV/ENV or
+# importing exported functions; inherited GIT_* variables (GIT_DIR,
+# GIT_WORK_TREE, GIT_CONFIG_*, GIT_EXTERNAL_DIFF, ...) are dropped so only
+# the settings below steer git.
+for _v in $(compgen -e); do
+    case "$_v" in GIT_*|BASH_ENV|ENV|CDPATH) unset "$_v" ;; esac
+done
+export GIT_OPTIONAL_LOCKS=0 GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1
+GIT_ATTR_SRC=()
+if git --attr-source=4b825dc642cb6eb9a060e54bf8d69288fbee4904 version >/dev/null 2>&1; then
+    GIT_ATTR_SRC=(--attr-source=4b825dc642cb6eb9a060e54bf8d69288fbee4904)
+fi
+g() {
+    git --no-optional-locks ${GIT_ATTR_SRC[@]+"${GIT_ATTR_SRC[@]}"} -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+        -c core.attributesFile=/dev/null -c diff.external= -c core.pager=cat "$@"
+}
+gdiff() { g diff --no-ext-diff --no-textconv --no-color "$@"; }
+
+SEP=$'\037'
+
+# ---------------------------------------------------------------- arguments
+START=""
+PLAN_START=""
+DECLARED=""
+DECLARED_GIVEN=""
+DECLARED_ARGS=""
+REDS=()
+TEST_PATHS=()
+SKIP_PATTERNS=()
+ORIG_PWD="$PWD"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --start)        [ $# -ge 2 ] || usage; START="$2"; shift 2 ;;
+        --red)          [ $# -ge 2 ] || usage; case "$2" in *:?*) ;; *) usage ;; esac
+                        REDS[${#REDS[@]}]="$2"; shift 2 ;;
+        --declared)     [ $# -ge 2 ] || usage; DECLARED="$2"; DECLARED_GIVEN=1; shift 2 ;;
+        --declared-path) [ $# -ge 2 ] && [ -n "$2" ] || usage
+                        DECLARED_ARGS="$DECLARED_ARGS${2#./}"$'\n'; DECLARED_GIVEN=1; shift 2 ;;
+        --declared-none) DECLARED_GIVEN=1; shift ;;
+        --plan-start)   [ $# -ge 2 ] || usage; PLAN_START="$2"; shift 2 ;;
+        --test-paths)   [ $# -ge 2 ] || usage; TEST_PATHS[${#TEST_PATHS[@]}]="$2"; shift 2 ;;
+        --skip-pattern) [ $# -ge 2 ] || usage; SKIP_PATTERNS[${#SKIP_PATTERNS[@]}]="$2"; shift 2 ;;
+        -h|--help)      usage ;;
+        *)              usage ;;
+    esac
+done
+[ -n "$START" ] || usage
+
+if [ ${#TEST_PATHS[@]} -eq 0 ]; then
+    TEST_PATHS=('spec/' 'test/' 'tests/' '__tests__/' '*_test.*' '*_spec.*' 'test_*.py' '*.test.*' '*.spec.*')
+fi
+
+# A word that is not part of a longer identifier.
+W_START='(^|[^[:alnum:]_])'
+W_END='([^[:alnum:]_]|$)'
+SKIP_PATTERNS=(
+    "${W_START}(xit|xtest|xdescribe|xcontext|xspecify|xexample|xscenario|fit|fdescribe|fcontext|fspecify|fexample|fscenario|skip|skipif|pending|xfail)${W_END}"
+    "${W_START}focus:|:focus${W_END}"
+    "\\.only${W_END}"
+    "\\.Skip(Now|f)?[[:space:]]*\\("
+    ${SKIP_PATTERNS[@]+"${SKIP_PATTERNS[@]}"}
+)
+
+# Lines that define a test in common frameworks (used for removed definitions).
+DEF_PATTERNS=(
+    "^[[:space:]]*(it|test|specify|example|scenario|describe|context)[[:space:]]*[(\"']"
+    "^[[:space:]]*(async[[:space:]]+)?def[[:space:]]+test"
+    "^[[:space:]]*func[[:space:]]+Test"
+    "^[[:space:]]*@Test"
+)
+
+# ---------------------------------------------------------------- helpers
+ERRORS=""
+
+# json_str <string>: print the string as a JSON string literal.
+json_str() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    case "$s" in
+        *[$'\001'-$'\037']*)
+            local out="" c i code
+            for ((i = 0; i < ${#s}; i++)); do
+                c="${s:i:1}"
+                case "$c" in
+                    [$'\001'-$'\037'])
+                        printf -v code '%d' "'$c"
+                        out="$out$(printf '\\u%04x' "$code")" ;;
+                    *) out="$out$c" ;;
+                esac
+            done
+            s="$out" ;;
+    esac
+    printf '"%s"' "$s"
+}
+
+# append <var name> <json value>: add an element to a comma-separated list.
+append() {
+    eval "local cur=\"\${$1}\""
+    if [ -n "$cur" ]; then
+        eval "$1=\"\$cur,\$2\""
+    else
+        eval "$1=\"\$2\""
+    fi
+}
+
+add_error() { append ERRORS "$(json_str "$1")"; }
+
+is_test_path() {
+    local p="$1" base="${1##*/}" spec
+    for spec in "${TEST_PATHS[@]}"; do
+        case "$spec" in
+            */)
+                case "$p" in "$spec"*|*/"$spec"*) return 0 ;; esac ;;
+            */*)
+                # shellcheck disable=SC2254
+                case "$p" in $spec) return 0 ;; esac ;;
+            *)
+                # shellcheck disable=SC2254
+                case "$base" in $spec) return 0 ;; esac ;;
+        esac
+    done
+    return 1
+}
+
+matches_any() {
+    local text="$1" re
+    shift
+    for re in "$@"; do
+        [[ $text =~ $re ]] && return 0
+    done
+    return 1
+}
+
+# diff_lines <diff args...>: one record per hunk (H), added line (A, new line
+# number), and removed line (D, old line number), fields separated by SEP.
+diff_lines() {
+    gdiff -U0 "$@" | awk -v sep="$SEP" '
+        /^diff --git / { inhunk = 0; next }
+        /^@@/ {
+            inhunk = 1
+            split($0, f, " ")
+            o = substr(f[2], 2); sub(/,.*/, "", o)
+            n = substr(f[3], 2); sub(/,.*/, "", n)
+            print "H" sep 0 sep ""
+            next
+        }
+        !inhunk { next }
+        /^\+/ { print "A" sep n sep substr($0, 2); n++; next }
+        /^-/  { print "D" sep o sep substr($0, 2); o++; next }
+    '
+}
+
+# ---------------------------------------------------------------- setup
+TOP="$(g rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$TOP" ]; then
+    echo "test-integrity: not inside a git work tree" >&2
+    exit 2
+fi
+case "$DECLARED" in
+    ""|/*) ;;
+    *) DECLARED="$ORIG_PWD/$DECLARED" ;;
+esac
+cd "$TOP" || exit 2
+
+# Every filter, diff, and merge driver configured for this repository is
+# overridden with an empty command, so one named by .gitattributes or
+# .git/info/attributes never runs (GIT_CONFIG_KEY/VALUE accept any name).
+CFG_N=0
+set_cfg() {
+    export "GIT_CONFIG_KEY_$CFG_N=$1" "GIT_CONFIG_VALUE_$CFG_N=$2"
+    CFG_N=$((CFG_N + 1))
+    export GIT_CONFIG_COUNT=$CFG_N
+}
+while IFS= read -r -d '' key; do
+    case "$key" in
+        filter.*.*)
+            name="${key#filter.}"; name="${name%.*}"
+            set_cfg "filter.$name.clean" ""; set_cfg "filter.$name.smudge" ""
+            set_cfg "filter.$name.process" ""; set_cfg "filter.$name.required" false ;;
+        diff.*.*)
+            name="${key#diff.}"; name="${name%.*}"
+            set_cfg "diff.$name.textconv" ""; set_cfg "diff.$name.command" "" ;;
+        merge.*.*)
+            name="${key#merge.}"; name="${name%.*}"
+            set_cfg "merge.$name.driver" "" ;;
+    esac
+done < <(git config -z --name-only --get-regexp '^(filter|diff|merge)\..*\.' 2>/dev/null)
+
+# A plain name that is a directory at the top level ("tests") means that
+# directory, as "tests/" does; read as a file-name glob it would match nothing
+# and silently report no changed tests.
+for i in "${!TEST_PATHS[@]}"; do
+    case "${TEST_PATHS[$i]}" in
+        */*|*[*?[]*) ;;
+        *) [ -d "${TEST_PATHS[$i]}" ] && TEST_PATHS[$i]="${TEST_PATHS[$i]}/" ;;
+    esac
+done
+
+# norm_path <path>: one spelling per file, so --red arguments that name the
+# same file match: "./spec/a.rb", "spec//a.rb", and "spec/./a.rb" all become
+# "spec/a.rb". Sets NORM.
+norm_path() {
+    NORM="$1"
+    while :; do
+        case "$NORM" in
+            ./*)   NORM="${NORM#./}" ;;
+            *//*)  NORM="${NORM%%//*}/${NORM#*//}" ;;
+            */./*) NORM="${NORM%%/./*}/${NORM#*/./}" ;;
+            *)     return ;;
+        esac
+    done
+}
+NORM_REDS=()
+for spec in ${REDS[@]+"${REDS[@]}"}; do
+    norm_path "${spec#*:}"
+    NORM_REDS[${#NORM_REDS[@]}]="${spec%%:*}:$NORM"
+done
+REDS=(${NORM_REDS[@]+"${NORM_REDS[@]}"})
+
+# Diffing a commit against the work tree rewrites the index when a file is
+# stat-dirty, even with optional locks off. Work on a throwaway copy so the
+# repository's index is never written.
+REAL_INDEX="$(g rev-parse --git-path index)"
+TMP_INDEX="$(mktemp)" || exit 2
+trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock"' EXIT
+# Keep the index's mtime (git uses it to spot same-second edits); with no
+# index, remove the empty file so git starts without one.
+if [ -f "$REAL_INDEX" ]; then cp -p "$REAL_INDEX" "$TMP_INDEX"; else rm -f "$TMP_INDEX"; fi
+export GIT_INDEX_FILE="$TMP_INDEX"
+
+START_SHA="$(g rev-parse --verify --quiet "$START^{commit}")"
+[ -n "$START_SHA" ] || add_error "start commit not found: $START"
+
+# With no index git sees every tracked file as deleted and re-added. Seed the
+# temporary index from HEAD, which is what a real index would hold, so only
+# real changes show (from the start commit when HEAD does not resolve).
+if [ ! -f "$REAL_INDEX" ]; then
+    SEED="$(g rev-parse --verify --quiet HEAD^{commit})"
+    [ -n "$SEED" ] || SEED="$START_SHA"
+    if [ -n "$SEED" ]; then
+        g read-tree "$SEED" 2>/dev/null ||
+            add_error "repository has no index and it could not be rebuilt from HEAD"
+    fi
+fi
+
+DECLARED_LIST="$DECLARED_ARGS"
+if [ -n "$DECLARED" ]; then
+    if [ -r "$DECLARED" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%$'\r'}"
+            line="${line#./}"
+            [ -n "$line" ] && DECLARED_LIST="$DECLARED_LIST$line"$'\n'
+        done < "$DECLARED"
+    else
+        add_error "declared list not readable: $DECLARED"
+    fi
+fi
+
+is_declared() {
+    case $'\n'"$DECLARED_LIST" in *$'\n'"$1"$'\n'*) return 0 ;; esac
+    return 1
+}
+
+CHANGED=""
+SKIPS=""
+DELETED=""
+UNDECLARED=""
+OUTER=""
+
+# record_change <status> <tracked true|false> <path> <old path or ""> <diff source>
+# <diff source> is "diff" (git diff from START) or "file" (untracked file).
+record_change() {
+    local status="$1" tracked="$2" path="$3" old="$4" source="$5"
+    local hunks=0 kind no text
+
+    if [ "$source" = file ]; then
+        [ -s "$path" ] && hunks=1
+        while IFS="$SEP" read -r kind no text; do
+            matches_any "$text" "${SKIP_PATTERNS[@]}" &&
+                append SKIPS "{\"path\":$(json_str "$path"),\"line\":$no,\"text\":$(json_str "$text")}"
+        done < <(awk -v sep="$SEP" '{ print "A" sep NR sep $0 }' "$path")
+    else
+        local paths=("$path")
+        [ -n "$old" ] && paths=("$old" "$path")
+        while IFS="$SEP" read -r kind no text; do
+            case "$kind" in
+                H) hunks=$((hunks + 1)) ;;
+                A) matches_any "$text" "${SKIP_PATTERNS[@]}" &&
+                       append SKIPS "{\"path\":$(json_str "$path"),\"line\":$no,\"text\":$(json_str "$text")}" ;;
+                D) [ "$status" != D ] && matches_any "$text" "${DEF_PATTERNS[@]}" &&
+                       append DELETED "{\"path\":$(json_str "${old:-$path}"),\"kind\":\"definition\",\"line\":$no,\"text\":$(json_str "$text")}" ;;
+            esac
+        done < <(diff_lines -M "$START_SHA" -- "${paths[@]}")
+    fi
+
+    local entry="{\"path\":$(json_str "$path"),\"status\":\"$status\",\"tracked\":$tracked,\"hunks\":$hunks"
+    [ -n "$old" ] && entry="$entry,\"old_path\":$(json_str "$old")"
+    append CHANGED "$entry}"
+
+    [ "$status" = D ] &&
+        append DELETED "{\"path\":$(json_str "$path"),\"kind\":\"file\",\"line\":null,\"text\":null}"
+
+    if [ -n "$DECLARED_GIVEN" ] && ! is_declared "$path" && { [ -z "$old" ] || ! is_declared "$old"; }; then
+        append UNDECLARED "$(json_str "$path")"
+    fi
+}
+
+# ---------------------------------------------------------------- changed tests
+if [ -n "$START_SHA" ]; then
+    while IFS= read -r -d '' status; do
+        old=""
+        case "$status" in
+            R*|C*) IFS= read -r -d '' old; IFS= read -r -d '' path ;;
+            *)     IFS= read -r -d '' path ;;
+        esac
+        letter="${status:0:1}"
+        [ "$letter" = T ] && letter=M
+        if is_test_path "$path" || { [ -n "$old" ] && is_test_path "$old"; }; then
+            record_change "$letter" true "$path" "$old" diff
+        fi
+    done < <(gdiff --name-status -M -z "$START_SHA")
+
+    while IFS= read -r -d '' path; do
+        is_test_path "$path" && record_change A false "$path" "" file
+    done < <(g ls-files --others --exclude-standard -z)
+fi
+
+# ---------------------------------------------------------------- outer tests
+# reds_naming <path>: how many --red arguments name this path.
+reds_naming() {
+    local n=0 s
+    for s in "${REDS[@]}"; do
+        [ "${s#*:}" = "$1" ] && n=$((n + 1))
+    done
+    echo "$n"
+}
+
+# blamed_to <sha> [<rev>] -- <path>: the line numbers, in <sha>'s version of
+# the file, of the lines that git blame attributes to <sha> in <rev> (the work
+# tree, uncommitted changes included, when <rev> is omitted).
+blamed_to() {
+    local sha="$1"
+    shift
+    g blame --no-textconv --porcelain "$@" 2>/dev/null |
+        awk -v sha="$sha" '!/^\t/ && $1 == sha && NF >= 3 && $2 ~ /^[0-9]+$/ { printf "%s ", $2 }'
+}
+
+# outer_entry <path> <red json> <mode> <identical> <diff_stat json> <changed_lines json>
+outer_entry() {
+    append OUTER "{\"path\":$(json_str "$1"),\"red\":$2,\"mode\":\"$3\",\"identical\":$4,\"diff_stat\":$5,\"changed_lines\":$6}"
+}
+
+for spec in ${REDS[@]+"${REDS[@]}"}; do
+    red="${spec%%:*}"
+    path="${spec#*:}"
+    mode=file
+    [ "$(reds_naming "$path")" -gt 1 ] && mode=lines
+    red_sha="$(g rev-parse --verify --quiet "$red^{commit}")"
+    if [ -z "$red_sha" ]; then
+        add_error "red commit not found: $red"
+        outer_entry "$path" "$(json_str "$red")" $mode null null null
+        continue
+    fi
+    if ! g cat-file -e "$red_sha:$path" 2>/dev/null; then
+        add_error "outer test not in its red commit: $path at $red"
+        outer_entry "$path" "\"$red_sha\"" $mode null null null
+        continue
+    fi
+    if [ $mode = lines ]; then
+        # Shared file: every line the red commit added must still be in the
+        # work tree and still be blamed on that commit.
+        if ! g rev-parse --verify --quiet "$red_sha^1^{commit}" >/dev/null; then
+            add_error "red commit has no parent, so its added lines are unknown: $red"
+            outer_entry "$path" "\"$red_sha\"" $mode null null null
+            continue
+        fi
+        if gdiff --quiet "$red_sha^1" "$red_sha" -- "$path"; then
+            add_error "red commit does not change its outer test: $path at $red"
+            outer_entry "$path" "\"$red_sha\"" $mode null null null
+            continue
+        fi
+        added="$(blamed_to "$red_sha" "$red_sha" -- "$path")"
+        surviving=""
+        [ -f "$path" ] && surviving="$(blamed_to "$red_sha" -- "$path")"
+        changed=0
+        if [ -n "$added" ]; then
+            changed="$(printf '%s\n' $added | awk -v keep="$surviving" '
+                BEGIN { n = split(keep, k, " "); for (i = 1; i <= n; i++) s[k[i]] = 1 }
+                !($1 in s) { c++ }
+                END { print c + 0 }')"
+        fi
+        identical=true
+        [ "$changed" -gt 0 ] && identical=false
+    else
+        identical=false
+        [ -f "$path" ] && g cat-file blob "$red_sha:$path" | cmp -s - "$path" && identical=true
+        changed=null
+    fi
+    if [ $identical = true ]; then
+        outer_entry "$path" "\"$red_sha\"" $mode true null "$changed"
+    else
+        if [ -f "$path" ]; then
+            stat="$(gdiff --numstat "$red_sha" -- "$path" | awk '{ a += $1; d += $2 } END { printf "+%d -%d", a, d }')"
+        else
+            stat="deleted"
+        fi
+        outer_entry "$path" "\"$red_sha\"" $mode false "$(json_str "$stat")" "$changed"
+    fi
+done
+
+# ---------------------------------------------------------------- earlier phases
+# Test files changed in PLAN_START..START (committed history before the phase)
+# that are also changed since START (uncommitted changes included).
+EARLIER_JSON="null"
+if [ -n "$PLAN_START" ]; then
+    PLAN_SHA="$(g rev-parse --verify --quiet "$PLAN_START^{commit}")"
+    if [ -z "$PLAN_SHA" ]; then
+        add_error "plan start commit not found: $PLAN_START"
+    elif [ -z "$START_SHA" ]; then
+        :
+    elif ! g merge-base --is-ancestor "$PLAN_SHA" "$START_SHA"; then
+        add_error "plan start is not an ancestor of the start commit: $PLAN_START"
+    else
+        EARLIER=""
+        while IFS= read -r -d '' path; do
+            is_test_path "$path" || continue
+            case "$CHANGED" in *"{\"path\":$(json_str "$path"),"*) ;; *) continue ;; esac
+            commits=""
+            while IFS= read -r sha; do
+                [ -n "$sha" ] && append commits "\"$sha\""
+            done < <(g log --format=%H "$PLAN_SHA..$START_SHA" -- "$path")
+            append EARLIER "{\"path\":$(json_str "$path"),\"earlier_commits\":[$commits]}"
+        done < <(gdiff --name-only --no-renames -z "$PLAN_SHA" "$START_SHA")
+        EARLIER_JSON="[$EARLIER]"
+    fi
+fi
+
+# ---------------------------------------------------------------- output
+if [ -n "$DECLARED_GIVEN" ]; then
+    UNDECLARED_JSON="[$UNDECLARED]"
+else
+    UNDECLARED_JSON="null"
+fi
+if [ -n "$START_SHA" ]; then START_JSON="\"$START_SHA\""; else START_JSON="$(json_str "$START")"; fi
+
+printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"earlier_phase_tests":%s,"errors":[%s]}\n' \
+    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$EARLIER_JSON" "$ERRORS"
+exit 0
