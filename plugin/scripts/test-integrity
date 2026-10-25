@@ -47,6 +47,11 @@ Usage: test-integrity --start <commit> [options]
                             changed between it and --start (earlier phases) that
                             are changed again since --start. Without it,
                             earlier_phase_tests is null.
+  --allow-mechanical        Leave mechanical changes (import re-sorts or
+                            edge-whitespace-only; see "mechanical") out of
+                            undeclared_changes, listing them in
+                            cleared_mechanical instead. Without it,
+                            cleared_mechanical is null.
 
 Paths in --red, --declared, --declared-path, and the output are relative to the
 repository root.
@@ -86,6 +91,7 @@ START=""
 PLAN_START=""
 DECLARED=""
 DECLARED_GIVEN=""
+ALLOW_MECH=""
 DECLARED_ARGS=""
 REDS=()
 TEST_PATHS=()
@@ -101,6 +107,7 @@ while [ $# -gt 0 ]; do
         --declared-path) [ $# -ge 2 ] && [ -n "$2" ] || usage
                         DECLARED_ARGS="$DECLARED_ARGS${2#./}"$'\n'; DECLARED_GIVEN=1; shift 2 ;;
         --declared-none) DECLARED_GIVEN=1; shift ;;
+        --allow-mechanical) ALLOW_MECH=1; shift ;;
         --plan-start)   [ $# -ge 2 ] || usage; PLAN_START="$2"; shift 2 ;;
         --test-paths)   [ $# -ge 2 ] || usage; TEST_PATHS[${#TEST_PATHS[@]}]="$2"; shift 2 ;;
         --skip-pattern) [ $# -ge 2 ] || usage; SKIP_PATTERNS[${#SKIP_PATTERNS[@]}]="$2"; shift 2 ;;
@@ -290,7 +297,7 @@ REDS=(${NORM_REDS[@]+"${NORM_REDS[@]}"})
 # repository's index is never written.
 REAL_INDEX="$(g rev-parse --git-path index)"
 TMP_INDEX="$(mktemp)" || exit 2
-trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock"' EXIT
+trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock" "$TMP_INDEX.mech" "$TMP_INDEX.mech.ra" "$TMP_INDEX.mech.rb" "$TMP_INDEX.mech.ba" "$TMP_INDEX.mech.bb"' EXIT
 # Keep the index's mtime (git uses it to spot same-second edits); with no
 # index, remove the empty file so git starts without one.
 if [ -f "$REAL_INDEX" ]; then cp -p "$REAL_INDEX" "$TMP_INDEX"; else rm -f "$TMP_INDEX"; fi
@@ -334,6 +341,203 @@ SKIPS=""
 DELETED=""
 UNDECLARED=""
 OUTER=""
+MECH=""
+CLEARED=""
+
+# indent_is_syntax <path>: files where leading whitespace is syntax
+# (Python, YAML, Gherkin, make).
+indent_is_syntax() {
+    case "$1" in
+        *.py|*.pyi|*.yaml|*.yml|*.feature|*.mk|Makefile|*/Makefile|GNUmakefile|*/GNUmakefile|makefile|*/makefile) return 0 ;;
+    esac
+    return 1
+}
+
+# import_strip <file> <bindings file>: every line that is NOT a qualifying
+# import, prefixed with its line number, so a comparison of two versions
+# requires every other line to stay exactly where it was. A qualifying import
+# is a plain, top-level, single-binding import in the file's leading import
+# region (after a shebang, encoding line, docstring, "use strict", or package
+# line; then only such imports, blank lines, and comments): Python
+# "import a.b" and "from a import b" (one unaliased name); JavaScript and
+# TypeScript "import y from 'x'", "import {y} from 'x'", and
+# "const|let|var y = require('x')"; Go plain "pkg" paths in a top import
+# block or "import "pkg""; Java, Kotlin, and Scala "import a.b.C" (no
+# wildcard, no alias, no static); C# "using A.B;" (no static, no alias); Rust
+# "use a::b;" (no braces, glob, or alias). For each,
+# the name it binds goes to the bindings file, so two imports binding the
+# same name are refused: the last component for JVM, C#, and Rust, the last
+# path element for Go, the module for Python "import a" (a dotted
+# "import a.b" binds "a" and never qualifies), the imported name for Python
+# "from a import b", and the local name for JavaScript. Aliased,
+# multi-name, parenthesised, indented, conditional, side-effect (JavaScript
+# "import 'x'", bare "require('x')", Ruby require), Go "_" and "." imports,
+# and imports after the leading region are never qualifying.
+import_strip() {
+    local py=""
+    case "$3" in *.py|*.pyi) py=1 ;; esac
+    LC_ALL=C awk -v q="'" -v bfile="$2" -v py="$py" '
+        function trimc(s) { sub(/[ \t]*((#|\/\/).*)?$/, "", s); return s }
+        # keys <path> <separator>: the name the import binds, its last
+        # component; two qualifying imports binding the same name conflict.
+        function keys(p, sep,   n, a) { n = split(p, a, sep); return a[n] }
+        function qual(l,   t, n, a) {
+            B = ""
+            t = trimc(l)
+            # Python: "import a" only (a dotted "import a.b" binds "a" and is
+            # not qualifying); elsewhere (JVM) "import a.b.C".
+            if (py && t ~ /^import[ \t]+[A-Za-z_][A-Za-z0-9_]*$/) {
+                sub(/^import[ \t]+/, "", t); B = keys(t, "."); return 1
+            }
+            if (!py && t ~ /^import[ \t]+[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*[ \t]*;?$/) {
+                sub(/^import[ \t]+/, "", t); sub(/[ \t]*;$/, "", t); B = keys(t, "."); return 1
+            }
+            if (t ~ /^from[ \t]+\.*([A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*)?[ \t]+import[ \t]+[A-Za-z_][A-Za-z0-9_]*$/) {
+                n = split(t, a, /[ \t]+/); B = keys(a[n], "."); return 1
+            }
+            if (t ~ ("^import[ \t]+[A-Za-z_$][A-Za-z0-9_$]*[ \t]+from[ \t]+" Q "[^\"" q "]+" Q "[ \t]*;?$")) {
+                split(t, a, /[ \t]+/); B = keys(a[2], "."); return 1
+            }
+            if (t ~ ("^import[ \t]*\\{[ \t]*[A-Za-z_$][A-Za-z0-9_$]*[ \t]*\\}[ \t]*from[ \t]+" Q "[^\"" q "]+" Q "[ \t]*;?$")) {
+                sub(/^import[ \t]*\{[ \t]*/, "", t); sub(/[ \t]*\}.*$/, "", t); B = keys(t, "."); return 1
+            }
+            if (t ~ ("^(const|let|var)[ \t]+[A-Za-z_$][A-Za-z0-9_$]*[ \t]*=[ \t]*require\\([ \t]*" Q "[^\"" q "]+" Q "[ \t]*\\)[ \t]*;?$")) {
+                sub(/^(const|let|var)[ \t]+/, "", t); sub(/[ \t]*=.*$/, "", t); B = keys(t, "."); return 1
+            }
+            if (t ~ /^import[ \t]+"[^"]+"$/) { sub(/^import[ \t]+"/, "", t); sub(/"$/, "", t); B = keys(t, "/"); return 1 }
+            if (t ~ /^using[ \t]+[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*[ \t]*;$/ && t !~ /^using[ \t]+static[ \t]/) {
+                sub(/^using[ \t]+/, "", t); sub(/[ \t]*;$/, "", t); B = keys(t, "."); return 1
+            }
+            if (t ~ /^use[ \t]+[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)+[ \t]*;$/) {
+                sub(/^use[ \t]+/, "", t); sub(/[ \t]*;$/, "", t); B = keys(t, "::"); return 1
+            }
+            return 0
+        }
+        BEGIN { Q = "[\"" q "]"; TQ = "^[rRuUbB]*(\"\"\"|" q q q ")"; state = "prologue" }
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            if (state == "doc") {
+                print NR ":" $0
+                if (index(line, doc) > 0) state = "prologue"
+                next
+            }
+            if (state == "prologue") {
+                if ((NR == 1 && line ~ /^#!/) || line ~ /^#.*coding[:=]/ || line ~ /^package[ \t]/ ||
+                    line ~ ("^" Q "use strict" Q "[ \t]*;?$")) { print NR ":" $0; next }
+                if (line ~ TQ) {
+                    doc = (line ~ /^[rRuUbB]*"""/) ? "\"\"\"" : q q q
+                    rest = line; sub(TQ, "", rest)
+                    print NR ":" $0
+                    if (index(rest, doc) == 0) state = "doc"
+                    next
+                }
+                state = "region"
+            }
+            if (state == "goblock") {
+                if (line ~ /^[ \t]*\)[ \t]*$/) { state = "region"; print NR ":" $0; next }
+                if (trimc(line) ~ /^[ \t]*"[^"]+"$/) {
+                    b = trimc(line); sub(/^[ \t]*"/, "", b); sub(/"$/, "", b); print keys(b, "/") > bfile; next
+                }
+                print NR ":" $0
+                next
+            }
+            if (state == "region") {
+                if (line ~ /^[ \t]*$/ || line ~ /^[ \t]*(#|\/\/)/) { print NR ":" $0; next }
+                if (line ~ /^import[ \t]*\([ \t]*$/) { state = "goblock"; print NR ":" $0; next }
+                if (qual(line)) { print B > bfile; next }
+                state = "body"
+            }
+            print NR ":" $0
+        }
+    ' "$1"
+}
+
+# ws_lines <file> [keep-indent]: the lines compared for "whitespace": outside
+# multi-line literals, each line with trailing whitespace (and a CR) removed,
+# leading whitespace too unless keep-indent, and empty lines dropped; lines
+# that open, close, or sit inside a multi-line literal (an odd number of
+# backticks or triple quotes on a line toggles one; a heredoc opener such as
+# <<EOF, <<-EOF, or <<~EOF runs to its terminator) are kept byte for byte.
+# Best effort: a verifier still reads the hunks.
+ws_lines() {
+    local eofnl=1
+    [ -n "$(tail -c 1 "$1")" ] && eofnl=0
+    LC_ALL=C awk -v keep="${2:-}" -v q="'" -v eofnl="$eofnl" '
+        function count(s, pat,   n, i) { n = 0; while ((i = index(s, pat)) > 0) { n++; s = substr(s, i + length(pat)) } return n }
+        {
+            line = $0
+            if (hd != "") {
+                print "L:" line
+                lastlit = 1
+                t = line; sub(/\r$/, "", t); sub(/^[ \t]*/, "", t)
+                if (t == hd) hd = ""
+                next
+            }
+            inlit = inbt || intq
+            marker = 0
+            if (count(line, "`") % 2 == 1) { inbt = !inbt; marker = 1 }
+            if ((count(line, "\"\"\"") + count(line, q q q)) % 2 == 1) { intq = !intq; marker = 1 }
+            if (match(line, ("<<[-~]?[\"" q "]?[A-Za-z_][A-Za-z0-9_]*"))) {
+                hd = substr(line, RSTART + 2, RLENGTH - 2)
+                sub(/^[-~]/, "", hd); gsub(("[\"" q "]"), "", hd)
+                marker = 1
+            }
+            if (inlit || marker) { print "L:" line; lastlit = 1; next }
+            lastlit = 0
+            t = line
+            sub(/[ \t\r]+$/, "", t)
+            if (keep != "keep-indent") sub(/^[ \t]+/, "", t)
+            if (t ~ /^[ \t]*$/) next
+            print "N:" t
+        }
+        # Whether the file ends with a newline is part of a literal that
+        # runs to the last line.
+        END { if (lastlit) print "EOF:" eofnl }
+    ' "$1"
+}
+
+# mechanical_of <path>: sets MECHANICAL for a modified tracked test file,
+# comparing its content at START (raw blob, no filters) with the current
+# file. "whitespace": only leading/trailing whitespace, blank lines, and line
+# endings differ (interior whitespace, such as inside a string, must be
+# unchanged; where indentation is syntax, leading whitespace must be
+# unchanged too; lines in multi-line literals are compared byte for byte).
+# "reorder": the multiset of lines is the same, only qualifying imports (see
+# import_strip) changed position, every other line keeps its line number,
+# and no name is bound twice: an import re-sort. Anything else, including a
+# reorder of statements or assertions, is not mechanical. Identical content
+# (a mode-only change) is not mechanical. Formatter identity
+# (formatter(old) == new) is not attempted: it would mean running the
+# repository's formatter.
+# ends_with_newline <file>: 1 if the file ends with a newline (or is empty).
+# A reorder never includes a change of the final newline.
+ends_with_newline() { if [ -n "$(tail -c 1 "$1")" ]; then echo 0; else echo 1; fi; }
+
+mechanical_of() {
+    local path="$1" a="$TMP_INDEX.mech" indent=""
+    MECHANICAL=""
+    : > "$a.ba"; : > "$a.bb"
+    indent_is_syntax "$path" && indent=keep-indent
+    [ -f "$path" ] && [ ! -L "$path" ] || return 0
+    g cat-file blob "$START_SHA:$path" > "$a" 2>/dev/null || return 0
+    cmp -s "$a" "$path" && return 0
+    if cmp -s <(ws_lines "$a" $indent) <(ws_lines "$path" $indent); then
+        MECHANICAL=whitespace
+    elif cmp -s <(LC_ALL=C sort "$a") <(LC_ALL=C sort "$path") &&
+         [ "$(ends_with_newline "$a")" = "$(ends_with_newline "$path")" ]; then
+        # Only qualifying imports may move: every other line keeps its line
+        # number, and no name is bound twice.
+        import_strip "$a" "$a.ba" "$path" > "$a.ra"
+        import_strip "$path" "$a.bb" "$path" > "$a.rb"
+        if cmp -s "$a.ra" "$a.rb" &&
+           [ -z "$(LC_ALL=C sort "$a.ba" | uniq -d)" ] && [ -z "$(LC_ALL=C sort "$a.bb" | uniq -d)" ]; then
+            MECHANICAL=reorder
+        fi
+        rm -f "$a.ra" "$a.rb" "$a.ba" "$a.bb"
+    fi
+    return 0
+}
 
 # record_change <status> <tracked true|false> <path> <old path or ""> <diff source>
 # <diff source> is "diff" (git diff from START) or "file" (untracked file).
@@ -361,15 +565,29 @@ record_change() {
         done < <(diff_lines -M "$START_SHA" -- "${paths[@]}")
     fi
 
+    # Only an in-place modification of a tracked file can be mechanical:
+    # renamed, deleted, and new files never are.
+    MECHANICAL=""
+    [ "$status" = M ] && [ "$tracked" = true ] && [ -z "$old" ] && mechanical_of "$path"
+    local mech_json=null
+    if [ -n "$MECHANICAL" ]; then
+        mech_json="\"$MECHANICAL\""
+        append MECH "$(json_str "$path")"
+    fi
+
     local entry="{\"path\":$(json_str "$path"),\"status\":\"$status\",\"tracked\":$tracked,\"hunks\":$hunks"
     [ -n "$old" ] && entry="$entry,\"old_path\":$(json_str "$old")"
-    append CHANGED "$entry}"
+    append CHANGED "$entry,\"mechanical\":$mech_json}"
 
     [ "$status" = D ] &&
         append DELETED "{\"path\":$(json_str "$path"),\"kind\":\"file\",\"line\":null,\"text\":null}"
 
     if [ -n "$DECLARED_GIVEN" ] && ! is_declared "$path" && { [ -z "$old" ] || ! is_declared "$old"; }; then
-        append UNDECLARED "$(json_str "$path")"
+        if [ -n "$ALLOW_MECH" ] && [ -n "$MECHANICAL" ]; then
+            append CLEARED "$(json_str "$path")"
+        else
+            append UNDECLARED "$(json_str "$path")"
+        fi
     fi
 }
 
@@ -510,7 +728,9 @@ else
     UNDECLARED_JSON="null"
 fi
 if [ -n "$START_SHA" ]; then START_JSON="\"$START_SHA\""; else START_JSON="$(json_str "$START")"; fi
+CLEARED_JSON=null
+[ -n "$ALLOW_MECH" ] && CLEARED_JSON="[$CLEARED]"
 
-printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"earlier_phase_tests":%s,"errors":[%s]}\n' \
-    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$EARLIER_JSON" "$ERRORS"
+printf '{"start":%s,"changed_tests":[%s],"outer_tests":[%s],"added_skip_markers":[%s],"deleted_tests":[%s],"undeclared_changes":%s,"mechanical_changes":[%s],"cleared_mechanical":%s,"earlier_phase_tests":%s,"errors":[%s]}\n' \
+    "$START_JSON" "$CHANGED" "$OUTER" "$SKIPS" "$DELETED" "$UNDECLARED_JSON" "$MECH" "$CLEARED_JSON" "$EARLIER_JSON" "$ERRORS"
 exit 0

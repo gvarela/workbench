@@ -28,7 +28,7 @@ The user reads this report to decide what to do next, so it follows [writing-for
 ✅ Phase ${phase} Complete (Coordinated Execution)
 
 **Needs your decision:**
-${anything still open from the checkpoint, with options and a recommendation, or "Nothing needs your decision"}
+${anything still open from the checkpoint, each still-pending decision as its one-line reminder from the pending-decisions ledger (a set reply covers only pending ids shown in full earlier), or "Nothing needs your decision"}
 
 **What this phase delivered** (by acceptance criterion):
 ${each criterion and task done as behavior the user can now rely on: "- <behavior> (AC-n, task <id>)"}
@@ -40,7 +40,8 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 - Outer tests committed red first: ${each named by the criterion it guards}
 - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); ${the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded}; review findings filed: ${each in plain words with its criterion and issue id}
 - Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
-- Outer-test rewrites run: ${each with the criterion it guards, or "none"}
+- Outer-test rewrites run: ${each with the criterion it guards, who sanctioned it (you by name, or "additive, sanctioned by me"), and its Not claimed list with who accepted any case on it, or "none"}
+- Coordinator records: ${each `auto-continue:`, `re-baseline:`, and `not claimed:` record posted this phase, in plain words with its task, or "none"}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 - Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)

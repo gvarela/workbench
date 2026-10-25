@@ -20,7 +20,7 @@ The user reads these messages to decide what happens next, usually without beads
 
 A phase checkpoint, a phase completion report, and a validation report keep product progress apart from test-quality housekeeping, because the user steers the two differently and cannot tell them apart when they are mixed. Use these sections, in this order:
 
-1. **Needs your decision**: everything that holds the work: blocking test failures to acknowledge, halts, a proposed outer-test rewrite to sanction, a handoff question. Each item gives the options and a recommendation.
+1. **Needs your decision**: everything that holds the work: blocking test failures to acknowledge, halts, a proposed outer-test rewrite to sanction, a handoff question. Each new item gives the options and a recommendation; an item asked before and still pending gets its one-line reminder ("Pending decisions" below).
 2. **What this phase delivered**: organized by requirement. Each acceptance criterion and task done is described as behavior the user can now rely on ("a reset link opened after two hours now shows the expired page"), followed by the manual checks to run.
 3. **Test integrity**: outer tests written red first, the verifiers' integrity results, test-review findings, and test rewrites, each tied to the criterion it guards.
 4. **Follow-ups**, in two groups: **product and plan** (behavior gaps, design questions, risks in the code such as security or performance) and **test quality** (weak or brittle tests, checks that fail on correct code). Each item says whether it blocks and when to do it.
@@ -36,7 +36,17 @@ A halt, a variance, a handoff question, or any item under Needs your decision as
 3. **Options**: for each one, what it means concretely (what will be done, to which files or tests), what it buys for testing or quality, its cost and risk, and how hard it is to undo. Offer the generic halt options (continue, discard and retry, treat as a plan defect) only when they are the real choices here; otherwise name the actual ones.
 4. **Recommendation and a paste-ready reply**: the option you recommend and the reason, then the exact reply the user can paste to take it, such as `continue: scan comments too with the stricter pattern`.
 
-When a question is asked again, repeat each option's meaning with its number or letter. "Reply (a), (b), or (c)" on its own makes the user scroll back to find what the letters meant.
+When a question is asked again, repeat each option's meaning with its number or letter, in the one-line reminder the next section describes. "Reply (a), (b), or (c)" on its own makes the user scroll back to find what the letters meant.
+
+## Pending decisions
+
+A run that asks the user the same thing several times, in full each time, buries the new questions under the old ones and wears the user down until they answer without reading. Keep one pending-decisions ledger for the run instead:
+
+- **One ledger, one id per decision.** Each decision gets its id once, when it is first asked (T1, T2 for blocking items; D1, D2 for deviations; the halt or rewrite it is about for others), and keeps it until it is answered. Ask it in full, with the four parts above, only that first time.
+- **Reminders are one line.** A later message lists each decision still pending as one line, with its id, its subject in plain words, and its options in a few words each: "T2 (AC-4 receipt test changed after red): acknowledge, or revert the change". Never re-ask it in full, and never drop it while it is pending.
+- **A reply can name a set.** "acknowledge: T1-T3", "accept: D1-D4", or "T1, T3: acknowledge" answers each decision it names the same way. A set is still a reply by name: expand it against the ledger into the ids it names, and act on it only when every one of those ids exists, is still pending, was shown to the user in full (its question and options) before their message, and is of one kind (all T, or all D, and so on) that the reply's answer fits. Reject the whole set, act on none of it, and list the unresolved ids with why, when it has a gap (T1-T4 where T3 does not exist), names an id already answered, one never shown in full, one created after the user's message, or mixes kinds; then ask again with the one-line reminders.
+- **A general go-ahead answers nothing.** "Go", "implement", "continue", "looks good", or "do it" names no decision, so it acknowledges no blocking item, answers no deviation, and sanctions no rewrite or other change that needs the user; say which decisions are still pending in the one-line form.
+- **Product wording goes first.** A conflict in the plan's product wording (a criterion's text against its example, two criteria that disagree, copy the design states one way and an example another) is a product question only the user can answer. Raise every one you find when you read the plan, together, before the phase's first task, not one at a time mid-task when a worker or verifier trips over it.
 
 ## Where ids stay as they are
 
@@ -102,4 +112,4 @@ Recommendation: 1, because it is already checked and keeps both the original's r
 Paste-ready reply: continue: apply the class fix from the latest verification report
 ```
 
-And when asked again: "Reply 1 (apply the checked class fix to the rewritten test), 2 (drop the rewrite and keep the original check), or 3 (accept the rewrite, leaving deletes run from strings unguarded)."
+And as a reminder while it is still pending: "Halt on the loan-history check (AC-3, task .52): reply 1 (apply the checked class fix to the rewritten test), 2 (drop the rewrite and keep the original check), or 3 (accept the rewrite, leaving deletes run from strings unguarded)."
