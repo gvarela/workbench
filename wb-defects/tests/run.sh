@@ -970,6 +970,20 @@ out="$(XDG_CACHE_HOME="$TMP_ROOT/cache2" pd setup --id "$NEW_ID" --commit HEAD)"
 check "$out" 'd["strategy"]=="none" and [e for e in d["errors"] if "symlink" in e]' "sandbox: a symlinked cache directory is refused"
 [ -z "$(ls -A "$TMP_ROOT/cache-target")" ] && ok "sandbox: nothing written through the symlinked cache" || fail "sandbox: nothing written through the symlinked cache"
 pd teardown --id "$NEW_ID" >/dev/null
+# The sandbox persists state attached to the repository: only the profile can
+# choose it, never a CLI --strategy alone.
+command cp -f .claude/wb/testing.md "$TMP_ROOT/sb-profile2.bak"
+grep -v '^- strategy: sandbox$' "$TMP_ROOT/sb-profile2.bak" > .claude/wb/testing.md
+wt_before_sb="$(worktree_count)"
+cache_before="$(ls "$XDG_CACHE_HOME/wb-defect" | sort)"
+new_id sb-cli
+out="$(pd setup --id "$NEW_ID" --commit HEAD --strategy sandbox)"
+check "$out" 'd["strategy"]=="none" and [e for e in d["errors"] if "strategy: sandbox" in e and "testing.md" in e]' "sandbox: --strategy sandbox without strategy: sandbox in the profile is refused"
+[ "$(worktree_count)" = "$wt_before_sb" ] && [ "$(ls "$XDG_CACHE_HOME/wb-defect" | sort)" = "$cache_before" ] && ok "sandbox: and no copy or worktree registration is created" || fail "sandbox: and no copy or worktree registration is created"
+out="$(pd setup --id "$NEW_ID" --commit HEAD --strategy worktree)"
+check "$out" 'd["strategy"]=="worktree"' "sandbox: --strategy worktree still works without a profile strategy"
+pd teardown --id "$NEW_ID" >/dev/null
+command cp -f "$TMP_ROOT/sb-profile2.bak" .claude/wb/testing.md
 # An XDG_CACHE_HOME that is not a private directory of the user is not used.
 mkdir -p "$TMP_ROOT/home" "$TMP_ROOT/xdg-target"
 ln -s "$TMP_ROOT/xdg-target" "$TMP_ROOT/xdg-link"
@@ -1411,6 +1425,183 @@ check "$out" 'not [e for e in d["errors"] if "lock" in e]' "review: TERM during 
 pd teardown --id "$NEW_ID" >/dev/null
 pd teardown --id "$T_A" >/dev/null
 cd "$GB" || exit 1
+
+
+# ================================================================ 0.3.0: environment and dependencies
+# uv in a worktree must never sync the linked .venv of the real repository.
+UVR="$TMP_ROOT/uv-repo"
+mkdir -p "$UVR/tests" "$UVR/.venv" "$TMP_ROOT/uvbin" && cd "$UVR" || exit 1
+git init -q .
+printf '.venv/\n' > .gitignore
+printf 'marker\n' > .venv/marker
+printf 'ok\n' > tests/test_x.txt
+profile 'uv run pytest {tests}'
+commit_all start
+UVLOG="$TMP_ROOT/uv-env.log"
+printf '#!/bin/sh\nenv | grep "^UV_" > "%s"\n[ -n "$UV_NO_SYNC" ] || echo synced > .venv/SYNCED\nexit 0\n' "$UVLOG" > "$TMP_ROOT/uvbin/uv"
+chmod +x "$TMP_ROOT/uvbin/uv"
+new_id uv
+U_ID="$NEW_ID"
+PATH="$TMP_ROOT/uvbin:$PATH" pd setup --id "$U_ID" --working-tree --strategy worktree >/dev/null
+out="$(PATH="$TMP_ROOT/uvbin:$PATH" pd baseline --id "$U_ID" --test tests/test_x.txt)"
+check "$out" 'd["passed"] is True' "uv: the test command runs in the worktree"
+grep -qx 'UV_NO_SYNC=1' "$UVLOG" && grep -qx 'UV_FROZEN=1' "$UVLOG" && ok "uv: UV_NO_SYNC=1 and UV_FROZEN=1 are set for worktree runs" || fail "uv: UV_NO_SYNC=1 and UV_FROZEN=1 are set for worktree runs"
+[ ! -e "$UVR/.venv/SYNCED" ] && ok "uv: the real repository's linked .venv is untouched" || fail "uv: the real repository's linked .venv is untouched"
+pd teardown --id "$U_ID" >/dev/null
+for kv in UV_NO_SYNC=0 UV_FROZEN=0 "UV_PROJECT_ENVIRONMENT=$UVR/.venv"; do
+    profile 'uv run pytest {tests}' "env: $kv"
+    out="$(pd setup --id "$U_ID" --working-tree --strategy worktree)"
+    check "$out" 'd["strategy"]=="none" and [e for e in d["errors"] if "'"${kv%%=*}"'" in e]' "uv: profile env may not set ${kv%%=*}"
+    pd teardown --id "$U_ID" >/dev/null
+done
+
+# Dependency dirs absent in a linked worktree come from the main worktree.
+MWT="$TMP_ROOT/main-wt"
+mkdir -p "$MWT/tests" "$MWT/vendor/bundle/gems" && cd "$MWT" || exit 1
+git init -q .
+printf 'vendor/bundle/\n' > .gitignore
+printf 'gem\n' > vendor/bundle/gems/marker
+printf '[ -f vendor/bundle/gems/marker ]\n' > tests/test_deps.sh
+runner run-tests
+profile './run-tests {tests}'
+commit_all start
+git worktree add -q "$TMP_ROOT/linked-wt" -b side
+cd "$TMP_ROOT/linked-wt" || exit 1
+new_id linked
+L_ID="$NEW_ID"
+out="$(pd setup --id "$L_ID" --working-tree --strategy worktree)"
+check "$out" '[n for n in d["notes"] if "vendor/bundle" in n and "main worktree" in n]' "deps: a dependency dir missing in a linked worktree is linked from the main worktree, with a note"
+[ "$(readlink "$DBASE/wb-defect-$L_ID/wt/vendor/bundle")" = "$MWT/vendor/bundle" ] && ok "deps: the link points at the main worktree's directory" || fail "deps: the link points at the main worktree's directory"
+out="$(pd baseline --id "$L_ID" --test tests/test_deps.sh)"
+check "$out" 'd["passed"] is True' "deps: the test sees the main worktree's dependencies"
+pd teardown --id "$L_ID" >/dev/null
+# A bundler "command not found" baseline names the BUNDLE_PATH situation.
+mkdir -p "$TMP_ROOT/bundlebin"
+printf '#!/bin/sh\necho "bundler: command not found: rspec" >&2\necho "Install missing gem executables with \\`bundle install\\`" >&2\nexit 127\n' > "$TMP_ROOT/bundlebin/bundle"
+chmod +x "$TMP_ROOT/bundlebin/bundle"
+profile 'bundle exec rspec {tests}'
+PATH="$TMP_ROOT/bundlebin:$PATH" pd setup --id "$L_ID" --working-tree --strategy worktree >/dev/null
+out="$(PATH="$TMP_ROOT/bundlebin:$PATH" pd baseline --id "$L_ID" --test tests/test_deps.sh)"
+check "$out" 'd["passed"] is False and d["setup_hint"] and "vendor/bundle" in d["setup_hint"] and "BUNDLE_PATH" in d["setup_hint"]' "deps: a bundler command-not-found baseline gives a setup_hint about BUNDLE_PATH and vendor/bundle"
+out="$(pd baseline --id "$L_ID" --test tests/test_deps.sh 2>/dev/null; true)"
+pd teardown --id "$L_ID" >/dev/null
+git checkout -q -- .claude/wb/testing.md 2>/dev/null
+cd "$MWT" || exit 1
+git worktree remove --force "$TMP_ROOT/linked-wt"
+# A bare repository stored as proj/.git: the parent of its common dir is not
+# a worktree, so its vendor/bundle is never used.
+mkdir -p "$TMP_ROOT/bareproj/vendor/bundle/gems"
+printf 'gem\n' > "$TMP_ROOT/bareproj/vendor/bundle/gems/marker"
+git clone -q --bare "$MWT" "$TMP_ROOT/bareproj/.git"
+git -C "$TMP_ROOT/bareproj/.git" worktree add -q "$TMP_ROOT/linked-bare" -b side2
+cd "$TMP_ROOT/linked-bare" || exit 1
+new_id linked-bare
+out="$(pd setup --id "$NEW_ID" --working-tree --strategy worktree)"
+check "$out" 'not [n for n in d["notes"] if "main worktree" in n]' "deps: no main-worktree fallback when git does not list that directory as the main worktree (bare repository)"
+[ ! -e "$DBASE/wb-defect-$NEW_ID/wt/vendor/bundle" ] && ok "deps: the bare repository's sibling vendor/bundle is not linked" || fail "deps: the bare repository's sibling vendor/bundle is not linked"
+pd teardown --id "$NEW_ID" >/dev/null
+cd "$MWT" || exit 1
+
+# Gitignored build output present in the source tree is linked into the copy.
+BOR="$TMP_ROOT/builds"
+mkdir -p "$BOR/tests" "$BOR/app/assets/builds" "$BOR/public/packs" && cd "$BOR" || exit 1
+git init -q .
+printf '/app/assets/builds/*\n!/app/assets/builds/.keep\n/public/packs\n' > .gitignore
+: > app/assets/builds/.keep
+printf '[ -f app/assets/builds/application.css ] && [ -f public/packs/manifest.json ]\n' > tests/test_assets.sh
+printf 'echo hacked > app/assets/builds/application.css\necho hacked > public/packs/manifest.json\n' > tests/test_write.sh
+runner run-tests
+profile './run-tests {tests}'
+commit_all start
+printf 'body{}\n' > app/assets/builds/application.css
+printf '{}\n' > public/packs/manifest.json
+new_id builds
+O_ID="$NEW_ID"
+out="$(pd setup --id "$O_ID" --working-tree --strategy worktree)"
+[ -f "$DBASE/wb-defect-$O_ID/wt/app/assets/builds/application.css" ] && [ ! -L "$DBASE/wb-defect-$O_ID/wt/app/assets/builds/application.css" ] && ok "builds: gitignored files in app/assets/builds are copied (not linked) into the copy" || fail "builds: gitignored files in app/assets/builds are copied (not linked) into the copy"
+[ -d "$DBASE/wb-defect-$O_ID/wt/public/packs" ] && [ ! -L "$DBASE/wb-defect-$O_ID/wt/public/packs" ] && ok "builds: a gitignored public/packs is copied (not linked) into the copy" || fail "builds: a gitignored public/packs is copied (not linked) into the copy"
+out="$(pd baseline --id "$O_ID" --test tests/test_assets.sh)"
+check "$out" 'd["passed"] is True' "builds: the test sees the built assets"
+pd baseline --id "$O_ID" --test tests/test_write.sh >/dev/null
+[ "$(cat app/assets/builds/application.css)" = 'body{}' ] && [ "$(cat public/packs/manifest.json)" = '{}' ] && ok "builds: a test writing to the build output cannot change the real checkout" || fail "builds: a test writing to the build output cannot change the real checkout"
+pd teardown --id "$O_ID" >/dev/null
+head -c 4096 /dev/zero > app/assets/builds/big.bin
+out="$(WB_DEFECT_BUILD_CAP_KB=2 pd setup --id "$O_ID" --working-tree --strategy worktree)"
+check "$out" '[n for n in d["notes"] if "build output" in n and "not copied" in n]' "builds: build output over the size cap is not copied, with a note"
+[ ! -e "$DBASE/wb-defect-$O_ID/wt/app/assets/builds/big.bin" ] && ok "builds: nothing over the cap lands in the copy" || fail "builds: nothing over the cap lands in the copy"
+pd teardown --id "$O_ID" >/dev/null
+rm -f app/assets/builds/big.bin
+# setup reports the effective dependency and build output lists.
+out="$(pd setup --id "$O_ID" --working-tree --strategy worktree)"
+check "$out" 'd["dep_dirs"]==["node_modules","vendor/bundle",".bundle",".venv","venv"] and "app/assets/builds" in d["build_dirs"] and "public/packs" in d["build_dirs"]' "builds: setup reports the effective dep_dirs and build_dirs (defaults)"
+pd teardown --id "$O_ID" >/dev/null
+# A profile's build output dirs replace the defaults.
+mkdir -p dist
+printf 'bundle\n' > dist/app.js
+printf 'dist/\n' >> .gitignore
+command cp -f .claude/wb/testing.md "$TMP_ROOT/bo-profile.bak"
+profile './run-tests {tests}' 'build output dirs: dist' 'dependency dirs: node_modules'
+out="$(pd setup --id "$O_ID" --working-tree --strategy worktree)"
+check "$out" 'd["build_dirs"]==["dist"] and d["dep_dirs"]==["node_modules"]' "builds: the profile's build output dirs and dependency dirs are the effective lists"
+[ -f "$DBASE/wb-defect-$O_ID/wt/dist/app.js" ] && [ ! -L "$DBASE/wb-defect-$O_ID/wt/dist" ] && ok "builds: a profile build output dir is copied" || fail "builds: a profile build output dir is copied"
+[ ! -e "$DBASE/wb-defect-$O_ID/wt/public/packs" ] && ok "builds: the defaults are not used when the profile names build output dirs" || fail "builds: the defaults are not used when the profile names build output dirs"
+pd teardown --id "$O_ID" >/dev/null
+profile './run-tests {tests}' 'build output dirs: ../x'
+out="$(pd setup --id "$O_ID" --working-tree --strategy worktree)"
+check "$out" 'd["strategy"]=="none" and [e for e in d["errors"] if "build output dir" in e]' "builds: a build output dir outside the repository is refused"
+pd teardown --id "$O_ID" >/dev/null
+command cp -f "$TMP_ROOT/bo-profile.bak" .claude/wb/testing.md
+git checkout -q -- .gitignore
+rm -rf dist
+
+# --test-file <path>=@b64:<base64>: replacement content passed inline.
+TFR="$TMP_ROOT/tf-b64"
+mkdir -p "$TFR/tests" && cd "$TFR" || exit 1
+git init -q .
+printf 'add() { echo $(($1 + $2)); }\nsub() { echo $(($1 - $2)); }\n' > calc.sh
+printf 'set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n' > tests/test_calc.sh
+runner run-tests
+profile './run-tests {tests}'
+commit_all start
+printf 'set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\necho from-b64-ran\n' > "$TMP_ROOT/variant-b64.sh"
+B64="$(base64 < "$TMP_ROOT/variant-b64.sh" | tr -d '\n')"
+VBLOB="$(git hash-object --no-filters "$TMP_ROOT/variant-b64.sh")"
+new_id tfb
+F_ID="$NEW_ID"
+pd setup --id "$F_ID" --working-tree >/dev/null
+out="$(pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@b64:$B64")"
+check "$out" 'd["passed"] is True and "from-b64-ran" in d["output_tail"]' "@b64: works on baseline"
+out="$(pd run --id "$F_ID" --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_calc.sh --test-file "tests/test_calc.sh=@b64:$B64")"
+check "$out" '"from-b64-ran" in d["output_tail"] and d["test_blobs"]["tests/test_calc.sh"]=="'"$VBLOB"'"' "@b64: the decoded content runs and its blob is reported"
+out="$(pd run --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@b64:$B64" \
+    --case --control --file calc.sh --find 'add()' --replace 'x()' \
+    --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" '[r["outcome"] for r in d["results"]]==["caught","caught"]' "@b64: works in a batch"
+exit_is 2 "@b64: characters outside the base64 alphabet are refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@b64:YWJj$ZGVm'
+exit_is 2 "@b64: whitespace inside is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@b64:YWJj ZGVm"
+exit_is 2 "@b64: a length that is not a multiple of 4 is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@b64:YWJjZ'
+exit_is 2 "@b64: padding in the middle is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@b64:YW==YWJj'
+BIG64="$(head -c 52000 /dev/zero | base64 | tr -d '\n')"
+exit_is 2 "@b64: more than 64 KiB encoded is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@b64:$BIG64"
+printf 'x\n' > "$DBASE/wb-fix.sh"
+exit_is 2 "@file: was removed (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@file:$DBASE/wb-fix.sh"
+# --test-file <path>=@esc:<text>: one line, \n \t \\ escapes (the default form).
+ESCV='set -e\n. ./calc.sh\n[ "$(add 2 3)" = 5 ]\n# a comment line\necho "esc-ran" `printf q` $(printf r) back\\slash tab\there\n'
+printf '%b' "$ESCV" > "$TMP_ROOT/esc-want.sh"
+EBLOB="$(git hash-object --no-filters "$TMP_ROOT/esc-want.sh")"
+pd setup --id "$F_ID" --working-tree >/dev/null
+out="$(pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@esc:$ESCV")"
+check "$out" 'd["passed"] is True and "esc-ran" in d["output_tail"]' "@esc: works on baseline (# lines, quotes, backticks, $(, tab, backslash)"
+out="$(pd run --id "$F_ID" --file calc.sh --find '$1 - $2' --replace '$1 + $2' --test tests/test_calc.sh --test-file "tests/test_calc.sh=@esc:$ESCV")"
+check "$out" 'd["test_blobs"]["tests/test_calc.sh"]=="'"$EBLOB"'"' "@esc: the decoded content's blob is reported"
+out="$(pd run --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@esc:$ESCV" --case --control --file calc.sh --find 'add()' --replace 'x()' --case --file calc.sh --find '$1 + $2' --replace '$1 * $2')"
+check "$out" '[r["outcome"] for r in d["results"]]==["caught","caught"]' "@esc: works in a batch"
+exit_is 2 "@esc: an unknown escape is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file 'tests/test_calc.sh=@esc:echo \q'
+exit_is 2 "@esc: a real newline is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@esc:$(printf 'echo a\necho b')"
+BIGESC="$(head -c 50000 /dev/zero | tr '\0' 'a')"
+exit_is 2 "@esc: more than 48 KiB decoded is refused (exit 2)" pd baseline --id "$F_ID" --test tests/test_calc.sh --test-file "tests/test_calc.sh=@esc:$BIGESC"
+rm -f "$DBASE/wb-fix.sh"
+pd teardown --id "$F_ID" >/dev/null
 
 
 echo

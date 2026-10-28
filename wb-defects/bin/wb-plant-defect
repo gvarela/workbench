@@ -6,7 +6,7 @@
 #
 #   wb-plant-defect setup    --id <id> [--commit <sha> | --working-tree] [--cwd <dir>]
 #                         [--strategy auto|swap|worktree|sandbox] [--lock-wait <s>]
-#   wb-plant-defect baseline --id <id> --test <path>... [--test-file <path>=@<commit> | <path>=-]...
+#   wb-plant-defect baseline --id <id> --test <path>... [--test-file <path>=@<commit> | =- | =@esc:<text> | =@b64:<b64>]...
 #                         [--timeout <s>] [--lock-wait <s>]
 #   wb-plant-defect run      --id <id> --test <path>... [--test-file ...]... [--timeout <s>] [--lock-wait <s>]
 #                         (--file <path> --find <text> --replace <text> [--control] [--label <name>]
@@ -547,7 +547,7 @@ launcher_problem() {
 # ---------------------------------------------------------------- env
 env_key_denied() {
     case "$1" in
-        PATH|BASH_ENV|ENV|HOME|SHELL|IFS|CDPATH|LD_*|DYLD_*|PYTHON*|PYTEST_*|NODE_*|RUBY*|GEM_*|BUNDLE_*|GO*|PERL*|GIT_*|WB_DEFECT_*)
+        PATH|BASH_ENV|ENV|HOME|SHELL|IFS|CDPATH|LD_*|DYLD_*|PYTHON*|PYTEST_*|NODE_*|RUBY*|GEM_*|BUNDLE_*|GO*|PERL*|GIT_*|WB_DEFECT_*|UV_NO_SYNC|UV_FROZEN|UV_PROJECT_ENVIRONMENT)
             return 0 ;;
     esac
     return 1
@@ -629,7 +629,7 @@ wt_ok() {
 # ---------------------------------------------------------------- profile
 # The "Defect sandbox" section of .claude/wb/testing.md (a heading of any
 # level): "key: value" lines until the next heading.
-P_STRATEGY="" P_TEST_CMD="" P_CWD="" P_DEPS="" P_SETUP="" P_LOCK="" P_ENV=""
+P_STRATEGY="" P_TEST_CMD="" P_CWD="" P_DEPS="" P_BUILDS="" P_SETUP="" P_LOCK="" P_ENV=""
 read_profile() {
     local file="$REPO/.claude/wb/testing.md" in=0 line key val lower fence=0
     [ -f "$file" ] && [ ! -L "$file" ] || return 0
@@ -657,6 +657,7 @@ read_profile() {
             "test command")         P_TEST_CMD="$val" ;;
             "test directory"|cwd)   P_CWD="$val" ;;
             "dependency dirs")      P_DEPS="$(printf '%s' "$val" | tr ',' ' ')" ;;
+            "build output dirs")    P_BUILDS="$(printf '%s' "$val" | tr ',' ' ')" ;;
             "setup command")        P_SETUP="$P_SETUP$val"$'\n' ;;
             lockfile|lockfiles)     P_LOCK="$(printf '%s' "$val" | tr ',' ' ')" ;;
             env)                    P_ENV="$P_ENV$val"$'\n' ;;
@@ -961,21 +962,103 @@ fill_copy() {
     return 0
 }
 
+# main_worktree: the main worktree's top level when REPO is a linked
+# worktree (the parent of git rev-parse --git-common-dir), else nothing.
+# dev_ino <path>: device and inode, to compare two spellings of a path.
+dev_ino() { stat -f '%d:%i' "$1" 2>/dev/null || stat -c '%d:%i' "$1" 2>/dev/null; }
+
+main_worktree() {
+    local common m listed list
+    common="$(g -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    case "$common" in */.git) m="${common%/.git}" ;; *) return 0 ;; esac
+    [ -n "$m" ] && [ "$m" != "$REPO" ] && [ -d "$m" ] && [ ! -L "$m" ] && [ -O "$m" ] || return 0
+    # Only when git itself lists that directory as the main worktree of this
+    # common dir (the first entry, and not a bare repository).
+    list="$(g -C "$REPO" worktree list --porcelain 2>/dev/null)"
+    listed="$(printf '%s\n' "$list" | sed -n '1s/^worktree //p')"
+    [ -n "$listed" ] || return 0
+    printf '%s\n' "$list" | awk 'NR > 1 && /^$/ { exit } NR > 1 && $0 == "bare" { found = 1 } END { exit !found }' && return 0
+    [ -n "$(dev_ino "$listed")" ] && [ "$(dev_ino "$listed")" = "$(dev_ino "$m")" ] || return 0
+    [ -n "$(dev_ino "$common")" ] && [ "$(dev_ino "$listed/.git")" = "$(dev_ino "$common")" ] || return 0
+    printf '%s' "$m"
+}
+
 link_deps() {
-    local dir="$1" dep cwd sub p
+    local dir="$1" dep cwd sub p src main
     cwd="$(sget cwd)"
+    main="$(main_worktree)"
     for dep in $(sget deps); do
         for sub in "" ${cwd:+"$cwd/"}; do
             p="$sub$dep"
-            [ -e "$REPO/$p" ] || continue
+            src="$REPO"
+            if [ ! -e "$REPO/$p" ]; then
+                # A linked worktree often has no dependencies of its own
+                # (vendor/bundle, node_modules): use the main worktree's.
+                [ -n "$main" ] && [ -e "$main/$p" ] || continue
+                src="$main"
+            fi
             [ -e "$dir/$p" ] || [ -L "$dir/$p" ] && continue
-            if ! contained "$REPO" "$p" || ! contained "$dir" "$p"; then
-                add_note "not linking $p: it passes through a symlink or leaves the tree"
+            if ! contained "$src" "$p" || ! contained "$dir" "$p" || [ ! -O "$src/$p" ]; then
+                add_note "not linking $p: it passes through a symlink, leaves the tree, or is not owned by the current user"
                 continue
             fi
             mkdir -p "$dir/$(dirname "$p")"
-            ln -s "$REPO/$p" "$dir/$p" && add_note "linked $p"
+            if [ "$src" = "$REPO" ]; then
+                ln -s "$REPO/$p" "$dir/$p" && add_note "linked $p"
+            else
+                ln -s "$src/$p" "$dir/$p" && add_note "linked $p from the main worktree ($src)"
+            fi
         done
+    done
+}
+
+# copy_builds <dir>: gitignored build output present in the source tree
+# (app/assets/builds and similar) is COPIED into the disposable tree (never
+# linked, so a test cannot write through to the real checkout): the whole
+# directory when git ignores it, or its ignored entries when the directory
+# itself is tracked (such as one holding a .keep file). Over the size cap
+# (200 MiB; WB_DEFECT_BUILD_CAP_KB may only lower it) nothing is copied.
+BUILD_DIRS="app/assets/builds public/packs public/packs-test public/assets public/vite public/vite-dev public/vite-test"
+build_cap_kb() {
+    local cap=204800
+    case "${WB_DEFECT_BUILD_CAP_KB:-}" in ""|*[!0-9]*) ;; *) [ "$WB_DEFECT_BUILD_CAP_KB" -lt "$cap" ] && cap="$WB_DEFECT_BUILD_CAP_KB" ;; esac
+    printf '%s' "$cap"
+}
+kb_of() { du -skP "$@" 2>/dev/null | awk '{ t += $1 } END { print t + 0 }'; }
+copy_builds() {
+    local dir="$1" b src e name entries kb cap
+    cap="$(build_cap_kb)"
+    for b in $(sget builds); do
+        src="$REPO/$b"
+        [ -d "$src" ] && [ ! -L "$src" ] && [ -O "$src" ] && contained "$REPO" "$b" || continue
+        if [ ! -e "$dir/$b" ] && [ ! -L "$dir/$b" ]; then
+            g -C "$REPO" check-ignore -q -- "$b" 2>/dev/null || continue
+            contained "$dir" "$b" || continue
+            kb="$(kb_of "$src")"
+            if [ "$kb" -gt "$cap" ]; then
+                add_note "build output $b not copied: ${kb} KiB is over the ${cap} KiB cap"
+                continue
+            fi
+            mkdir -p "$dir/$(dirname "$b")"
+            command cp -pRP "$src" "$dir/$b" && add_note "copied gitignored build output $b"
+        elif [ -d "$dir/$b" ] && [ ! -L "$dir/$b" ] && contained "$dir" "$b"; then
+            entries=()
+            for e in "$src"/* "$src"/.[!.]*; do
+                [ -e "$e" ] || [ -L "$e" ] || continue
+                name="${e##*/}"
+                [ -e "$dir/$b/$name" ] || [ -L "$dir/$b/$name" ] && continue
+                [ ! -L "$e" ] && [ -O "$e" ] || continue
+                g -C "$REPO" check-ignore -q -- "$b/$name" 2>/dev/null || continue
+                entries[${#entries[@]}]="$e"
+            done
+            [ ${#entries[@]} -gt 0 ] || continue
+            kb="$(kb_of "${entries[@]}")"
+            if [ "$kb" -gt "$cap" ]; then
+                add_note "build output in $b not copied: ${kb} KiB is over the ${cap} KiB cap"
+                continue
+            fi
+            command cp -pRP "${entries[@]}" "$dir/$b/" && add_note "copied gitignored build output in $b"
+        fi
     done
 }
 
@@ -994,6 +1077,7 @@ create_worktree() {
     wt_ok || { add_error "worktree path check failed for $wt"; return 1; }
     fill_copy "$wt" || return 1
     link_deps "$wt"
+    copy_builds "$wt"
     sset has_worktree 1
     return 0
 }
@@ -1471,6 +1555,19 @@ apply_test_files() {
         case "$src" in
             -)
                 cat > "$content" ;;
+            @esc:*)
+                if ! esc_decode "${src#@esc:}" > "$content" ||
+                   [ "$(wc -c < "$content" | tr -d ' ')" -gt "$MAX_DECODED_BYTES" ]; then
+                    add_error "cannot decode the --test-file @esc: content for $p"
+                    return 1
+                fi ;;
+            @b64:*)
+                # Decoded straight into the private per-call scratch.
+                if ! b64_decode "${src#@b64:}" "$content" ||
+                   [ "$(wc -c < "$content" | tr -d ' ')" -gt "$MAX_DECODED_BYTES" ]; then
+                    add_error "cannot decode the --test-file @b64: content for $p"
+                    return 1
+                fi ;;
             @*)
                 sha="$(g -C "$REPO" rev-parse --verify --quiet --end-of-options "${src#@}^{commit}" 2>/dev/null)"
                 if [ -z "$sha" ] || ! g -C "$REPO" cat-file blob "$sha:$p" > "$content" 2>/dev/null; then
@@ -1664,6 +1761,9 @@ run_tests() {
         if [ "$CALL_STRATEGY" = swap ]; then
             swap_env "$ADAPTER" "$target" "$source"
         else
+            # A copy's dependency directories are links into the repository:
+            # uv must not sync (re-install the project into) them.
+            export UV_NO_SYNC=1 UV_FROZEN=1
             case " ${RUN_ARGV[*]} " in
                 *pytest*|*python*)
                     local pp="$dir"
@@ -1697,6 +1797,57 @@ run_tests() {
     end="$(now)"
     RT_DUR="$(elapsed "$start" "$end")"
     RT_LOG="$log"
+}
+
+# check_b64 <value>: a --test-file <path>=@b64:<base64> value must be strict
+# base64 (A-Z a-z 0-9 + /, "=" padding only at the end, length a multiple of
+# 4, no whitespace), at most 64 KiB encoded (48 KiB decoded).
+MAX_B64_BYTES=65536
+MAX_DECODED_BYTES=49152
+check_b64() {
+    local v="$1" core
+    [ ${#v} -le "$MAX_B64_BYTES" ] || usage_msg "--test-file @b64: more than $MAX_B64_BYTES bytes encoded"
+    case "$v" in *[!A-Za-z0-9+/=]*) usage_msg "--test-file @b64: only the base64 alphabet is allowed (no whitespace)" ;; esac
+    core="${v%=}"; core="${core%=}"
+    case "$core" in *=*) usage_msg "--test-file @b64: padding (=) is allowed only at the end" ;; esac
+    [ $(( ${#v} % 4 )) -eq 0 ] || usage_msg "--test-file @b64: the length must be a multiple of 4"
+}
+
+# esc_decode <text>: the escaped single-line form: \n newline, \t tab, \\
+# backslash; any other backslash escape makes awk exit 3. Writes to stdout.
+esc_decode() {
+    printf '%s' "$1" | LC_ALL=C awk -v ORS="" '
+        {
+            s = $0
+            while ((i = index(s, "\\")) > 0) {
+                printf "%s", substr(s, 1, i - 1)
+                e = substr(s, i + 1, 1)
+                if (e == "n") printf "\n"
+                else if (e == "t") printf "\t"
+                else if (e == "\\") printf "\\"
+                else exit 3
+                s = substr(s, i + 2)
+            }
+            printf "%s", s
+        }'
+}
+
+# check_esc <text>: no real newline, only \n \t \\ escapes, at most 48 KiB
+# decoded.
+check_esc() {
+    local size
+    case "$1" in *$'\n'*) usage_msg "--test-file @esc: a real newline is not allowed (write it as \\n)" ;; esac
+    esc_decode "$1" > /dev/null || usage_msg "--test-file @esc: only \\n, \\t, and \\\\ escapes are allowed"
+    size="$(esc_decode "$1" | wc -c | tr -d ' ')"
+    [ "$size" -le "$MAX_DECODED_BYTES" ] || usage_msg "--test-file @esc: more than $MAX_DECODED_BYTES bytes decoded"
+}
+
+# b64_decode <value> <out file>: decode into a file in this run's private
+# state directory.
+b64_decode() {
+    printf '%s' "$1" | base64 -d > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | base64 -D > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | openssl base64 -d -A > "$2" 2>/dev/null
 }
 
 # ---------------------------------------------------------------- arguments
@@ -1814,8 +1965,11 @@ for _i in ${TEST_FILES[@]+"${!TEST_FILES[@]}"}; do
     case "$_src" in
         -) _stdin=$((_stdin + 1))
            [ -z "$BATCH" ] || usage_msg "--test-file <path>=- (stdin) is not accepted in a batch; use <path>=@<commit>" ;;
+        @b64:*) check_b64 "${_src#@b64:}" ;;
+        @esc:*) check_esc "${_src#@esc:}" ;;
+        @file:*) usage_msg "--test-file <path>=@file: was removed; pass the content as <path>=@b64:<base64>" ;;
         @?*) case "${_src#@}" in -*) usage_msg "--test-file commit must not start with '-': $_src" ;; esac ;;
-        *) usage_msg "--test-file takes <path>=@<commit> or <path>=- (stdin); a local file is not accepted: $_spec" ;;
+        *) usage_msg "--test-file takes <path>=@<commit>, <path>=- (stdin), <path>=@esc:<escaped text>, or <path>=@b64:<base64>: $_spec" ;;
     esac
     TEST_FILES[$_i]="$NORM=$_src"
 done
@@ -1831,7 +1985,7 @@ GATE="$TMP_BASE/wb-defect-lock-$ID"
 
 # ================================================================ setup
 setup_fail() {
-    printf '{"id":%s,"strategy":"none","adapter":null,"root":null,"repo":%s,"cwd":null,"language":null,"test_cmd":null,"test_argv":null,"test_cmd_source":null,"needs_setup":false,"setup_hint":null,"sandbox_copy":null,"strategy_notes":[],"notes":[%s],"errors":[%s]}\n' \
+    printf '{"id":%s,"strategy":"none","adapter":null,"root":null,"repo":%s,"cwd":null,"language":null,"test_cmd":null,"test_argv":null,"test_cmd_source":null,"needs_setup":false,"setup_hint":null,"sandbox_copy":null,"dep_dirs":null,"build_dirs":null,"strategy_notes":[],"notes":[%s],"errors":[%s]}\n' \
         "$(json_str "$ID")" "$(str_or_null "$REPO")" "$NOTES" "$ERRORS"
     exit 0
 }
@@ -1870,6 +2024,12 @@ cmd_setup() {
     read_profile
     requested="${STRATEGY_ARG:-${P_STRATEGY:-auto}}"
     case "$requested" in auto|swap|worktree|sandbox) ;; *) add_note "unknown profile strategy '$requested'; using auto"; requested=auto ;; esac
+    # The sandbox keeps a persistent copy registered as a worktree of the
+    # repository: that is the user's choice, made in the profile, never a
+    # caller's --strategy alone.
+    if [ "$requested" = sandbox ] && [ "$P_STRATEGY" != sandbox ]; then
+        add_error "sandbox needs \`strategy: sandbox\` in .claude/wb/testing.md (it keeps a persistent copy registered as a worktree of the repository, so only the profile can choose it)"
+    fi
 
     # Profile and CLI paths: same rules as any repository path.
     norm_rel "${CWD_ARG:-$P_CWD}"
@@ -1889,6 +2049,13 @@ cmd_setup() {
         if [ -n "$r" ]; then add_error "dependency dir must be repository-relative ($r): $dep"; else deps="$deps $NORM"; fi
     done
     sset deps "${deps# }"
+    local builds=""
+    for dep in ${P_BUILDS:-$BUILD_DIRS}; do
+        norm_rel "$dep"
+        r="$(rel_problem "$NORM")"
+        if [ -n "$r" ]; then add_error "build output dir must be repository-relative ($r): $dep"; else builds="$builds $NORM"; fi
+    done
+    sset builds "${builds# }"
     r="$(env_problem "$P_ENV")"
     [ -z "$r" ] || add_error "profile env refused: $r"
     sset env "$P_ENV"
@@ -1963,15 +2130,17 @@ cmd_setup() {
         is_hex "$key" && release_lock "$(sandbox_dir "$key")/lock"
     fi
 
-    local root_json="null" argv_json="" w
+    local root_json="null" argv_json="" w deps_json="" builds_json=""
     [ "$strategy" != none ] && root_json="$(json_str "$(sget root)")"
+    for w in $(sget deps); do append deps_json "$(json_str "$w")"; done
+    for w in $(sget builds); do append builds_json "$(json_str "$w")"; done
     parse_argv "$test_cmd"
     for w in "${ARGV[@]}"; do append argv_json "$(json_str "$w")"; done
     gate_still_ours
-    printf '{"id":%s,"strategy":%s,"adapter":%s,"root":%s,"repo":%s,"cwd":%s,"language":%s,"test_cmd":%s,"test_argv":[%s],"test_cmd_source":%s,"needs_setup":%s,"setup_hint":%s,"sandbox_copy":%s,"strategy_notes":[%s],"notes":[%s],"errors":[%s]}\n' \
+    printf '{"id":%s,"strategy":%s,"adapter":%s,"root":%s,"repo":%s,"cwd":%s,"language":%s,"test_cmd":%s,"test_argv":[%s],"test_cmd_source":%s,"needs_setup":%s,"setup_hint":%s,"sandbox_copy":%s,"dep_dirs":[%s],"build_dirs":[%s],"strategy_notes":[%s],"notes":[%s],"errors":[%s]}\n' \
         "$(json_str "$ID")" "$(json_str "$strategy")" "$(str_or_null "$ADAPTER")" "$root_json" "$(json_str "$REPO")" \
         "$(str_or_null "$cwd")" "$(str_or_null "$lang")" "$(str_or_null "$test_cmd")" "$argv_json" "$(str_or_null "$source")" \
-        "$(bool_json "$NEEDS_SETUP")" "$(str_or_null "$SETUP_HINT")" "$(str_or_null "$SANDBOX_COPY")" \
+        "$(bool_json "$NEEDS_SETUP")" "$(str_or_null "$SETUP_HINT")" "$(str_or_null "$SANDBOX_COPY")" "$deps_json" "$builds_json" \
         "$SNOTES" "$NOTES" "$ERRORS"
 }
 
@@ -2023,7 +2192,7 @@ load_state() {
         r="$(rel_problem "$VALID_CWD")"
         [ -z "$r" ] || { add_error "invalid state: cwd"; return 1; }
     fi
-    for dep in $(sget deps); do
+    for dep in $(sget deps) $(sget builds); do
         [ -z "$(rel_problem "$dep")" ] || { add_error "invalid state: deps"; return 1; }
     done
     [ -z "$(env_problem "$(sget env)")" ] || { add_error "invalid state: env"; return 1; }
@@ -2059,8 +2228,17 @@ read_baseline() {
 }
 
 # ================================================================ baseline
+# bundler_hint <output>: a setup hint when the test command could not find
+# its gems (bundler not finding an executable or a gem).
+bundler_hint() {
+    case "$1" in
+        *"bundler: command not found"*|*"Could not find "*" in locally installed gems"*|*"Could not find "*" in any of the sources"*|*"Bundler::GemNotFound"*)
+            printf '%s' "The test command could not find its gems. Bundler installs to BUNDLE_PATH (often vendor/bundle, set in .bundle/config); a copy gets vendor/bundle and .bundle only as links to the repository's own, or the main worktree's when the repository is a linked worktree, and only when they exist there. Install the bundle where the repository keeps it (for example bundle config set --local path vendor/bundle, then bundle install, in the repository; or in the sandbox copy for strategy sandbox), or name the directory under dependency dirs in the Defect sandbox profile, then run setup again." ;;
+    esac
+}
+
 cmd_baseline() {
-    local passed=false code="" dur="" timeout="" tail=""
+    local passed=false code="" dur="" timeout="" tail="" hint=""
     if load_state && make_scratch && prepare_call; then
         RUN_TIMEOUT="${TIMEOUT_ARG:-$AUTO_TIMEOUT_CAP}"
         run_tests "" ""
@@ -2072,14 +2250,16 @@ cmd_baseline() {
             add_error "baseline timed out after ${RUN_TIMEOUT}s"
         elif [ "$RT_EXIT" = 0 ]; then
             passed=true
+        else
+            hint="$(bundler_hint "$(tail -n 200 "$RT_LOG" 2>/dev/null)")"
         fi
         timeout="$(LC_ALL=C awk -v d="$dur" -v cap="$AUTO_TIMEOUT_CAP" 'BEGIN { t = 5 * d; if (t < 10) t = 10; t = (t == int(t)) ? t : int(t) + 1; if (t > cap) t = cap; printf "%d", t }')"
         sset "baseline-$(tests_key)" "$passed $timeout"
     fi
     gate_still_ours
-    printf '{"passed":%s,"exit_code":%s,"duration_s":%s,"timeout_s":%s,"strategy":%s,"output_tail":%s,"notes":[%s],"errors":[%s]}\n' \
+    printf '{"passed":%s,"exit_code":%s,"duration_s":%s,"timeout_s":%s,"strategy":%s,"output_tail":%s,"setup_hint":%s,"notes":[%s],"errors":[%s]}\n' \
         "$(bool_json "$passed")" "$(num_json "$code")" "$(num_json "$dur")" "$(num_json "$timeout")" "$(str_or_null "$CALL_STRATEGY")" \
-        "$(json_str "$tail")" "$NOTES" "$ERRORS"
+        "$(json_str "$tail")" "$(str_or_null "$hint")" "$NOTES" "$ERRORS"
 }
 
 # ================================================================ run
@@ -2446,7 +2626,7 @@ gate_fail() {
     case "$SUB" in
         setup) setup_fail ;;
         baseline)
-            printf '{"passed":false,"exit_code":null,"duration_s":null,"timeout_s":null,"strategy":null,"output_tail":"","notes":[%s],"errors":[%s]}\n' "$NOTES" "$ERRORS" ;;
+            printf '{"passed":false,"exit_code":null,"duration_s":null,"timeout_s":null,"strategy":null,"output_tail":"","setup_hint":null,"notes":[%s],"errors":[%s]}\n' "$NOTES" "$ERRORS" ;;
         run)
             if [ -n "$BATCH" ]; then
                 local i

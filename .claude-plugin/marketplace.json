@@ -21,7 +21,7 @@
       "name": "wb-defects",
       "source": "./wb-defects",
       "description": "Opt-in planted-defect runner for wb's verifiers: runs the repository's own test command against a one-file edit in a copy (wb-plant-defect on PATH).",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }
