@@ -72,6 +72,23 @@ Then allow it in `~/.claude/settings.json` (project allow rules apply only once 
 
 The test command it runs comes only from the `test command` line under `## Defect sandbox` in `.claude/wb/testing.md`, which `/wb:testing-profile` drafts and you confirm, and it runs without a shell. Allowing the wb-defects runner means trusting everything in the repository as code you'd run — its tests and its .claude/wb/testing.md profile — just as allowing its test runner does. As defence in depth it rejects known shells, inline-code flags, and launchers that reach beyond the repository (containers, remote hosts), runs no setup commands, and edits only a copy; a repository script can still run whatever it contains. See [wb-defects/README.md](wb-defects/README.md). The plugin puts a command on the Bash tool's PATH from its `bin/` directory, so it cannot be installed on claude.ai or in Cowork; wb works there without it.
 
+### Unattended runs
+
+In `/wb:implement` or `/wb:implement_inline`, naming `run unattended` in your own message lets the run go on without you until your next message, within the limits the skill states. Nobody is there to approve a permission prompt, so a prompt stalls the run. To let the verifiers post and check their records and the coordinator fingerprint the tree, allow the two helpers in wb's scripts directory (in an installed plugin, `~/.claude/plugins/cache/gvarela-workbench/wb/<version>/scripts/`):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(<wb scripts dir>/wb-records *)",
+      "Bash(<wb scripts dir>/test-integrity *)"
+    ]
+  }
+}
+```
+
+`wb-records` only adds and reads `bd comments`; `test-integrity` only reads git. The path changes with each version, so update the rules after `claude plugin update`.
+
 ### Using Commands
 
 ```bash

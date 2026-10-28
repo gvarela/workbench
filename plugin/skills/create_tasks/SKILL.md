@@ -39,7 +39,7 @@ Do NOT block — if the user chooses to continue, proceed.
 
 ## Initial Response
 
-This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work, and a decision on each design item or metric no task delivers: add a task, defer it in design.md, or drop it from scope.
+This stage needs from you: confirmation that the phases and checkpoints match how you want to review the work, a decision on each design item or metric no task delivers: add a task, defer it in design.md, or drop it from scope, and a decision on each earlier plan's outer test that cites an identifier the design renames or retires.
 
 When invoked, check for arguments:
 
@@ -147,6 +147,8 @@ Before any beads issue exists, map every design.md In Scope item and every Succe
 ⛔ BARRIER: every row mapped before Step 5 — an unmapped item is silently dropped, or silently added later by whoever notices. When rows are unmapped, ask about each one with the "Design Coverage Gap Message" in [templates.md](templates.md) (add a task, defer it in design.md, or drop it from scope) and apply the answers, because the choice is the user's, not yours; when every row is mapped, go on without asking.
 
 Then check the plan itself against the agents' findings: research.md's knowledge gaps and design.md's risk mitigations are handled, every task is specific and executable, dependencies follow the agent-identified order, and every acceptance criterion has an outer-test step (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task.
+
+Earlier plans' outer tests stay committed as `red(AC-n)`, and no worker may change one, so a design that renames or retires an identifier one of them cites halts the run mid-task. Find each such test and ask about it with the other gaps, as "Earlier Outer Tests the Design Renames" in [implement/reference.md](../implement/reference.md) says; a re-baseline answer becomes a planned rewrite task there, and the run does not ask again.
 
 ### Step 5: Create Beads Issues
 

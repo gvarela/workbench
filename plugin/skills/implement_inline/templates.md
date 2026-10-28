@@ -110,6 +110,7 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 - Integrity findings: [total] ([escalated] escalated); [the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded]; review findings filed: [each in plain words with its criterion and issue id]
 - Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
 - Outer-test rewrites run: [each with the criterion it guards, who sanctioned it (you by name, or "additive, sanctioned by me"), and its Not claimed list with who accepted any case on it, or "none"]
+- Coordinator records: [each `re-baseline:`, `stub files:`, `checkpoint-auto:`, and `deferred:` record posted this phase, in plain words with its task or milestone, or "none"]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 

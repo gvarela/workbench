@@ -119,7 +119,8 @@ Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter (its de
 Verify Phase ${phase} of the plan against its tasks.
 
 - Plan directory: ${planDir}  (its README.md, design.md, and tasks.md)
-- Phase: ${phase}; final phase: ${isFinalPhase ? "yes" : "no"}
+- Milestone: ${phaseMilestoneId}  (post your report here)
+- Phase: ${phase}; final phase: ${isFinalPhase ? "yes" : "no"}; mode: ${"implement" from /wb:implement, "inline" from /wb:implement_inline and /wb:validate_phase of an inline phase}
 - Range: ${phaseStartingCommit}..${endCommit}  (end: HEAD, or "working tree" when the phase's changes are not all committed)
 - Plan starting commit: ${planStartingCommit}
 - Tasks: ${phaseTaskIds}  (the phase's beads task ids from the tasks.md frontmatter, outer test steps included, plus each issue filed during the phase whose id a commit in the range names)
@@ -127,5 +128,5 @@ Verify Phase ${phase} of the plan against its tasks.
 - Automated verification: ${each checkpoint command and whether it passed}
 - Conventions: ${conventionsSource}; test paths: ${testPaths}; test command: ${testCommand}
 
-Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself, as your agent definition's Inputs says; this prompt does not repeat them. Return the report your definition specifies; you edit and post nothing.
+Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself, as your agent definition's Inputs says; this prompt does not repeat them. Post your report on the milestone and return it, as your definition specifies; you edit nothing else.
 ```

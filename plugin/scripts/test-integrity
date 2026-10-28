@@ -22,6 +22,8 @@
 usage() {
     cat >&2 <<'EOF'
 Usage: test-integrity --start <commit> [options]
+       test-integrity --fingerprint [--include-ignored <dir>]...
+       test-integrity --sha256 <part> [<part>...]
 
   --start <commit>          Commit the task began from (required).
   --red <commit>:<path>     An outer test file and its red commit (repeatable).
@@ -47,11 +49,25 @@ Usage: test-integrity --start <commit> [options]
                             changed between it and --start (earlier phases) that
                             are changed again since --start. Without it,
                             earlier_phase_tests is null.
-  --allow-mechanical        Leave mechanical changes (import re-sorts or
-                            edge-whitespace-only; see "mechanical") out of
+  --allow-mechanical        Leave mechanical changes (import re-sorts,
+                            edge-whitespace-only changes, or leading
+                            comment-block changes; see "mechanical") out of
                             undeclared_changes, listing them in
                             cleared_mechanical instead. Without it,
                             cleared_mechanical is null.
+  --fingerprint             Instead of the report, print one JSON object
+                            {"fingerprint": "<sha256>", "records": n} over the
+                            tree's state: index entries, status, the working
+                            tree of tracked paths, untracked files, and
+                            ignored files under each --include-ignored
+                            directory. No --start needed.
+  --include-ignored <dir>   With --fingerprint: also cover ignored files under
+                            this repository-relative directory (repeatable;
+                            capped at 20000 files and 500 MiB).
+  --sha256 <part>...        Print {"sha256": "<hex>", "bytes": n} for the exact
+                            concatenation of the parts (no separators; every
+                            remaining argument is a part, even one starting
+                            with -). No git needed; at most 1 MiB in total.
 
 Paths in --red, --declared, --declared-path, and the output are relative to the
 repository root.
@@ -92,6 +108,10 @@ PLAN_START=""
 DECLARED=""
 DECLARED_GIVEN=""
 ALLOW_MECH=""
+SHA_MODE=""
+SHA_PARTS=()
+FINGERPRINT=""
+INCLUDE_IGNORED=()
 DECLARED_ARGS=""
 REDS=()
 TEST_PATHS=()
@@ -108,6 +128,13 @@ while [ $# -gt 0 ]; do
                         DECLARED_ARGS="$DECLARED_ARGS${2#./}"$'\n'; DECLARED_GIVEN=1; shift 2 ;;
         --declared-none) DECLARED_GIVEN=1; shift ;;
         --allow-mechanical) ALLOW_MECH=1; shift ;;
+        --fingerprint)  FINGERPRINT=1; shift ;;
+        --sha256)       shift; [ $# -ge 1 ] || usage
+                        SHA_MODE=1; SHA_PARTS=("$@"); break ;;
+        --include-ignored) [ $# -ge 2 ] && [ -n "$2" ] || usage
+                        case "$2" in /*|-*) usage ;; esac
+                        case "/$2/" in */../*) usage ;; esac
+                        INCLUDE_IGNORED[${#INCLUDE_IGNORED[@]}]="${2%/}"; shift 2 ;;
         --plan-start)   [ $# -ge 2 ] || usage; PLAN_START="$2"; shift 2 ;;
         --test-paths)   [ $# -ge 2 ] || usage; TEST_PATHS[${#TEST_PATHS[@]}]="$2"; shift 2 ;;
         --skip-pattern) [ $# -ge 2 ] || usage; SKIP_PATTERNS[${#SKIP_PATTERNS[@]}]="$2"; shift 2 ;;
@@ -115,7 +142,25 @@ while [ $# -gt 0 ]; do
         *)              usage ;;
     esac
 done
-[ -n "$START" ] || usage
+sha256_stdin() {
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256 | cut -d' ' -f1
+    elif command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1
+    else openssl dgst -sha256 -r | cut -d' ' -f1
+    fi
+}
+
+# --sha256: the digest of the exact concatenation of the parts; no git.
+if [ -n "$SHA_MODE" ]; then
+    SHA_BYTES="$(printf '%s' "${SHA_PARTS[@]}" | wc -c | tr -d ' ')"
+    if [ "$SHA_BYTES" -gt 1048576 ]; then
+        echo "test-integrity: --sha256 parts total $SHA_BYTES bytes, over the 1 MiB limit" >&2
+        exit 2
+    fi
+    printf '{"sha256":"%s","bytes":%s}\n' "$(printf '%s' "${SHA_PARTS[@]}" | sha256_stdin)" "$SHA_BYTES"
+    exit 0
+fi
+
+[ -n "$START" ] || [ -n "$FINGERPRINT" ] || usage
 
 if [ ${#TEST_PATHS[@]} -eq 0 ]; then
     TEST_PATHS=('spec/' 'test/' 'tests/' '__tests__/' '*_test.*' '*_spec.*' 'test_*.py' '*.test.*' '*.spec.*')
@@ -297,7 +342,7 @@ REDS=(${NORM_REDS[@]+"${NORM_REDS[@]}"})
 # repository's index is never written.
 REAL_INDEX="$(g rev-parse --git-path index)"
 TMP_INDEX="$(mktemp)" || exit 2
-trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock" "$TMP_INDEX.mech" "$TMP_INDEX.mech.ra" "$TMP_INDEX.mech.rb" "$TMP_INDEX.mech.ba" "$TMP_INDEX.mech.bb"' EXIT
+trap 'rm -f "$TMP_INDEX" "$TMP_INDEX.lock" "$TMP_INDEX.mech" "$TMP_INDEX.mech.ra" "$TMP_INDEX.mech.rb" "$TMP_INDEX.mech.ba" "$TMP_INDEX.mech.bb" "$TMP_INDEX.fpr" "$TMP_INDEX.fpl" "$TMP_INDEX.fpp" "$TMP_INDEX.fph" "$TMP_INDEX.fpu"' EXIT
 # Keep the index's mtime (git uses it to spot same-second edits); with no
 # index, remove the empty file so git starts without one.
 if [ -f "$REAL_INDEX" ]; then cp -p "$REAL_INDEX" "$TMP_INDEX"; else rm -f "$TMP_INDEX"; fi
@@ -316,6 +361,126 @@ if [ ! -f "$REAL_INDEX" ]; then
         g read-tree "$SEED" 2>/dev/null ||
             add_error "repository has no index and it could not be rebuilt from HEAD"
     fi
+fi
+
+# ---------------------------------------------------------------- fingerprint
+# --fingerprint: one sha256 over NUL-framed records of the tree's state, in a
+# deterministic order: the index (path, mode, blob, stage), the status
+# (git status --porcelain=v2 -z, tracked entries), the working tree of every
+# tracked path (mode and blob, or "deleted"; a submodule's checked-out
+# commit), untracked files, and ignored files under each --include-ignored
+# directory (path, mode, content blob, or a symlink target's blob). Each
+# record is its fields, each ended by NUL, then one more NUL. Read-only.
+MAX_IGNORED_FILES=20000
+MAX_IGNORED_KB=512000
+# Tracked and untracked content is capped too (100,000 files, 2 GiB read);
+# over a cap the fingerprint fails closed. TEST_INTEGRITY_FP_MAX_FILES and
+# TEST_INTEGRITY_FP_MAX_KB may only lower the caps.
+lower_cap() {
+    case "$2" in ""|*[!0-9]*) printf '%s' "$1" ;; *) if [ "$2" -lt "$1" ]; then printf '%s' "$2"; else printf '%s' "$1"; fi ;; esac
+}
+MAX_TREE_FILES="$(lower_cap 100000 "${TEST_INTEGRITY_FP_MAX_FILES:-}")"
+MAX_TREE_KB="$(lower_cap 2097152 "${TEST_INTEGRITY_FP_MAX_KB:-}")"
+
+# fp_paths <tag> <NUL list file> <records file>: one record per path.
+FP_N=0
+fp_paths() {
+    local tag="$1" list="$2" rec="$3" plain="$TMP_INDEX.fpp" hashes="$TMP_INDEX.fph" p mode h
+    : > "$plain"
+    while IFS= read -r -d '' p; do
+        if [ -f "$p" ] && [ ! -L "$p" ]; then
+            case "$p" in *$'\n'*) ;; *) printf '%s\n' "$p" >> "$plain" ;; esac
+        fi
+    done < "$list"
+    : > "$hashes"
+    [ -s "$plain" ] && g hash-object --no-filters --stdin-paths < "$plain" > "$hashes"
+    exec 3< "$hashes"
+    while IFS= read -r -d '' p; do
+        if [ -L "$p" ]; then
+            mode=120000
+            h="$(printf '%s' "$(readlink -- "$p")" | g hash-object --stdin)"
+        elif [ -f "$p" ]; then
+            mode=100644
+            [ -x "$p" ] && mode=100755
+            case "$p" in
+                *$'\n'*) h="$(g hash-object --no-filters -- "$p")" ;;
+                *) IFS= read -r h <&3 ;;
+            esac
+        elif [ -d "$p" ]; then
+            mode=160000
+            h="$(g -C "$p" rev-parse --verify --quiet HEAD 2>/dev/null)"
+            [ -n "$h" ] || h=none
+        else
+            mode=000000 h=deleted
+        fi
+        printf '%s\0%s\0%s\0%s\0\0' "$tag" "$p" "$mode" "$h" >> "$rec"
+        FP_N=$((FP_N + 1))
+    done < "$list"
+    exec 3<&-
+}
+
+fingerprint_mode() {
+    local rec="$TMP_INDEX.fpr" list="$TMP_INDEX.fpl" ent meta path dir count kb err=""
+    : > "$rec"
+    # Index entries, as git stores them.
+    while IFS= read -r -d '' ent; do
+        meta="${ent%%$'\t'*}"
+        path="${ent#*$'\t'}"
+        printf 'index\0%s\0%s\0\0' "$path" "$meta" >> "$rec"
+        FP_N=$((FP_N + 1))
+    done < <(g ls-files -s -z)
+    # Status (staged versus unstaged), as one length-prefixed record.
+    g status --porcelain=v2 -z --untracked-files=no --ignored=no > "$list" 2>/dev/null
+    printf 'status\0%s\0' "$(wc -c < "$list" | tr -d ' ')" >> "$rec"
+    cat "$list" >> "$rec"
+    printf '\0\0' >> "$rec"
+    FP_N=$((FP_N + 1))
+    # Working tree of the tracked paths, and untracked files, capped before
+    # anything is read.
+    local ulist="$TMP_INDEX.fpu"
+    g ls-files -z > "$list"
+    g ls-files -z --others --exclude-standard > "$ulist"
+    count=$(( $(tr -cd '\0' < "$list" | wc -c) + $(tr -cd '\0' < "$ulist" | wc -c) ))
+    if [ "$count" -gt "$MAX_TREE_FILES" ]; then
+        err="tracked and untracked files: $count is over the $MAX_TREE_FILES-file cap"
+    else
+        kb="$(cat "$list" "$ulist" | xargs -0 du -skP 2>/dev/null | awk '{ t += $1 } END { print t + 0 }')"
+        [ "$kb" -gt "$MAX_TREE_KB" ] && err="tracked and untracked files: ${kb} KiB is over the $MAX_TREE_KB KiB cap"
+    fi
+    if [ -z "$err" ]; then
+        fp_paths worktree "$list" "$rec"
+        fp_paths untracked "$ulist" "$rec"
+    fi
+    rm -f "$ulist"
+    # Ignored files under the included directories, capped.
+    for dir in ${INCLUDE_IGNORED[@]+"${INCLUDE_IGNORED[@]}"}; do
+        [ -z "$err" ] || break
+        [ -d "$dir" ] || continue
+        g ls-files -z --others --ignored --exclude-standard -- "$dir" > "$list"
+        count="$(tr -cd '\0' < "$list" | wc -c | tr -d ' ')"
+        if [ "$count" -gt "$MAX_IGNORED_FILES" ]; then
+            err="ignored files under $dir: $count is over the $MAX_IGNORED_FILES-file cap"; break
+        fi
+        kb=0
+        [ "$count" -gt 0 ] && kb="$(xargs -0 du -skP < "$list" 2>/dev/null | awk '{ t += $1 } END { print t + 0 }')"
+        if [ "$kb" -gt "$MAX_IGNORED_KB" ]; then
+            err="ignored files under $dir: ${kb} KiB is over the $MAX_IGNORED_KB KiB cap"; break
+        fi
+        printf 'ignored-dir\0%s\0\0' "$dir" >> "$rec"
+        FP_N=$((FP_N + 1))
+        fp_paths ignored "$list" "$rec"
+    done
+    if [ -n "$err" ]; then
+        printf '{"fingerprint":null,"records":0,"errors":[%s]}\n' "$(json_str "$err")"
+    else
+        printf '{"fingerprint":"%s","records":%s,"errors":[]}\n' "$(sha256_stdin < "$rec")" "$FP_N"
+    fi
+    rm -f "$rec" "$list" "$TMP_INDEX.fpp" "$TMP_INDEX.fph"
+}
+
+if [ -n "$FINGERPRINT" ]; then
+    fingerprint_mode
+    exit 0
 fi
 
 DECLARED_LIST="$DECLARED_ARGS"
@@ -506,10 +671,43 @@ ws_lines() {
 # "reorder": the multiset of lines is the same, only qualifying imports (see
 # import_strip) changed position, every other line keeps its line number,
 # and no name is bound twice: an import re-sort. Anything else, including a
-# reorder of statements or assertions, is not mechanical. Identical content
+# reorder of statements or assertions, is not mechanical. "comment-header":
+# only the leading comment block differs (see header_end). Identical content
 # (a mode-only change) is not mechanical. Formatter identity
 # (formatter(old) == new) is not attempted: it would mean running the
 # repository's formatter.
+# header_end <file>: the line number of the first line after the file's
+# leading comment block (blank lines and comment lines: #, //, --, ;;, and
+# single-line /* ... */). Lines that only look like comments but change
+# behaviour end the block: a shebang, Ruby and Python magic comments
+# (frozen_string_literal, encoding/coding, -*- ... -*-, typed, and the like),
+# Go build constraints, TypeScript/eslint/flow/jsx directives, C
+# preprocessor lines, and Rust #[...] / #![...] attributes.
+header_end() {
+    LC_ALL=C awk '
+        function directive(l) {
+            if (NR == 1 && l ~ /^#!/) return 1
+            if (l ~ /^[ \t]*#[ \t]*-\*-.*-\*-/) return 1
+            if (l ~ /^[ \t]*#[ \t]*(frozen_string_literal|encoding|coding|warn_indent|warn_past_scope|shareable_constant_value|typed|rbs_inline)[ \t]*[:=]/) return 1
+            if (l ~ /^[ \t]*#.*coding[:=]/) return 1
+            if (l ~ /^[ \t]*#!?\[/) return 1
+            if (l ~ /^[ \t]*#[ \t]*(include|define|undef|if|ifdef|ifndef|else|elif|endif|pragma|import|error|warning|line)([ \t(<"]|$)/) return 1
+            if (l ~ /^[ \t]*\/\/[ \t]*(go:|\+build|@ts-|@flow|@jsx|@vitest-environment|@jest-environment|eslint|#)/) return 1
+            if (l ~ /^[ \t]*\/\*[ \t]*(eslint|global|@jsx|@flow|istanbul|prettier-ignore)/) return 1
+            if (l ~ /^[ \t]*\/\/\//) return 1
+            return 0
+        }
+        {
+            l = $0
+            sub(/\r$/, "", l)
+            if (directive(l)) { print NR; found = 1; exit }
+            if (l ~ /^[ \t]*$/ || l ~ /^[ \t]*(#|\/\/|--|;;)/ || l ~ /^[ \t]*\/\*.*\*\/[ \t]*$/) next
+            print NR; found = 1; exit
+        }
+        END { if (!found) print NR + 1 }
+    ' "$1"
+}
+
 # ends_with_newline <file>: 1 if the file ends with a newline (or is empty).
 # A reorder never includes a change of the final newline.
 ends_with_newline() { if [ -n "$(tail -c 1 "$1")" ]; then echo 0; else echo 1; fi; }
@@ -535,6 +733,13 @@ mechanical_of() {
             MECHANICAL=reorder
         fi
         rm -f "$a.ra" "$a.rb" "$a.ba" "$a.bb"
+    fi
+    # comment-header: the only difference is inside the leading comment block
+    # (such as a schema annotation header); everything after it is identical
+    # byte for byte.
+    if [ -z "$MECHANICAL" ] &&
+       cmp -s <(tail -n +"$(header_end "$a")" "$a") <(tail -n +"$(header_end "$path")" "$path"); then
+        MECHANICAL=comment-header
     fi
     return 0
 }

@@ -41,7 +41,7 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 - Integrity findings: ${integrityTotal} (${integrityEscalated} escalated); ${the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded}; review findings filed: ${each in plain words with its criterion and issue id}
 - Earlier phases' tests changed: ${each with the task that declared it and its reason, or "none"}
 - Outer-test rewrites run: ${each with the criterion it guards, who sanctioned it (you by name, or "additive, sanctioned by me"), and its Not claimed list with who accepted any case on it, or "none"}
-- Coordinator records: ${each `auto-continue:`, `re-baseline:`, and `not claimed:` record posted this phase, in plain words with its task, or "none"}
+- Coordinator records: ${each `auto-continue:`, `re-baseline:`, `not claimed:`, `stub files:`, `checkpoint-auto:`, and `deferred:` record posted this phase, in plain words with its task or milestone, or "none"}
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 - Product and plan: ${behavior gaps, design questions, and risks in the code such as security or performance, or "none"}; on the final phase, each deferred design question still open, as [deferred-design-questions.md](../../docs/reference/deferred-design-questions.md) says (it moves to Needs your decision only when that file's rule says so)
@@ -50,7 +50,7 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 **Execution Statistics:**
 - Worker agents spawned: ${workerCount}
 - Total tasks completed: ${completedCount}
-- Execution mode: sequential
+- Execution mode: sequential${; unattended from the `user reply:` record of <date> to <the message that ended it, or "still running">, when the phase ran in unattended mode ("Unattended Mode" in reference.md)}
 
 **Beads tracking:**
 - ✅ Phase ${phase} milestone closed (${phaseMilestoneId})

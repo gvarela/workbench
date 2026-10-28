@@ -32,8 +32,8 @@ ORIENTATION
 What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
   create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
-  create_tasks: confirm the phases and checkpoints; decide each design item no task delivers (add a task, defer it, or drop it)
-  implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction
+  create_tasks: confirm the phases and checkpoints; decide each design item no task delivers (add a task, defer it, or drop it), and each earlier outer test the design renames
+  implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction; or "run unattended" in your own message, until your next one
   validate_phase: the phase to check, or all; the manual checks only you can run; an answer for each unexplained deviation
 Long form: /wb:help. Replace this text for a repository with .claude/wb/PRIME.md (print the default with hooks/wb-prime.sh --export).
 ORIENTATION

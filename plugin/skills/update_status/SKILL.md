@@ -20,7 +20,7 @@ Read every documentation file fully before writing, and confirm the recorded sta
 
 ## Initial Response
 
-This stage needs from you: confirmation of the proposed transitions; a backward transition needs a reason.
+This stage needs from you: confirmation of the proposed transitions, unless every one moves forward and the update writes nothing to beads; a backward transition needs a reason.
 
 When invoked, check for arguments:
 
@@ -164,6 +164,7 @@ Based on analysis, determine appropriate status for each file:
 - Cannot mark tasks as `in-progress` if design is still `draft`
 - Cannot mark design as `complete` if tasks is not `complete`
 - `implementing` requires at least one beads task issue in_progress or closed
+- Cannot mark design or tasks `complete` while any phase milestone is still open with a `checkpoint-auto:` record (a checkpoint unattended mode recorded, awaiting the person's manual checks): read each open milestone's comments with `bd comments <milestone-id> --json`
 
 ### Step 4: Present Status Update Plan
 
@@ -203,11 +204,13 @@ Show user what will change:
 Do you want to proceed with these updates? (yes/no)
 ```
 
+**Skip the question** only when every proposed transition moves forward (none backward, none skipping a validation rule above) and the update would run no beads write at all: no `bd close` for reconciliation and no other bd command that changes anything, so the writes are markdown frontmatter only, recording what beads already shows. Then present the plan with its last line replaced by `Applying: every transition moves forward and the update writes nothing to beads.` and go on to Step 5: the question asks for a judgment only a backward move or a beads change needs, and a run that stops for a yes on a pure record of what beads shows waits for nothing. If the plan needs any bd write, a reconciliation close included, ask, and wait.
+
 ### Step 5: Apply Updates
 
-**⛔ BARRIER 2**: user confirmation received — every write here changes what other stages treat as current state
+**⛔ BARRIER 2**: user confirmation received, or the skip condition in Step 4 holds — every write here changes what other stages treat as current state
 
-After user confirms, update all files.
+After user confirms (or the skip applies), update all files. Under the skip, check again before the first write that the plan you are about to apply still holds no bd write; if it does, stop and ask.
 
 **Read [templates.md](templates.md) NOW** — its "Frontmatter Update Blocks" section has the exact YAML and markdown structures for research.md, design.md, and tasks.md. Use them verbatim.
 
@@ -342,7 +345,7 @@ For research and design status (not tracked in beads), use content analysis:
 
 ### Read-Only Analysis
 
-Present the update plan and wait for the user's confirmation before modifying files, and verify actual progress by reading file contents, not just frontmatter.
+Present the update plan and wait for the user's confirmation before modifying files, unless Step 4's skip condition holds, and verify actual progress by reading file contents, not just frontmatter.
 
 ### Git Metadata
 

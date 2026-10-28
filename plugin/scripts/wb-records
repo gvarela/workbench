@@ -1,0 +1,590 @@
+#!/bin/bash -p
+#
+# wb-records: post and read wb's verifier records as bd comments without a
+# shell ever seeing their text.
+#
+#   wb-records post <issue-id> --escaped '<text>'   (default: one line, \n \t \\ escapes)
+#   wb-records post <issue-id> <base64>             (strict RFC 4648, with padding)
+#   wb-records manifest <issue-id> <record-name> <sha256> [<sha256>...]
+#   wb-records read <issue-id> <record-name>
+#
+# Record names: "verification report", "defect ledger", "test integrity",
+# "phase verification". A posted text must start with "<record-name>:" or
+# "<record-name> (i/n):"; only the manifest subcommand writes
+# "<record-name> manifest:" lines. Records are text: a NUL is refused.
+#
+# post decodes the text into a private (mode 700) temporary file, runs
+# `bd comments add <issue-id> -f <file>`, removes the file, reads the
+# comments back with `bd comments <issue-id> --json`, and confirms that the
+# newest comment is exactly the posted text. Trailing newlines are removed
+# before posting, and the sha256 is over the text as posted.
+#
+# read considers only comments after the latest one starting "discarded:",
+# and scans this record's manifests newest first. A manifest is valid only
+# as one line "<record-name> manifest: parts=<n> sha256=<h1>,...,<hn>" with
+# n a positive integer and exactly n 64-character lowercase hex hashes. For
+# each part it takes the latest "<record-name> (i/n):" before the manifest
+# (or an unnumbered "<record-name>:" when n is 1) and recomputes its sha256
+# over the exact comment text. The newest manifest that fully verifies is
+# returned: status ok, or ok_with_newer_invalid with the newer manifests
+# that did not verify listed in newer_invalid. When none verifies, the
+# newest manifest's result is reported (incomplete or mismatch; an invalid
+# manifest reads as mismatch); with no manifest, missing or incomplete; a
+# bd failure or malformed JSON is status error. Read-only.
+#
+# Integrity, not authorship: anything that can post bd comments as the user
+# can post a newer record. Output: one JSON object. Exit 0 whenever JSON is
+# printed; 2 on a usage error. Requires bash 3.2, awk, bd, and shasum,
+# sha256sum, or openssl.
+
+usage() {
+    sed -n '6,9p' "$0" | sed 's/^# \{0,1\}//' >&2
+    exit 2
+}
+usage_msg() {
+    echo "wb-records: $1" >&2
+    exit 2
+}
+
+# The "-p" on the first line keeps bash from sourcing BASH_ENV/ENV or
+# importing exported functions; inherited GIT_* variables are dropped.
+for _v in $(compgen -e); do
+    case "$_v" in GIT_*|BASH_ENV|ENV|CDPATH) unset "$_v" ;; esac
+done
+
+MAX_TEXT_BYTES=49152
+MAX_JSON_BYTES=8388608
+MAX_B64_BYTES=65536
+RECORD_NAMES="verification report|defect ledger|test integrity|phase verification"
+
+# ---------------------------------------------------------------- helpers
+json_str() {
+    local s="$1"
+    if [ ${#s} -gt 1024 ]; then
+        printf '%s' "$s" > "$WORK/json.in"
+        json_file "$WORK/json.in"
+        return
+    fi
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    case "$s" in
+        *[[:cntrl:]]*)
+            local out="" c i code
+            for ((i = 0; i < ${#s}; i++)); do
+                c="${s:i:1}"
+                case "$c" in
+                    [[:cntrl:]]) printf -v code '%d' "'$c"; out="$out$(printf '\\u%04x' "$code")" ;;
+                    *) out="$out$c" ;;
+                esac
+            done
+            s="$out" ;;
+    esac
+    printf '"%s"' "$s"
+}
+
+# json_file <file>: the file's exact bytes as a JSON string.
+json_file() {
+    local nl=""
+    [ -s "$1" ] && [ -z "$(tail -c 1 "$1")" ] && nl='\n'
+    printf '"%s%s"' "$(LC_ALL=C awk -v ORS="" '
+        BEGIN {
+            for (i = 1; i < 32; i++) ctl[sprintf("%c", i)] = sprintf("\\u%04x", i)
+            ctl[sprintf("%c", 127)] = "\\u007f"
+            ctl["\t"] = "\\t"; ctl["\r"] = "\\r"
+        }
+        {
+            if (NR > 1) printf "\\n"
+            n = length($0)
+            for (i = 1; i <= n; i++) {
+                c = substr($0, i, 1)
+                if (c == "\\") printf "\\\\"
+                else if (c == "\"") printf "\\\""
+                else if (c in ctl) printf "%s", ctl[c]
+                else printf "%s", c
+            }
+        }' "$1")" "$nl"
+}
+
+str_or_null() { if [ -n "$1" ]; then json_str "$1"; else printf 'null'; fi; }
+
+sha256_file() {
+    if command -v shasum >/dev/null 2>&1; then shasum -a 256 < "$1" | cut -d' ' -f1
+    elif command -v sha256sum >/dev/null 2>&1; then sha256sum < "$1" | cut -d' ' -f1
+    else openssl dgst -sha256 -r < "$1" | cut -d' ' -f1
+    fi
+}
+
+valid_issue() { case "$1" in ""|-*|*[!A-Za-z0-9._-]*) return 1 ;; esac; return 0; }
+valid_name() { case "|$RECORD_NAMES|" in *"|$1|"*) [ -n "$1" ] ;; *) return 1 ;; esac; }
+
+# decode_escaped <text> <out>: \n newline, \t tab, \\ backslash; anything
+# else after a backslash, or a real newline, is refused (returns 1).
+decode_escaped() {
+    case "$1" in *$'\n'*) return 1 ;; esac
+    printf '%s' "$1" | LC_ALL=C awk -v ORS="" '
+        {
+            s = $0
+            while ((i = index(s, "\\")) > 0) {
+                printf "%s", substr(s, 1, i - 1)
+                e = substr(s, i + 1, 1)
+                if (e == "n") printf "\n"
+                else if (e == "t") printf "\t"
+                else if (e == "\\") printf "\\"
+                else exit 3
+                s = substr(s, i + 2)
+            }
+            printf "%s", s
+        }' > "$2"
+}
+
+check_b64() {
+    local v="$1" core
+    [ ${#v} -le "$MAX_B64_BYTES" ] || return 1
+    case "$v" in *[!A-Za-z0-9+/=]*) return 1 ;; esac
+    core="${v%=}"; core="${core%=}"
+    case "$core" in *=*) return 1 ;; esac
+    [ $(( ${#v} % 4 )) -eq 0 ]
+}
+
+b64_decode() {
+    printf '%s' "$1" | base64 -d > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | base64 -D > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | openssl base64 -d -A > "$2" 2>/dev/null
+}
+
+uid_of() { stat -f %u "$1" 2>/dev/null || stat -c %u "$1" 2>/dev/null; }
+
+# tmp_parent <dir>: prints the directory's physical path when it is safe to
+# hold a private temp directory: a real directory either owned by the
+# current user and not group- or world-writable, or sticky and owned by the
+# current user or root.
+tmp_parent() {
+    local d perm owner
+    [ -n "$1" ] && [ -d "$1" ] || return 1
+    d="$(cd -P -- "$1" 2>/dev/null && pwd -P)" || return 1
+    [ -n "$d" ] && [ -d "$d" ] && [ ! -L "$d" ] || return 1
+    perm="$(ls -ld -- "$d" 2>/dev/null | cut -c1-10)"
+    owner="$(uid_of "$d")"
+    [ ${#perm} -eq 10 ] && [ -n "$owner" ] || return 1
+    case "${perm:9:1}" in
+        t|T) [ "$owner" = "$(id -u)" ] || [ "$owner" = 0 ] || return 1 ;;
+        *)   [ "$owner" = "$(id -u)" ] && [ "${perm:5:1}" != w ] && [ "${perm:8:1}" != w ] || return 1 ;;
+    esac
+    printf '%s' "$d"
+}
+
+# has_nul <file>: the file contains a NUL byte.
+has_nul() { ! LC_ALL=C tr -d '\000' < "$1" | cmp -s - "$1"; }
+
+# strip_trailing_newlines <file>: in place, without the text passing
+# through a shell variable.
+strip_trailing_newlines() {
+    local n t
+    n="$(wc -c < "$1" | tr -d ' ')"
+    # Map every byte to x or n; what follows the last x is the trailing run.
+    t="$(LC_ALL=C tr -c '\n' x < "$1" | LC_ALL=C tr '\n' n | LC_ALL=C sed 's/.*x//')"
+    [ ${#t} -gt 0 ] || return 0
+    head -c "$((n - ${#t}))" "$1" > "$1.strip" && mv -f "$1.strip" "$1"
+}
+
+# record_prefix_ok <file>: the text starts "<record>:" or "<record> (i/n):".
+# A manifest line is not a record; only the manifest command writes one.
+record_prefix_ok() {
+    head -n 1 "$1" | grep -Eq "^($RECORD_NAMES)( \\([0-9]+/[0-9]+\\))?:"
+}
+
+# fetch_comments <issue>: bd's comments as files in $WORK/c: <n>.txt with
+# the exact text, and $WORK/c/index with "<n><TAB><id>" lines, oldest first.
+# The JSON is read by a character-level parser, so formatting and key order
+# do not matter; only each top-level comment object's "id" and "text" are
+# taken (nested values are skipped), a comment whose text holds a NUL is
+# skipped, and malformed JSON is an error (returns 1, reason in bd.err).
+fetch_comments() {
+    local size
+    rm -rf "$WORK/c"
+    mkdir -m 700 "$WORK/c"
+    bd comments "$1" --json > "$WORK/comments.json" 2> "$WORK/bd.err" || return 1
+    size="$(wc -c < "$WORK/comments.json" | tr -d ' ')"
+    if [ "$size" -gt "$MAX_JSON_BYTES" ]; then
+        echo "bd comments --json: output over $MAX_JSON_BYTES bytes" > "$WORK/bd.err"
+        return 1
+    fi
+    LC_ALL=C awk -v dir="$WORK/c" '
+        function fail(msg) { if (!err) err = msg " at byte " p; return "" }
+        function hexval(h,   i, v, c) {
+            if (length(h) != 4) return -1
+            v = 0
+            for (i = 1; i <= 4; i++) {
+                c = index("0123456789abcdef", tolower(substr(h, i, 1))) - 1
+                if (c < 0) return -1
+                v = v * 16 + c
+            }
+            return v
+        }
+        function utf8(cp) {
+            if (cp < 128) return sprintf("%c", cp)
+            if (cp < 2048) return sprintf("%c%c", 192 + int(cp / 64), 128 + cp % 64)
+            if (cp < 65536) return sprintf("%c%c%c", 224 + int(cp / 4096), 128 + int(cp / 64) % 64, 128 + cp % 64)
+            return sprintf("%c%c%c%c", 240 + int(cp / 262144), 128 + int(cp / 4096) % 64, 128 + int(cp / 64) % 64, 128 + cp % 64)
+        }
+        function ws() { while (p <= n && (ch[p] in WS)) p++ }
+        # pstring(mode): at an opening quote. "keep" returns the decoded
+        # string, "sink" writes it to sinkf, "skip" discards it. Sets snul
+        # when the string holds an escaped NUL.
+        function pstring(mode,   out, chunk, cnt, c, e, cp, lo) {
+            snul = 0; out = ""; chunk = ""; cnt = 0
+            p++
+            for (;;) {
+                if (p > n) return fail("unterminated string")
+                c = ch[p]
+                if (c == "\"") { p++; break }
+                if (c in CTL) return fail("control character in a string")
+                if (c == "\\") {
+                    e = ch[p + 1]
+                    if (e == "u") {
+                        cp = hexval(ch[p + 2] ch[p + 3] ch[p + 4] ch[p + 5])
+                        p += 6
+                        if (cp < 0) return fail("bad hex escape")
+                        if (cp >= 55296 && cp <= 56319) {
+                            if (ch[p] != "\\" || ch[p + 1] != "u") return fail("unpaired surrogate")
+                            lo = hexval(ch[p + 2] ch[p + 3] ch[p + 4] ch[p + 5])
+                            if (lo < 56320 || lo > 57343) return fail("unpaired surrogate")
+                            cp = 65536 + (cp - 55296) * 1024 + (lo - 56320)
+                            p += 6
+                        } else if (cp >= 56320 && cp <= 57343) return fail("unpaired surrogate")
+                        if (cp == 0) { snul = 1; continue }
+                        c = utf8(cp)
+                    } else if (e in ESC) { c = ESC[e]; p += 2 }
+                    else return fail("bad escape")
+                } else p++
+                if (mode == "skip") continue
+                chunk = chunk c
+                if (++cnt >= 256) {
+                    if (mode == "sink") printf "%s", chunk > sinkf
+                    else { out = out chunk; if (length(out) > 4096) return fail("key or id too long") }
+                    chunk = ""; cnt = 0
+                }
+            }
+            if (mode == "sink") printf "%s", chunk > sinkf
+            else out = out chunk
+            return out
+        }
+        function pnumber(   v, st) {
+            v = ""
+            if (ch[p] == "-") v = v ch[p++]
+            if (ch[p] == "0") v = v ch[p++]
+            else if (ch[p] in DIG) { while (ch[p] in DIG) v = v ch[p++] }
+            else return fail("bad number")
+            if (ch[p] == ".") {
+                v = v ch[p++]
+                if (!(ch[p] in DIG)) return fail("bad number")
+                while (ch[p] in DIG) v = v ch[p++]
+            }
+            if (ch[p] == "e" || ch[p] == "E") {
+                v = v ch[p++]
+                if (ch[p] == "+" || ch[p] == "-") v = v ch[p++]
+                if (!(ch[p] in DIG)) return fail("bad number")
+                while (ch[p] in DIG) v = v ch[p++]
+            }
+            if (length(v) > 64) return fail("number too long")
+            return v
+        }
+        # pvalue(depth, mode): any JSON value; sets kind.
+        function pvalue(depth, mode,   v, lit) {
+            ws()
+            if (depth > 256) return fail("nesting too deep")
+            if (p > n) return fail("unexpected end")
+            if (ch[p] == "{") { pobject(depth); kind = "object"; return "" }
+            if (ch[p] == "[") { parray(depth); kind = "array"; return "" }
+            if (ch[p] == "\"") { v = pstring(mode); kind = "string"; return v }
+            lit = ch[p] ch[p + 1] ch[p + 2] ch[p + 3]
+            if (lit == "true" || lit == "null") { p += 4; kind = "literal"; return "" }
+            if (lit == "fals" && ch[p + 4] == "e") { p += 5; kind = "literal"; return "" }
+            if (ch[p] == "-" || (ch[p] in DIG)) { v = pnumber(); kind = "number"; return v }
+            return fail("unexpected character")
+        }
+        # pobject(depth): depth 1 is a comment object, whose "id" and
+        # "text" are captured; deeper objects are only checked.
+        function pobject(depth,   key, v) {
+            p++
+            ws()
+            if (ch[p] == "}") { p++; return }
+            while (!err) {
+                ws()
+                if (ch[p] != "\"") { fail("expected a key"); return }
+                key = pstring("keep")
+                ws()
+                if (ch[p] != ":") { fail("expected a colon"); return }
+                p++
+                ws()
+                if (depth == 1 && key == "text" && ch[p] == "\"") {
+                    sinkf = dir "/" count ".txt"
+                    pstring("sink")
+                    close(sinkf)
+                    hastext = 1; tnul = snul
+                } else if (depth == 1 && key == "id") {
+                    v = pvalue(depth + 1, "keep")
+                    if (kind == "string" || kind == "number") cid = v
+                } else pvalue(depth + 1, "skip")
+                if (err) return
+                ws()
+                if (ch[p] == ",") { p++; continue }
+                if (ch[p] == "}") { p++; return }
+                fail("expected a comma or a closing brace"); return
+            }
+        }
+        # parray(depth): depth 0 is the top-level list of comment objects.
+        function parray(depth) {
+            p++
+            ws()
+            if (ch[p] == "]") { p++; return }
+            while (!err) {
+                ws()
+                if (depth == 0) {
+                    if (ch[p] != "{") { fail("expected a comment object"); return }
+                    count++; cid = ""; hastext = 0; tnul = 0
+                    pobject(1)
+                    if (err) return
+                    if (cid ~ /[\t\n\r]/) { fail("an id holds a control character"); return }
+                    if (hastext && !tnul) print count "\t" cid > (dir "/index")
+                } else pvalue(depth + 1, "skip")
+                if (err) return
+                ws()
+                if (ch[p] == ",") { p++; continue }
+                if (ch[p] == "]") { p++; return }
+                fail("expected a comma or a closing bracket"); return
+            }
+        }
+        BEGIN {
+            for (i = 1; i < 32; i++) CTL[sprintf("%c", i)] = 1
+            WS[" "] = 1; WS["\t"] = 1; WS["\n"] = 1; WS["\r"] = 1
+            for (i = 0; i < 10; i++) DIG[i ""] = 1
+            ESC["\""] = "\""; ESC["\\"] = "\\"; ESC["/"] = "/"
+            ESC["b"] = sprintf("%c", 8); ESC["f"] = sprintf("%c", 12)
+            ESC["n"] = "\n"; ESC["r"] = "\r"; ESC["t"] = "\t"
+        }
+        { buf = buf $0 "\n" }
+        END {
+            n = split(buf, ch, "")
+            p = 1
+            ws()
+            if (p > n) fail("empty output")
+            else if (ch[p] == "[") parray(0)
+            else if (ch[p] ch[p + 1] ch[p + 2] ch[p + 3] == "null") p += 4
+            else fail("expected a list of comments")
+            if (!err) { ws(); if (p <= n) fail("trailing data") }
+            if (err) { print "bd comments --json: malformed JSON: " err > "/dev/stderr"; exit 3 }
+        }
+    ' "$WORK/comments.json" 2> "$WORK/bd.err" || { rm -rf "$WORK/c"; mkdir -m 700 "$WORK/c"; : > "$WORK/c/index"; return 1; }
+    [ -f "$WORK/c/index" ] || : > "$WORK/c/index"
+    return 0
+}
+
+# ---------------------------------------------------------------- post
+# post_file <issue> <file> <record|manifest>: a record must start with a
+# record prefix; a manifest is built by cmd_manifest and posted as is.
+post_file() {
+    local issue="$1" file="$2" kind="$3" sha bytes posted=false cid="" err="" last lastid
+    strip_trailing_newlines "$file"
+    bytes="$(wc -c < "$file" | tr -d ' ')"
+    [ "$bytes" -le "$MAX_TEXT_BYTES" ] || usage_msg "the text is over $MAX_TEXT_BYTES bytes"
+    if [ "$kind" = record ]; then
+        record_prefix_ok "$file" ||
+            usage_msg "the text must start with <record>: or <record> (i/n): (records: ${RECORD_NAMES//|/, }); manifests are posted with the manifest command"
+    fi
+    sha="$(sha256_file "$file")"
+    if ! bd comments add "$issue" -f "$file" > "$WORK/bd.out" 2> "$WORK/bd.err"; then
+        err="bd comments add failed: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')"
+    elif ! fetch_comments "$issue"; then
+        err="could not read the comments back: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')"
+    else
+        last="$(tail -n 1 "$WORK/c/index" | cut -f1)"
+        lastid="$(tail -n 1 "$WORK/c/index" | cut -f2-)"
+        if [ -n "$last" ] && cmp -s "$WORK/c/$last.txt" "$file"; then
+            posted=true
+            cid="$lastid"
+        else
+            err="read-back: the newest comment on $issue is not the text that was posted"
+        fi
+    fi
+    rm -f "$file"
+    printf '{"posted":%s,"sha256":"%s","bytes":%s,"comment_id":%s,"error":%s}\n' \
+        "$posted" "$sha" "$bytes" "$(str_or_null "$cid")" "$(str_or_null "$err")"
+}
+
+cmd_post() {
+    local issue="$1" file="$WORK/post.txt"
+    shift
+    valid_issue "$issue" || usage_msg "invalid issue id: $issue"
+    if [ "${1:-}" = --escaped ]; then
+        [ $# -eq 2 ] || usage
+        decode_escaped "$2" "$file" || usage_msg "--escaped text: only \\n, \\t, and \\\\ escapes are allowed, and no real newlines"
+    else
+        [ $# -eq 1 ] || usage
+        check_b64 "$1" || usage_msg "not strict base64 (RFC 4648 alphabet, padding only at the end, length a multiple of 4, at most $MAX_B64_BYTES bytes)"
+        b64_decode "$1" "$file" || usage_msg "could not decode the base64 text"
+    fi
+    has_nul "$file" && usage_msg "the text contains a NUL byte (records are text)"
+    post_file "$issue" "$file" record
+}
+
+cmd_manifest() {
+    local issue="$1" name="$2" h list="" n=0
+    shift 2
+    valid_issue "$issue" || usage_msg "invalid issue id: $issue"
+    valid_name "$name" || usage_msg "unknown record name: $name (records: ${RECORD_NAMES//|/, })"
+    [ $# -ge 1 ] || usage
+    for h in "$@"; do
+        case "$h" in *[!0-9a-f]*) usage_msg "not a sha256 (64 lowercase hex characters): $h" ;; esac
+        [ ${#h} -eq 64 ] || usage_msg "not a sha256 (64 lowercase hex characters): $h"
+        list="$list${list:+,}$h"
+        n=$((n + 1))
+    done
+    printf '%s manifest: parts=%s sha256=%s' "$name" "$n" "$list" > "$WORK/post.txt"
+    post_file "$issue" "$WORK/post.txt" manifest
+}
+
+# ---------------------------------------------------------------- read
+TAB="$(printf '\t')"
+
+# valid_manifest <file> <name>: the comment is exactly one line,
+# "<name> manifest: parts=<n> sha256=<h1>,...,<hn>", with n a positive
+# integer and exactly n hashes of 64 lowercase hex characters. Sets M_N and
+# M_SHAS.
+valid_manifest() {
+    local line rest n shas h cnt=0
+    [ "$(wc -l < "$1" | tr -d ' ')" = 0 ] || return 1
+    line="$(cat "$1")"
+    rest="${line#"$2 manifest: parts="}"
+    [ "$rest" != "$line" ] || return 1
+    n="${rest%% *}"
+    case "$n" in ""|0*|*[!0-9]*) return 1 ;; esac
+    [ ${#n} -le 4 ] || return 1
+    shas="${rest#"$n sha256="}"
+    [ "$shas" != "$rest" ] || return 1
+    case "$shas" in ""|,*|*,|*,,*|*[!0-9a-f,]*) return 1 ;; esac
+    local IFS=,
+    for h in $shas; do
+        [ ${#h} -eq 64 ] || return 1
+        cnt=$((cnt + 1))
+    done
+    [ "$cnt" -eq "$n" ] || return 1
+    M_N="$n" M_SHAS="$shas"
+}
+
+# eval_manifest <k> <name> <cut>: checks manifest comment <k> against the
+# parts before it (and after the cutoff). Sets E_STATUS (ok, incomplete,
+# mismatch, invalid), E_PARTS, E_IDS; writes the parts to $WORK/combined.txt.
+eval_manifest() {
+    local mk="$1" name="$2" cut="$3" i k id first found cid want h
+    E_STATUS=invalid E_PARTS=0 E_IDS=""
+    : > "$WORK/combined.txt"
+    valid_manifest "$WORK/c/$mk.txt" "$name" || return 0
+    E_STATUS=ok E_PARTS="$M_N"
+    i=1
+    while [ "$i" -le "$M_N" ]; do
+        found="" cid=""
+        while IFS="$TAB" read -r k id; do
+            [ "$k" -gt "$cut" ] && [ "$k" -lt "$mk" ] || continue
+            first="$(head -n 1 "$WORK/c/$k.txt")"
+            case "$first" in
+                "$name ($i/$M_N):"*) found="$k" cid="$id" ;;
+                "$name:"*) [ "$M_N" = 1 ] && found="$k" cid="$id" ;;
+            esac
+        done < "$WORK/c/index"
+        if [ -z "$found" ]; then
+            E_STATUS=incomplete
+        else
+            E_IDS="$E_IDS${E_IDS:+,}$(json_str "$cid")"
+            [ "$i" -gt 1 ] && printf '\n' >> "$WORK/combined.txt"
+            cat "$WORK/c/$found.txt" >> "$WORK/combined.txt"
+            want="$(printf '%s' "$M_SHAS" | cut -d, -f"$i")"
+            h="$(sha256_file "$WORK/c/$found.txt")"
+            [ "$E_STATUS" = ok ] && [ "$h" != "$want" ] && E_STATUS=mismatch
+        fi
+        i=$((i + 1))
+    done
+    return 0
+}
+
+cmd_read() {
+    local issue="$1" name="$2" status=missing cut=0 k id first newer="" st
+    local n_status="" n_parts=0 n_ids="" n_mid=""
+    valid_issue "$issue" || usage_msg "invalid issue id: $issue"
+    valid_name "$name" || usage_msg "unknown record name: $name (records: ${RECORD_NAMES//|/, })"
+    if ! fetch_comments "$issue"; then
+        printf '{"status":"error","parts":0,"text":"","manifest_comment_id":null,"part_comment_ids":[],"newer_invalid":[],"error":%s}\n' \
+            "$(json_str "could not read comments: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')")"
+        return
+    fi
+    # The latest "discarded:" comment cuts off everything before it.
+    while IFS="$TAB" read -r k id; do
+        case "$(head -c 10 "$WORK/c/$k.txt")" in discarded:) cut="$k" ;; esac
+    done < "$WORK/c/index"
+    # This record's manifests after the cutoff, newest first.
+    : > "$WORK/manifests"
+    while IFS="$TAB" read -r k id; do
+        [ "$k" -gt "$cut" ] || continue
+        first="$(head -n 1 "$WORK/c/$k.txt")"
+        case "$first" in "$name manifest:"*) printf '%s\t%s\n' "$k" "$id" >> "$WORK/manifests" ;; esac
+    done < "$WORK/c/index"
+    if [ ! -s "$WORK/manifests" ]; then
+        # No manifest: parts alone are incomplete; nothing at all is missing.
+        while IFS="$TAB" read -r k id; do
+            [ "$k" -gt "$cut" ] || continue
+            first="$(head -n 1 "$WORK/c/$k.txt")"
+            case "$first" in "$name:"*|"$name ("[0-9]*"/"[0-9]*"):"*) status=incomplete ;; esac
+        done < "$WORK/c/index"
+        printf '{"status":"%s","parts":0,"text":"","manifest_comment_id":null,"part_comment_ids":[],"newer_invalid":[]}\n' "$status"
+        return
+    fi
+    awk '{ a[NR] = $0 } END { for (i = NR; i > 0; i--) print a[i] }' "$WORK/manifests" > "$WORK/manifests.rev"
+    # The newest manifest that fully verifies wins; newer ones that did not
+    # are listed in newer_invalid.
+    while IFS="$TAB" read -r k id; do
+        eval_manifest "$k" "$name" "$cut"
+        if [ "$E_STATUS" = ok ]; then
+            st=ok
+            [ -n "$newer" ] && st=ok_with_newer_invalid
+            printf '{"status":"%s","parts":%s,"text":%s,"manifest_comment_id":%s,"part_comment_ids":[%s],"newer_invalid":[%s]}\n' \
+                "$st" "$E_PARTS" "$(json_file "$WORK/combined.txt")" "$(json_str "$id")" "$E_IDS" "$newer"
+            return
+        fi
+        if [ -z "$n_status" ]; then
+            n_status="$E_STATUS" n_parts="$E_PARTS" n_ids="$E_IDS" n_mid="$id"
+            cp "$WORK/combined.txt" "$WORK/newest.txt"
+        fi
+        newer="$newer${newer:+,}$(json_str "$id")"
+    done < "$WORK/manifests.rev"
+    # Nothing verifies: report the newest manifest (an invalid one reads
+    # as mismatch).
+    [ "$n_status" = invalid ] && n_status=mismatch
+    printf '{"status":"%s","parts":%s,"text":%s,"manifest_comment_id":%s,"part_comment_ids":[%s],"newer_invalid":[]}\n' \
+        "$n_status" "$n_parts" "$(json_file "$WORK/newest.txt")" "$(json_str "$n_mid")" "$n_ids"
+}
+
+# ---------------------------------------------------------------- main
+[ $# -ge 1 ] || usage
+SUB="$1"
+shift
+TMP_BASE="$(tmp_parent "${TMPDIR:-/tmp}")" || TMP_BASE="$(tmp_parent /tmp)" || {
+    echo "wb-records: no safe temp directory: TMPDIR and /tmp must each be a directory owned by you and not group- or world-writable, or a sticky directory owned by you or root" >&2
+    exit 2
+}
+WORK="$(mktemp -d "$TMP_BASE/wb-records.XXXXXX")" || { echo "wb-records: cannot create a private temp directory" >&2; exit 2; }
+trap 'rm -rf "$WORK"' EXIT
+if [ -L "$WORK" ] || [ ! -d "$WORK" ] || [ ! -O "$WORK" ]; then
+    echo "wb-records: the temp directory is not a private directory of ours: $WORK" >&2
+    exit 2
+fi
+chmod 700 "$WORK"
+case "$SUB" in
+    post)     [ $# -ge 2 ] || usage; cmd_post "$@" ;;
+    manifest) [ $# -ge 3 ] || usage; cmd_manifest "$@" ;;
+    read)     [ $# -eq 2 ] || usage; cmd_read "$@" ;;
+    *)        usage ;;
+esac
+exit 0

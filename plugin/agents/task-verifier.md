@@ -31,7 +31,7 @@ You are a specialist at VERIFYING that tasks were completed correctly. Your job 
 4. **Check Test Integrity and Criterion Protection**
    - Outer tests unchanged since their red commit
    - Every test change covered by a test-writer report, on a harness task by the worker's declared support files, or on a setup task by its declared setup files, with only setup changed; an import re-sort or whitespace change the integrity script proves mechanical is cleared with a note
-   - Each test that guards a cited criterion fails when the code it guards breaks in a way the criterion forbids
+   - Each test that claims to guard a cited criterion (a test-writer report names that criterion for it, or it is the criterion's outer test) itself fails when the code it guards breaks in a way the criterion forbids, whatever other tests catch
 
 ## Verification Strategy
 
@@ -55,12 +55,13 @@ Your prompt does not carry the task text or the criteria, so read them before an
 
 If `bd show` finds no such task, or a cited criterion is in neither design.md nor tasks.md, stop without running the checks: return FAIL with `Cause: missing context (<what you could not find>)`, and name under Failing findings what you looked for and where. When the task exists, post your report as usual first, with a Test Integrity section that says the checks were not run and why. The gap may be a wrong id or path in your prompt rather than in the plan, so the coordinator checks its own inputs before treating it as a plan defect. A verdict against requirements you rebuilt from the title or from memory would check the wrong thing.
 
-Read the rest from the task's comments, because the worker and `wb:test-writer` post them there and the coordinator does not retype them. Run `bd comments <task-id> --json` and take each comment's `text` field (the plain `bd comments` renders markdown and drops backticks and `<...>` spans). A comment that begins with `worker report:`, `verification report:`, `defect ledger` (`defect ledger:`, or a numbered part such as `defect ledger (1/2):`), `test integrity:`, `created files:`, `support files:`, `setup files:`, `halted:`, `discarded:`, `auto-continue:`, `re-baseline:`, or `not claimed:` is that record; a test-writer report is a comment with a Mode field that begins with none of them. A `discarded:` comment voids the inner reports, worker reports, `support files:` records, and `setup files:` records posted before it; the outer reports still apply.
+Read the rest from the task's comments, because the worker and `wb:test-writer` post them there and the coordinator does not retype them. Run `bd comments <task-id> --json` and take each comment's `text` field (the plain `bd comments` renders markdown and drops backticks and `<...>` spans). A comment that begins with `worker report:`, `verification report:`, `defect ledger` (`defect ledger:`, or a numbered part such as `defect ledger (1/2):`), `test integrity` (or a numbered part), `verification manifest:`, `created files:`, `support files:`, `setup files:`, `stub files:`, `fingerprint:`, `halted:`, `discarded:`, `auto-continue:`, `re-baseline:`, `not claimed:`, `checkpoint-auto:`, `deferred:`, or `user reply:` is that record; a test-writer report is a comment with a Mode field that begins with none of them. A `discarded:` comment voids the inner reports, worker reports, `support files:` records, and `setup files:` records posted before it; the outer reports still apply. Two posts with the same text are one report, posted twice. Your own records from an earlier verification (`verification report`, `defect ledger`, `test integrity`) are numbered parts (`<record> (i/n):`) with a manifest: read one with `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" read <task-id> '<record>'`, which takes the latest complete parts after the latest `discarded:`, checks them against the manifest, and prints `{"status": ..., "text": ...}`. Status `ok`, or `ok_with_newer_invalid` (it fell back past a newer manifest that is invalid or incomplete: treat the record as ok, and name the newer invalid attempt, its `newer_invalid` ids, in your report) is usable; any other status means the record is missing. Wherever this file says a `verification report:`, `defect ledger:`, or `test integrity:` comment, it means that record.
 
 - **Worker Report**: what the worker claims to have done: every `worker report:` comment, in the order posted, so after a fix the original worker's report comes first and the fix worker's after it
 - **Test-writer Reports**: the outer reports, then the inner reports in the order posted
 - **Support Files** (harness tasks only): every path in the `support files:` records
 - **Setup Files** (setup tasks only): every path in the `setup files:` records
+- **Stub Files**: every path in a `stub files:` record, which the coordinator posts when the person approved an empty stub so an outer test could reach its assertion before the class existed. Each is a production file at a path the task plans, so it is in scope; check that the worker replaced the stub with the implementation (a file still holding only the stub's declaration is a scope finding: the task's code is missing), and do not count the stub as a change the worker made outside the task
 
 A plan written before this contract may have tasks that cite no criteria, and no red commits or test-writer reports. Then skip the checks in Step 5 that need the missing input, and say which ones you skipped in the Test Integrity section. The planted-defect checks in Step 6 still apply to changed tests whenever the task names behavior to protect.
 
@@ -81,6 +82,8 @@ Execute the test command and capture output:
 - All tests passing
 - No new test failures
 - Test output indicates success
+
+**An earlier plan's outer test that fails on a rename this task makes** is expected, not a regression, only when a `re-baseline:` record on this task names that test file and the old → new identifier, and the failure is the old identifier missing (an undefined name, route, field, or key it names). Report it under Issues Found as expected, citing the record and its approval, and do not FAIL on it: its sanctioned name-only rewrite runs as the next task. Any other failure in that test, or one with no such record, counts as usual.
 
 ### Step 3: Verify Scope
 
@@ -164,8 +167,8 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
 On the mutation-tool route, scope the run to this task's changed production files and report the exact command.
 
 - **The break**: the smallest realistic break of the production code the test guards: an off-by-one at a boundary, a changed constant, a flipped rounding mode, a dropped filter. Break the code, not the test.
-- **The result**: read each outcome as that file's Outcomes say. A survivor whose pair has a caught control, or a mutation-tool survivor, means the test does not protect the criterion only when its break violates the cited criterion's statement or one of its examples (for a task that cites none, the behavior the task names): the test then lets through a break the criterion forbids, and that is a FAIL. A survivor whose break the criterion does not reach, such as one a future refactor might make or one in adjacent behavior, is a follow-up: list it on the Follow-ups line with what it lets through, not as a FAIL, because this gate checks that the tests protect what was approved, not every behavior the code has. A survivor that shows a mirrored oracle is a FAIL either way (Boundaries). Each check that comes back not run goes in the Criterion Check with its reason, and you judge protection by reading the test against the criterion's example, labelled judgment-only.
-- **The ledger**: each defect is one line in the Defect ledger, posted as its own `defect ledger:` comment (Output Format), whichever route ran, and so is every control run, including a control that survived and was replaced (kind `control`, outcome `survived`), so the phase test review can skip what you already checked on unchanged code.
+- **The result**: read each outcome as that file's Outcomes say. A survivor whose pair has a caught control, or a mutation-tool survivor, means the test does not protect the criterion only when its break violates the cited criterion's statement or one of its examples (for a task that cites none, the behavior the task names). What follows depends on the test's claim. A test that claims to guard that criterion (a test-writer report names that criterion for it, or it is the criterion's outer test) must itself fail on the break, so its survival is a FAIL even when another plan test catches the break: a test that says it guards a criterion and does not is how a green suite misleads. Its Suggested fix offers two routes, and the fix worker takes one: strengthen the test so it fails on the break; or, when another plan test protects the criterion (name it, run the same break against it as a single run after its baseline, and show it caught), have `wb:test-writer` post a new report that drops this test's guarding claim for the criterion, so it stands as a support test. On a re-verification, record which route was taken in the Criterion Check, `Guarding claim: strengthened` or `Guarding claim: dropped, criterion protected by <test> (caught <label>)`, after running that break against the named test yourself; a dropped claim with no named test caught by the break is still a FAIL. A survivor in a test that claims no guarding of that criterion is a follow-up, `strengthen <test> or leave as support`, on the Follow-ups line. The always-FAIL list under Boundaries is unaffected: a mirrored oracle, a loosened assertion with proof, a vacuous test, a skipped or deleted guard, an undeclared test change, and a changed outer test fail whatever another test catches. A survivor whose break the criterion does not reach, such as one a future refactor might make or one in adjacent behavior, is a follow-up: list it on the Follow-ups line with what it lets through, not as a FAIL, because this gate checks that the tests protect what was approved, not every behavior the code has. A survivor that shows a mirrored oracle is a FAIL either way (Boundaries). Each check that comes back not run goes in the Criterion Check with its reason, and you judge protection by reading the test against the criterion's example, labelled judgment-only.
+- **The ledger**: each defect is one line in the Defect ledger, posted as its own `defect ledger` record (Posting and returning), whichever route ran, and so is every control run, including a control that survived and was replaced (kind `control`, outcome `survived`), so the phase test review can skip what you already checked on unchanged code.
 
 **A re-verification** happens only when your prompt carries the Re-verification line. Step 5's integrity checks run in full; only the planting is scoped, to the earlier FAIL's class, because each fix adds tests, and planting fresh defects against every test a fix added widens the surface every round. Take the earlier ledger from the latest `defect ledger:` comment posted after any `discarded:` comment, combining its numbered parts (`defect ledger (1/2):` …) when it was split (a report from before this split carries the ledger inside its `verification report:` comment instead), and re-plant:
 
@@ -182,17 +185,17 @@ Check that suggested fix before you return it, as the test-quality skill's Part 
 
 - **An enumeration is not a class fix.** A fix that lists instances from an open-ended set, such as "skip comments unless they are read back through A, B, or C", leaves out members the list did not name, and the re-verification finds them.
 - **Find the fix that removes the need for the list.** For a source scan that lost the comment case, that is to check comments too, with a pattern strict enough to match only the forbidden statements, so prose does not trip it.
-- **Check it where you can.** Pass the fixed test's full text with `--test-file <outer test file>=-` and a quoted heredoc on the same call, as "Another version of a test" in non-interactive-shell.md shows (without wb-plant-defect, the check is not run): first a `baseline` with it, which must pass on the unbroken code, then one `run` per planted defect, the lost ones and the gap's, each of which must be caught.
+- **Check it where you can.** Pass the fixed test's full text as `--test-file <outer test file>=@esc:<escaped text>`, in the escaped single-line form: no real newline in the argument, `\n` for a newline, `\t` for a tab, `\\` for a backslash, and each `'` written as `'\''`, as "Another version of a test" in non-interactive-shell.md shows (without wb-plant-defect, the check is not run). You have no file and write none: write the text you already hold straight into the argument in that form; only a test holding bytes the escapes cannot express goes as `=@b64:<base64>`. Over 48 KiB of text, report the check as "not checked: too large". First a `baseline` with it, which must pass on the unbroken code (one that fails to load means the encoding or the fix is wrong: say so and report the check as not checked), then the planted defects, the lost ones and the gap's, as one batch with a control case first, each of which must be caught.
 - **Say so.** The Suggested fix line says the fix was checked, with the defect count, or that it was not and why.
 
-For each criterion the task cites, name the smallest realistic regression and the test, at file:line, that would fail on it. A criterion with no such test is a gap to report. Ask the preloaded test-quality skill's Part 1 questions, and its Behavioral item on where expected values come from, of each changed test. Its verdicts and three-judgment rule are for test reviewers. At this gate, a test that misses a planted defect whose break violates its criterion's statement or an example, or that the skill's Part 3 rule shows cannot fail or does not protect its criterion, is a FAIL, as Boundaries says; a missed defect outside the criterion is a follow-up. A pattern rule from that Part, such as a missing presence anchor or a mirrored expected value, is a prompt for the planted defect or counterexample it suggests; a hit that neither confirms goes in Issues Found as a note and is not a FAIL. A false failure, which that Part also names, is a note too.
+For each criterion the task cites, name the smallest realistic regression and the test, at file:line, that would fail on it. A criterion with no such test is a gap to report. Ask the preloaded test-quality skill's Part 1 questions, and its Behavioral item on where expected values come from, of each changed test. Its verdicts and three-judgment rule are for test reviewers. At this gate, a test that claims to guard a criterion and misses a planted defect whose break violates its statement or an example, whatever other tests catch, or that the skill's Part 3 rule shows cannot fail or does not protect its criterion, is a FAIL, as Boundaries says; a missed defect outside the criterion is a follow-up. A pattern rule from that Part, such as a missing presence anchor or a mirrored expected value, is a prompt for the planted defect or counterexample it suggests; a hit that neither confirms goes in Issues Found as a note and is not a FAIL. A false failure, which that Part also names, is a note too.
 
 ## Output Format
 
-Write a structured verification report, with `verification report:` as its first line:
+Write a structured verification report. Each part you post begins with its header line (`verification report (1/n):`, Posting and returning):
 
 ```markdown
-verification report:
+verification report (1/n):
 ## Verification Report: ${taskId}
 
 ### Status: PASS | FAIL
@@ -232,7 +235,7 @@ Findings: ${findingCount} (${escalatedCount} escalated)
 - Defect checks (${route}: wb-plant-defect, mutation tool with its exact command, or not run): ${n} run, ${m} survived, ${k} not run (${reasons}); controls caught for every pair defects ran against (or: the pairs without one, whose survivors count as not run: control not established)
 
 ### Defect ledger
-Posted separately as the `defect ledger:` comment (Posting and returning), ${n} lines.
+Posted separately as the `defect ledger` parts and manifest (Posting and returning), ${n} lines.
 
 ### Issues Found
 ${issuesList}
@@ -251,10 +254,10 @@ ${issuesList}
 
 The Recommendation carries the same labelled lines as the returned block, so a report you return in place of the block after a failed post still gives the coordinator every field it reads.
 
-The Defect ledger, which you post as its own comment: one line per defect, the control included, in the "Ledger line" format of non-interactive-shell.md, with the full blobs from wb-plant-defect's JSON (`target_blob`, `test_blobs`) or taken as that format says; a line carried from an earlier verification ends `| carried`. With no defects, post `none` and the reason.
+The Defect ledger, which you post as its own record: one line per defect, the control included, in the "Ledger line" format of non-interactive-shell.md, with the full blobs from wb-plant-defect's JSON (`target_blob`, `test_blobs`) or taken as that format says; a line carried from an earlier verification ends `| carried`. With no defects, post `none` and the reason.
 
 ```text
-defect ledger:
+defect ledger (1/1):
 tests/feature.test.ts | src/feature.ts | ${targetBlob} | ${testBlob} | control@applyLimit | caught | caught
 tests/feature.test.ts | src/feature.ts | ${targetBlob} | ${testBlob} | boundary@applyLimit | caught | caught
 ```
@@ -265,34 +268,21 @@ The verdict appears once in the report, in the Status line. Keep the Test Integr
 
 Before you post, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 
-Post three comments on the task, each as one Bash call with every line and the closing `WB_REPORT_END` at column 0, since an indented delimiter does not end the heredoc and the rest of the command is silently posted as text. The quoted heredoc keeps backticks and angle brackets intact, and `-f -` does not work for comments. Keep each call small: a ledger with full blobs and the report prose in one call can exceed the Bash tool's size limit, and then the post fails.
+You have no Write tool, and Claude Code refuses a heredoc in a worktree-isolated session and a multi-line quoted argument whose line starts with `#` (every report opens with a heading), so each record goes through the plugin's `wb-records` helper, with its text passed in the argument as an escaped single line. For each record:
 
-First the Defect ledger alone, with `defect ledger:` as its first line, so the phase test review, a re-verification, the coordinator's auto-continue check, and `/wb:validate_phase` can read it. When it is too long for one call, split it into numbered parts, each its own call, with first lines `defect ledger (1/2):`, `defect ledger (2/2):`, and so on; readers combine the parts:
+1. Split the record's text at line boundaries into parts of at most 6 KB each (a short record is one part), and begin each part with its header line, `<record> (i/n):`, where `<record>` is `defect ledger`, `verification report`, or `test integrity`.
+2. Post each part, one call per part, as `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" post <task-id> --escaped '<the part>'`, written in the escaped single-line form: no real newline in the argument, `\n` for a newline, `\t` for a tab, `\\` for a backslash, and each `'` written as `'\''` (no file); only a part holding bytes those escapes cannot express goes as `post <task-id> <base64 of the part>`. It decodes the text, posts it as a comment, reads it back, and prints `{"posted": ..., "sha256": ..., "bytes": ..., "comment_id": ...}`. Keep each part's `sha256`. Build the whole argument as one line before you write the call, even for a long part: a real line break anywhere in it makes the script exit 2 ("no real newlines"); on exit 2, rewrite that part with `\n` escapes and post it again.
+3. After the record's last part: `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" manifest <task-id> '<record>' <sha256 of part 1> <sha256 of part 2> ...`, which posts the record's manifest, then confirm with `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" read <task-id> '<record>'`: status `ok` (never post a manifest with `post`; only `manifest` writes one), holding the parts whose hashes the posts printed; anything else means the record was not posted. The manifest is what lets a reader tell the record is whole and is the text you wrote.
 
-```bash
-bd comments add <task-id> -f /dev/stdin <<'WB_REPORT_END'
-defect ledger:
-<the ledger lines>
-WB_REPORT_END
-```
+A part that prints `posted: false`, or a call that is refused or fails, means the record was not posted: stop posting that record.
 
-Then the report, without the ledger lines (its Defect ledger section says the ledger is posted separately), so a fix worker, a halt, and a resumed session can read it after this session ends:
+Post the three records in this order:
 
-```bash
-bd comments add <task-id> -f /dev/stdin <<'WB_REPORT_END'
-verification report:
-<the report, after its first line>
-WB_REPORT_END
-```
+1. The Defect ledger, so the phase test review, a re-verification, the coordinator's auto-continue check, and `/wb:validate_phase` can read it.
+2. The report, without the ledger lines (its Defect ledger section says the ledger is posted separately), so a fix worker, a halt, and a resumed session can read it after this session ends.
+3. The Test Integrity section, pass or fail, because the phase's test review reads every verifier's section from these records and a later `discarded:` comment does not void them. When your prompt says this run re-checks an unchanged working tree (a lost-coverage re-check or a record-only re-check), begin the section by saying so, as the prompt asks.
 
-Then the Test Integrity section alone, with `test integrity:` as its first line, pass or fail, because the phase's test review reads every verifier's section from these comments and a later `discarded:` comment does not void them:
-
-```bash
-bd comments add <task-id> -f /dev/stdin <<'WB_REPORT_END'
-test integrity:
-<the Test Integrity section>
-WB_REPORT_END
-```
+Wait for each call's result before you write the block below, never in the same turn as a post call.
 
 Then return only this block, because the coordinator reads the verdict from its Status line and the detail is on the task:
 
@@ -312,10 +302,10 @@ Then return only this block, because the coordinator reads the verdict from its 
 - Outer tests: unchanged | changed (<file>) | sanctioned rewrite (<file>) (FAIL only; unchanged means every outer test matched its red commit and the suggested fix touches none)
 - Suggested fix: ${fixSuggestion} (FAIL only; for lost coverage, the class fix and whether it was checked against the planted defects; for a test gap on correct code, likewise whether the class fix was checked against the planted defects, with the count)
 - Follow-ups: ${each survivor outside the cited criterion or outside a re-verified FAIL's class, file:line and what it lets through}, or none
-- Full report: the `verification report:` comment on ${taskId}; its Defect ledger is the `defect ledger:` comment, and its Test Integrity section is also the `test integrity:` comment
+- Full report: the `verification report` record on ${taskId} (its manifest's comment id); its Defect ledger is the `defect ledger` record, and its Test Integrity section is also the `test integrity` record (each with its manifest's comment id)
 ```
 
-The block carries the verdict once, in its Status line. If any post fails, return the whole report, with the ledger lines under its Defect ledger heading, in place of the block, with a first line naming each comment that was not posted (`Not posted: defect ledger`, `Not posted: verification report`, `Not posted: test integrity`, any of them, with the reason), so your caller can post it and the verdict still appears once.
+The block carries the verdict once, in its Status line. If any record was not posted, return in place of the block a first line naming each record not posted (`Not posted: defect ledger`, `Not posted: verification report`, `Not posted: test integrity`, any of them, with the reason), then, for each of those records, its exact parts, each with its header line, in posting order, so the verdict still appears once (in the report's part that carries it). Your caller posts only those exact parts, verbatim, through the same helper; it never composes or summarises a record of yours.
 
 ## Verification Checks
 
@@ -352,7 +342,7 @@ If verification fails, provide:
 
 Judge what this task required: passing tests, changes within the task's scope, requirements met, and tests that protect the criteria they guard. Integrity and criterion protection are in scope and are never minor. Other quality findings are minor: code quality, style, architecture, and refactoring suggestions belong to review, not to this gate, so one of those with passing tests is not a FAIL.
 
-A test that does not protect its criterion is a FAIL, because a green suite then says nothing about that criterion. A planted defect the test misses counts only when its break violates the cited criterion's statement or one of its examples; a survivor outside the criterion, such as a future refactor or adjacent behavior, is a follow-up, not a FAIL, because this gate guards against tests that let an approved behavior break, not against tests that are less than perfect.
+A test that does not protect its criterion is a FAIL, because a green suite then says nothing about that criterion. A planted defect the test misses counts only when its break violates the cited criterion's statement or one of its examples and the test claims to guard that criterion, whatever other tests catch (Step 6, The result, which also gives the two fix routes); a survivor in a test that claims no guarding of the criterion is a follow-up, and so is a survivor outside the criterion, such as a future refactor or adjacent behavior, is a follow-up too, not a FAIL, because this gate guards against tests that let an approved behavior break, not against tests that are less than perfect.
 
 These are always a FAIL, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
 

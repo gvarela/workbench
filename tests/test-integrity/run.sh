@@ -420,6 +420,12 @@ printf 'package app;\n\nimport p.One;\nimport q.One;\n\nclass OneTest {}\n' > te
 printf 'use a::X;\nuse b::X;\n\nfn t() {}\n' > tests/x.rs
 printf 'package calc\n\nimport (\n\t"x/log"\n\t"y/log"\n)\n\nfunc TestL(t *testing.T) {}\n' > tests/log_test.go
 # end-of-file newline: inside a literal it matters, outside it is whitespace
+# leading comment block (annotation headers)
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/user_spec.rb
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/code_spec.rb
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n# a note\n" > tests/mid_spec.rb
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/lead_spec.rb
+printf "# frozen_string_literal: true\n# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/magic_spec.rb
 printf 'const s = `\nabc`;' > tests/eof.test.js
 printf 'test("t", () => {});' > tests/eof2.test.js
 # whitespace inside a template literal; YAML and make indentation
@@ -472,6 +478,11 @@ printf 'package app;\n\nimport q.One;\nimport p.One;\n\nclass OneTest {}\n' > te
 printf 'use b::X;\nuse a::X;\n\nfn t() {}\n' > tests/x.rs
 printf 'package calc\n\nimport (\n\t"y/log"\n\t"x/log"\n)\n\nfunc TestL(t *testing.T) {}\n' > tests/log_test.go
 printf 'const s = `\nabc`;\n' > tests/eof.test.js
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id   :bigint\n#  name :string\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/user_spec.rb
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id   :bigint\n#  name :string\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(2) }\nend\n" > tests/code_spec.rb
+printf "# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n# a changed note\n" > tests/mid_spec.rb
+printf "puts 1\n# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/lead_spec.rb
+printf "# frozen_string_literal: false\n# == Schema Information\n#\n# Table name: users\n#\n#  id :integer\n#\n\nrequire 'rails_helper'\n\nRSpec.describe User do\n  it { expect(1).to eq(1) }\nend\n" > tests/magic_spec.rb
 printf 'test("t", () => {});\n' > tests/eof2.test.js
 printf 'const s = `\n    a  b\n`;\ntest("t", () => expect(s).toBeTruthy());\n' > tests/tpl.test.js
 printf 'a:\nb: 1\n' > tests/data.yml
@@ -503,6 +514,11 @@ for f in test_dotted.py OneTest.java ListTest.java x.rs log_test.go; do
     check "$OUT_M" "$(mech_of "tests/$f") is None" "mechanical: two imports binding the same name (or a dotted Python import) are not mechanical: $f"
 done
 check "$OUT_M" "$(mech_of tests/eof.test.js) is None" "mechanical: a final-newline change after a literal line is not mechanical"
+check "$OUT_M" "$(mech_of tests/user_spec.rb)==\"comment-header\"" "mechanical: a change only in the leading comment block (an annotation header) is comment-header"
+check "$OUT_M" "$(mech_of tests/code_spec.rb) is None" "mechanical: a header change plus a code change below is not mechanical"
+check "$OUT_M" "$(mech_of tests/mid_spec.rb) is None" "mechanical: a comment changed below the code is not mechanical"
+check "$OUT_M" "$(mech_of tests/lead_spec.rb) is None" "mechanical: a new leading line that is code is not mechanical"
+check "$OUT_M" "$(mech_of tests/magic_spec.rb) is None" "mechanical: a changed magic comment (frozen_string_literal) is not mechanical"
 check "$OUT_M" "$(mech_of tests/eof2.test.js)==\"whitespace\"" "mechanical: a final-newline change after an ordinary line is whitespace"
 check "$OUT_M" "$(mech_of tests/data.yml) is None" "mechanical: a YAML indentation change is not mechanical"
 check "$OUT_M" "$(mech_of tests/data2.yml)==\"whitespace\"" "mechanical: YAML trailing whitespace only is whitespace"
@@ -522,7 +538,7 @@ check "$OUT_M" "$(mech_of tests/test_renamed.py) is None" "mechanical: a renamed
 check "$OUT_M" "$(mech_of tests/test_gone.py) is None" "mechanical: a deleted file is not mechanical"
 check "$OUT_M" "$(mech_of tests/test_brand_new.py) is None" "mechanical: a new file is not mechanical"
 check "$OUT_M" "$(mech_of tests/test_mode.py) is None" "mechanical: a mode-only change is not mechanical"
-MECH_LIST='["tests/AppTest.java","tests/T.cs","tests/calc_test.go","tests/data2.yml","tests/eof2.test.js","tests/indent.test.js","tests/sample.test.js","tests/sub.mk","tests/t.rs","tests/test_committed.py","tests/test_crlf.py","tests/test_from.py","tests/test_reorder.py","tests/test_ws.py"]'
+MECH_LIST='["tests/AppTest.java","tests/T.cs","tests/calc_test.go","tests/data2.yml","tests/eof2.test.js","tests/indent.test.js","tests/sample.test.js","tests/sub.mk","tests/t.rs","tests/test_committed.py","tests/test_crlf.py","tests/test_from.py","tests/test_reorder.py","tests/test_ws.py","tests/user_spec.rb"]'
 check "$OUT_M" "sorted(d[\"mechanical_changes\"])==$MECH_LIST" "mechanical: mechanical_changes lists exactly the mechanical paths"
 check "$OUT_M" '"tests/test_reorder.py" in d["undeclared_changes"] and "tests/test_ws.py" in d["undeclared_changes"] and d["cleared_mechanical"] is None' "mechanical: without --allow-mechanical, mechanical changes stay undeclared (cleared_mechanical null)"
 OUT_MA="$(run --start "$START_M" --declared-path tests/test_real.py --allow-mechanical)"
@@ -532,6 +548,74 @@ check "$OUT_MA" 'all(p in d["undeclared_changes"] for p in ("tests/test_mixed.py
 check "$OUT_MA" '[c for c in d["changed_tests"] if c["path"]=="tests/test_reorder.py"]' "mechanical: a cleared change is still listed in changed_tests"
 check "$(run --start "$START_M" --allow-mechanical)" 'd["undeclared_changes"] is None and d["cleared_mechanical"]==[]' "mechanical: --allow-mechanical without a declared set clears nothing"
 [ "$INDEX_BEFORE_M" = "$INDEX_AFTER_M" ] && ok "mechanical: .git/index mtime unchanged" || fail "mechanical: .git/index mtime unchanged"
+
+# ------------------------------------------------- fingerprint
+# --fingerprint: one deterministic digest over the tree's state, read-only.
+FPR="$TMP_ROOT/fp"
+mkdir -p "$FPR/src" "$FPR/build" "$FPR/cache" && cd "$FPR" || exit 1
+git init -q .
+printf 'build/\ncache/\n' > .gitignore
+printf 'a\n' > src/a.txt
+printf 'b\n' > src/b.txt
+git add -A && git commit -q -m start
+printf 'u\n' > src/untracked.txt
+printf 'built\n' > build/out.js
+printf 'cached\n' > cache/c.bin
+fp() { run --fingerprint --include-ignored build "$@"; }
+fpv() { printf '%s' "$1" | python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("fingerprint"))' 2>/dev/null; }
+INDEX_BEFORE_F="$(mtime .git/index)"
+F1="$(fp)"
+F2="$(fp)"
+INDEX_AFTER_F="$(mtime .git/index)"
+check "$F1" 'isinstance(d["fingerprint"], str) and len(d["fingerprint"])==64 and d["records"]>0' "fingerprint: one JSON object with a sha256 and a record count"
+[ -n "$(fpv "$F1")" ] && [ "$(fpv "$F1")" = "$(fpv "$F2")" ] && ok "fingerprint: the same tree gives the same fingerprint" || fail "fingerprint: the same tree gives the same fingerprint"
+[ "$INDEX_BEFORE_F" = "$INDEX_AFTER_F" ] && ok "fingerprint: .git/index mtime unchanged" || fail "fingerprint: .git/index mtime unchanged"
+base="$(fpv "$F1")"
+mv src/untracked.txt src/moved.txt
+[ "$(fpv "$(fp)")" != "$base" ] && ok "fingerprint: renaming an untracked file (same content) changes it" || fail "fingerprint: renaming an untracked file (same content) changes it"
+mv src/moved.txt src/untracked.txt
+[ "$(fpv "$(fp)")" = "$base" ] && ok "fingerprint: undoing the rename restores it" || fail "fingerprint: undoing the rename restores it"
+chmod +x src/a.txt
+[ "$(fpv "$(fp)")" != "$base" ] && ok "fingerprint: a mode change changes it" || fail "fingerprint: a mode change changes it"
+chmod -x src/a.txt
+printf 'a2\n' > src/a.txt
+unstaged="$(fpv "$(fp)")"
+git add src/a.txt
+staged="$(fpv "$(fp)")"
+[ "$unstaged" != "$base" ] && [ "$staged" != "$unstaged" ] && ok "fingerprint: the same edit staged and unstaged gives different fingerprints" || fail "fingerprint: the same edit staged and unstaged gives different fingerprints"
+git reset -q src/a.txt
+printf 'a\n' > src/a.txt
+[ "$(fpv "$(fp)")" = "$base" ] && ok "fingerprint: back to the original state, the same fingerprint" || fail "fingerprint: back to the original state, the same fingerprint"
+printf 'built2\n' > build/out.js
+[ "$(fpv "$(fp)")" != "$base" ] && ok "fingerprint: a change to an ignored file under --include-ignored changes it" || fail "fingerprint: a change to an ignored file under --include-ignored changes it"
+printf 'built\n' > build/out.js
+printf 'cached2\n' > cache/c.bin
+[ "$(fpv "$(fp)")" = "$base" ] && ok "fingerprint: a change to an ignored file outside the included dirs does not" || fail "fingerprint: a change to an ignored file outside the included dirs does not"
+rm -f src/b.txt
+[ "$(fpv "$(fp)")" != "$base" ] && ok "fingerprint: deleting a tracked file changes it" || fail "fingerprint: deleting a tracked file changes it"
+git checkout -q -- src/b.txt
+run --fingerprint --include-ignored ../outside >/dev/null 2>&1
+[ $? = 2 ] && ok "fingerprint: --include-ignored outside the repository is a usage error (exit 2)" || fail "fingerprint: --include-ignored outside the repository is a usage error (exit 2)"
+check "$(TEST_INTEGRITY_FP_MAX_FILES=2 run --fingerprint)" 'd["fingerprint"] is None and [e for e in d["errors"] if "files" in e and "cap" in e]' "fingerprint: over the tracked+untracked file cap it fails closed (null and an error)"
+check "$(TEST_INTEGRITY_FP_MAX_KB=0 run --fingerprint)" 'd["fingerprint"] is None and [e for e in d["errors"] if "KiB" in e and "cap" in e]' "fingerprint: over the tracked+untracked size cap it fails closed"
+check "$(TEST_INTEGRITY_FP_MAX_FILES=999999999 run --fingerprint)" 'isinstance(d["fingerprint"], str)' "fingerprint: the caps can only be lowered, not raised"
+
+# ------------------------------------------------- sha256 of arguments
+# --sha256 <part>...: the digest of the exact concatenation, no git needed.
+cd "$TMP_ROOT" || exit 1
+S_ABC="$(run --sha256 abc)"
+check "$S_ABC" 'd["sha256"]=="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" and d["bytes"]==3' "sha256: the known vector for abc (outside any git repository)"
+check "$(run --sha256 '')" 'd["sha256"]=="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" and d["bytes"]==0' "sha256: the known vector for the empty string"
+check "$(run --sha256 a b c)" 'd["sha256"]=="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" and d["bytes"]==3' "sha256: parts are concatenated with no separator"
+check "$(run --sha256 '' abc '')" 'd["sha256"]=="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" and d["bytes"]==3' "sha256: empty parts add nothing"
+WEIRD=$'line1\n"quoted" \'single\' \\back\ttab\n'
+WANT="$(printf '%s%s' "$WEIRD" "--x" | python3 -I -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
+check "$(run --sha256 "$WEIRD" --x)" 'd["sha256"]=="'"$WANT"'" and d["bytes"]=='"$(printf '%s%s' "$WEIRD" "--x" | wc -c | tr -d ' ')" "sha256: quotes, newlines, tabs, backslashes, and a part that looks like an option are hashed as given"
+run --sha256 >/dev/null 2>&1
+[ $? = 2 ] && ok "sha256: no parts is a usage error (exit 2)" || fail "sha256: no parts is a usage error (exit 2)"
+# --fingerprint runs without --start.
+cd "$FPR" || exit 1
+check "$(run --fingerprint)" 'isinstance(d["fingerprint"], str) and len(d["fingerprint"])==64' "fingerprint: runs without --start and prints {\"fingerprint\": ...}"
 
 # ------------------------------------------------- startup environment
 # Run directly, by its shebang: BASH_ENV/ENV are not sourced, exported
