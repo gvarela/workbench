@@ -13,20 +13,22 @@ Read the relevant template in full before creating each file; match its structur
 
 ## Intent
 
-**Goal**: [one sentence: what this project is for]
+Each line ends with its record: (why: [reason]; source: "[the user's words, verbatim]" ([YYYY-MM-DD], [which message]) | drafted from [where]; reviewed: yes | no; strength: hard | aim). wb's rules-and-intents reference (Strength) says how a line without a strength is read.
+
+**Goal**: [one sentence: what this project is for] (why: [reason]; source: [source]; reviewed: [yes | no]; strength: [hard | aim])
 
 **Success looks like**:
 
-- [observable statement 1]
-- [observable statement 2]
+- [observable statement 1] (why: [reason]; source: [source]; reviewed: [yes | no]; strength: [hard | aim])
+- [observable statement 2] (why: [reason]; source: [source]; reviewed: [yes | no]; strength: [hard | aim])
 
 **Non-goals**:
 
-- [what this project will not do]
+- [what this project will not do] (why: [reason]; source: [source]; reviewed: [yes | no]; strength: [hard | aim])
 
 **Amendments**:
 
-- (none yet; explore_design and create_design append a dated line here when the Goal or a Non-goal changes)
+- (none yet; explore_design and create_design append a dated line here when the Goal or a Non-goal changes, and create_design when a Success statement does)
 
 ## Documentation Structure
 

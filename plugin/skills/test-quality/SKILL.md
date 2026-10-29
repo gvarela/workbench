@@ -58,6 +58,7 @@ Four properties carry most of the weight in deciding whether a test is worth kee
 - The test runs at the level the criterion's "Observed at" gives. A lower-level test can pass while the observed behavior is broken.
 - The real-data shapes the plan names are covered, not only factory defaults.
 - Nothing depends on the wall clock, sleeps, or test order, because those make a pass depend on the run rather than the code.
+- A test that checks its criterion through a proxy (a word scan, a region exclusion, a selector) says so in a comment and in its report, naming the criterion's Guards against and the proxy's known false hits, and a word scan matches whole words, scoped to the elements the criterion names. The proxy is a mechanism, an aim even when its criterion is hard: a check that serves the same Guards against purpose better may replace it ([Purpose and mechanism](../../docs/reference/rules-and-intents.md#purpose-and-mechanism)), an outer test's only with the person's sanction. A substring scan that fails on correct text ("rest" inside "Resting HR") is a false failure.
 
 Other properties of good tests, such as speed, readability, and isolation, are not scored. They trade against each other (fast against predictive, for example), so flag one only when the trade buys nothing, such as a slow test that predicts no more than a fast one.
 

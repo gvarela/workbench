@@ -108,11 +108,11 @@ Determine the current implementation state:
    - Gotchas encountered
    - Solutions to tricky problems
    - Performance considerations discovered
-   - Run `bd memories <project>` and list the entries this session added with `bd remember`; keep the ones that still qualify, `bd forget` the ones that were task-specific. Memories are workspace-wide across every plan in this repository and are excluded from `bd export` by default; only a Dolt remote or `bd backup` carries them to another machine.
+   - Run `bd memories <project>` and list the entries this session added with `bd remember`; keep the ones that still qualify, `bd forget` the ones that were task-specific, and check that each carries its source marker ([Memories](../../docs/reference/rules-and-intents.md#memories)). Memories are workspace-wide across every plan in this repository and are excluded from `bd export` by default; only a Dolt remote or `bd backup` carries them to another machine.
 
 3. **Deviations and Decisions**:
    - Where we deviated from plan and why
-   - Judgment calls made
+   - Judgment calls made (each `judged:` record, and each `delegation:` record in force on the epic)
    - Trade-offs accepted
 
 4. **Current Blockers**:

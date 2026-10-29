@@ -13,7 +13,7 @@ orientation() {
   cat <<'ORIENTATION'
 wb: structured development workflow. Orientation for this session.
 Stages, in order. Each stage reads the previous stage's document and stops if it is missing or not approved:
-  /wb:create_project  -> docs/plans/<date>-<name>/ with README, research.md, design.md, tasks.md skeletons
+  /wb:create_project  -> docs/plans/<date>-<name>/ with README (Intent lines with why, source, strength), research.md, design.md, tasks.md skeletons
   /wb:create_research -> research.md: facts only (including testing conventions), file:line references, no recommendations
   /wb:explore_design  -> optional: think through trade-offs; records a decision in thoughts/ and a closed Decide: issue
   /wb:create_design   -> design.md: what to build and why, with acceptance criteria; needs research.md complete
@@ -31,7 +31,7 @@ ORIENTATION
   cat <<'ORIENTATION'
 What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
-  create_design: approve the approach, the refined metrics, and the acceptance criteria with harness decisions; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
+  create_design: approve the approach, the refined metrics, the acceptance criteria with harness decisions, and each listed choice that tightens your intent; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
   create_tasks: confirm the phases and checkpoints; decide each design item no task delivers (add a task, defer it, or drop it), and each earlier outer test the design renames
   implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction; or "run unattended" in your own message, until your next one
   validate_phase: the phase to check, or all; the manual checks only you can run; an answer for each unexplained deviation

@@ -58,6 +58,10 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 - [each decision asked earlier and still pending, as its one-line reminder ("Pending decisions" in [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md)), never re-asked in full]
 - [or "Nothing needs your decision"]
 
+**Decisions I made for you:**
+
+- [each `judged:` record posted this phase (the rule, the purpose, what was done) and each step taken under a delegation you granted, one line each with the reply that reverses it, as [rules-and-intents.md](../../docs/reference/rules-and-intents.md) says; or "none"]
+
 **What this phase delivered** (by acceptance criterion):
 
 - [behavior the user can now rely on] (AC-n, task [id])
@@ -73,7 +77,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 - Outer tests committed red first: [each named by the criterion it guards]
 - Integrity findings: [total] ([escalated] escalated); [the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded]
 - Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
-- Review findings: [each with the criterion it guards and what the weakness lets through; settled candidates marked "n of 3"; additive strengthenings marked "additive, sanctioned by me", run before the milestone closes]
+- Review findings: [each with the criterion it guards and what the weakness lets through; settled candidates marked "n of 3"; additive strengthenings proposed as R<n> for your sanction, or marked "additive, within your delegation" when you granted one, run before the milestone closes]
 - Review these: [each in plain words with its file:line after]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the phase or the release, and when to do it):
@@ -97,6 +101,8 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 
 **Needs your decision:** [anything still open, with options and a recommendation, or "Nothing needs your decision"]
 
+**Decisions I made for you:** [each `judged:` record and delegated step this phase, one line each with the reply that reverses it, or "none"]
+
 **What this phase delivered** (by acceptance criterion):
 
 - [behavior the user can now rely on] (AC-n, task [id])
@@ -109,8 +115,8 @@ Written as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.m
 - Outer tests committed red first: [each named by the criterion it guards]
 - Integrity findings: [total] ([escalated] escalated); [the reviewer's Defect checks line, copied verbatim with its route and reasons, not summarised or reworded]; review findings filed: [each in plain words with its criterion and issue id]
 - Earlier phases' tests changed: [each with the task that declared it and its reason, or "none"]
-- Outer-test rewrites run: [each with the criterion it guards, who sanctioned it (you by name, or "additive, sanctioned by me"), and its Not claimed list with who accepted any case on it, or "none"]
-- Coordinator records: [each `re-baseline:`, `stub files:`, `checkpoint-auto:`, and `deferred:` record posted this phase, in plain words with its task or milestone, or "none"]
+- Outer-test rewrites run: [each with the criterion it guards, who sanctioned it (you by name, or "additive, within your delegation"), and its Not claimed list with who accepted any case on it, or "none"]
+- Coordinator records: [each `re-baseline:`, `stub files:`, `checkpoint-auto:`, `deferred:`, `judged:`, and `delegation:` record posted this phase, in plain words with its task or milestone, or "none"]
 
 **Follow-ups** (each: what it is, what it puts at risk, whether it blocks the next phase or the release, and when to do it):
 

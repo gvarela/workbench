@@ -23,7 +23,7 @@
 
 **Amendments**:
 
-- (none yet; explore_design and create_design append a dated line here when the Goal or a Non-goal changes)
+- 2026-10-29: The rules-and-intents guidance (`plugin/docs/reference/rules-and-intents.md`: the hard list, line strength and source, narrowings, acting within purpose, and person-granted delegations) traces to two real wb runs that stalled on narrowed wording, not to the external research. Its evidence strength is weak (observational, two runs, no external study); the Success statement on tracing guidance to research with its evidence strength is addressed for it by this record. (prompts-qhoh.9)
 
 ## Documentation Structure
 

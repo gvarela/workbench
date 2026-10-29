@@ -22,8 +22,8 @@ design_approach: [selected option name]
 [Clear articulation of the problem we're solving and why it matters]
 
 ### Success Metrics
-- [Measurable outcome] (refines: "[Intent success statement]")
-- [Measurable outcome] (refines: "[Intent success statement]")
+- [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement][; narrows: how it is stricter than the statement])
+- [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement])
 - Deferred: "[Intent success statement]" — [reason], or "none"
 
 ## Design Approach
@@ -81,8 +81,13 @@ One criterion per changed behavior, each checkable at a boundary a test can obse
   - Observed at: [where the result is visible: HTTP response, rendered page, CLI output, stored record]
   - Seam: [only when the boundary is external or an LLM: what is stubbed, and what stays real]
   - Refines: [Success Metric id, for example M1]
+  - Guards against: [the harm or wrong behavior this criterion exists to stop, in the user's terms]
+  - Strength: [hard | aim, from the metric it refines, as wb's rules-and-intents reference (Strength) defines them; hardness attaches to the Guards against purpose, never to the mechanism a narrowing picks, so write `hard (purpose) / aim (mechanism)` when they differ]
+  - Narrows: [only when it is stricter than its metric: how (only or never, a fixed placement, a word list, an exact layout); listed under "Choices I made that tighten your intent"]
 
-Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Refines: M1.
+A criterion checks its statement; it does not replace it. When the check is a proxy (a word list, a region, a selector), Guards against is what the proxy stands for, so the test-writer can name it and a reader can tell a proxy's false hit from a real break.
+
+Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Refines: M1; Guards against: an expired link still letting someone set a password; Strength: hard (safety).
 
 ### Harness Decisions
 
@@ -177,3 +182,17 @@ Apply each reply to design.md and to beads:
 - `[id]: not this plan`: drop the row and leave the issue open, because closing it would answer another plan's question for it: `bd comments add [id] "not a question for [plan-dir-name]: [reason]"`.
 
 The design is not approved while any row says `awaiting your reply`. An approval that leaves an item without a reply is not approval yet: list the items still without one, restate each option by letter with what it means, and ask again.
+
+## Narrowings
+
+A narrowing is a metric or criterion stricter than the statement it refines: only or never, a fixed placement, a word list, an exact layout. Each one becomes a rule the test-writer pins and the workers must satisfy, so the user sees each one, quoted, before it does. List every line marked `narrows:` under "Choices I made that tighten your intent" in the Step 6 message, one item each, with all five lines below and the quoted text copied verbatim from design.md, never paraphrased:
+
+```
+- [AC-n or Mn]: "[the criterion's Then line, or the metric, quoted exactly as design.md has it]"
+  - Tightens: "[the statement it refines, quoted]" by [how: only or never, a fixed placement, a word list, an exact layout]
+  - Why I chose it: [the reason, and its source: research, a mockup decision, an exploration record, or my own judgment]
+  - Guards against: [the criterion's Guards against]
+  - If you want it looser: [the wording that checks the statement as written, such as "names the band as a population cut-off" in place of "shows bands only inside the disclosure"]
+```
+
+The user's approval covers only the narrowings this list shows; what a narrowing found later is, and when its missing listing is a design defect to correct here, is [Narrowings](../../docs/reference/rules-and-intents.md#narrowings). A reply that rejects one replaces it with the looser wording, and the criterion's Strength stays the metric's.
