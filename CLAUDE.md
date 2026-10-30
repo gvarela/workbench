@@ -11,11 +11,13 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `.claude-plugin/` - Marketplace manifest (plugin manifest lives in `plugin/.claude-plugin/`)
 - `plugin/` - The shipped runtime: everything below is what installers receive
 - `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
-- `plugin/agents/` - Specialized subagent definitions
+- `plugin/agents/` - Specialized subagent definitions: research (`codebase-locator`, `codebase-analyzer`, `pattern-finder`, `research-validator`), execution (`task-worker`, `task-verifier`, `phase-verifier`), and testing (`test-writer`, `test-reviewer`, `test-auditor`)
 - `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger: orientation on a fresh start, recovery text on compact; also registered on PreCompact, whose output the model never sees; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
-- `plugin/scripts/` - Utility scripts (lint, lint-hook)
+- `plugin/scripts/` - Utility scripts (lint, lint-hook, test-integrity, which `task-verifier`, `test-reviewer`, and `phase-verifier` run for deterministic test-change evidence)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
+- `tests/` - Tests for the shipped scripts (`tests/test-integrity/run.sh`; never shipped to installs)
+- `wb-defects/` - Opt-in companion plugin in the same marketplace: `bin/wb-plant-defect`, the planted-defect runner, on the Bash tool's PATH while enabled (tests at `wb-defects/tests/run.sh`). wb never requires it: the defect-check routes in `plugin/docs/reference/non-interactive-shell.md` fall back to the repository's recognized mutation tool, then Not Run
 - `.claude/` - Local development configuration
 
 ## Development Tools
@@ -45,6 +47,7 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - Line length checking disabled (MD013)
 - Inline HTML allowed (MD033)
 - Emphasis as heading allowed (MD036)
+- Duplicate headings allowed under different parents (MD024 `siblings_only`), so each CHANGELOG version can repeat Added, Changed, and the rest
 - Fenced code blocks without language allowed (MD040)
 
 ### Claude Code Reference
@@ -86,8 +89,8 @@ For local dev (`--plugin-dir` install), changes take effect immediately without 
 The commands follow a strict sequential workflow:
 
 ```
-/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → /wb:validate_execution
-(/wb:implement_inline runs the same plan inline in this session)
+/wb:create_project → /wb:create_research → [/wb:explore_design (optional)] → /wb:create_design → /wb:create_tasks → /wb:implement → [/wb:validate_phase (optional)]
+(/wb:implement_inline runs the same plan inline in this session; each checkpoint verifies its phase, and the final one writes the Intent verdicts)
 ```
 
 For multi-session work:
@@ -98,6 +101,8 @@ For multi-session work:
 
 Each command builds upon the previous one's output, creating structured documentation in timestamped directories under `docs/plans/`.
 
+`/wb:test-audit` (audit an existing suite cold, with no plan), `/wb:testing-profile` (draft `.claude/wb/testing.md`), and `/wb:validate_project` (a repair tool for plan documents that look inconsistent) sit outside the stage chain.
+
 ## Workflow Philosophy
 
 The workflow separates three distinct concerns:
@@ -105,6 +110,8 @@ The workflow separates three distinct concerns:
 1. **Research** (`research.md`) - Document what EXISTS (facts only, no recommendations)
 2. **Design** (`design.md`) - Document WHAT to build and WHY (architectural decisions)
 3. **Execution** (`tasks.md`) - Document HOW to build it (phased implementation plan)
+
+Testing follows the same split. Research records the repository's Testing Conventions as facts. Design records acceptance criteria and a harness decision per boundary. Execution writes one outer test step per criterion; `/wb:implement` and `/wb:implement_inline` commit each outer test as `red(AC-n)` before its code, with the red/green evidence kept in beads (a plan with no acceptance criteria predates 5.0.0 and has no outer tests). In both modes `wb:test-writer` writes every test, and neither `task-worker` nor the inline session edits tests, except the support code a harness task delivers, which the implementer writes and declares. Under `/wb:implement`, `task-verifier` fails any test change that neither a test-writer report nor a harness task's declared support files cover; `/wb:implement_inline` has no per-task verifier, so its checkpoint review checks that across the phase. The shared rubric is the `test-quality` skill. At each phase checkpoint `wb:test-reviewer` reviews the phase's tests; deterministic failures in tests the phase changed block the checkpoint until the user acknowledges each by name. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation holds the checkpoint until the user answers it by name, and the final checkpoint writes the Intent verdicts to the README. `/wb:validate_phase` runs the same agents on demand, for one phase or all.
 
 ## Core Command Philosophy
 
@@ -168,11 +175,11 @@ All generated documentation files use consistent YAML frontmatter:
 Commands support model hints when spawning agents; a per-spawn `model` overrides the agent's frontmatter, so keep the two in agreement. The aliases mean the current models only on the Anthropic API (on Bedrock and Google Cloud `sonnet` resolves to Sonnet 4.5; see Claude Code's model-config docs). Pay for judgment, not throughput:
 
 - `haiku`: File searches and other mechanical tasks (`codebase-locator`); judgment-bearing search such as picking representative patterns goes to Sonnet at `low` effort (`pattern-finder`). The `haiku` alias resolves to Haiku 5.5 on the Anthropic API, which supports every effort level (Haiku 4.5, still served on some other providers, does not)
-- `sonnet`: Default for analysis AND implementation. Sonnet 5.5 is $2/$10 per MTok against Opus 5.5's $4/$20 and Fable 5.1's $10/$50; judge cost per completed task, not per token, and measure before moving a stage up or down a tier
-- `opus`: Design, architectural or cross-cutting implementation, and the quality gates (`task-verifier`, `research-validator`): Opus 5.5 is the stronger reviewer (more bugs caught, fewer false alarms) and only about twice Sonnet 5.5's price
+- `sonnet`: Default for analysis AND implementation, including writing tests (`test-writer`). Sonnet 5.5 is $2/$10 per MTok against Opus 5.5's $4/$20 and Fable 5.1's $10/$50; judge cost per completed task, not per token, and measure before moving a stage up or down a tier
+- `opus`: Design, architectural or cross-cutting implementation, and the quality gates (`task-verifier`, `phase-verifier`, `research-validator`, `test-reviewer`, `test-auditor`): Opus 5.5 is the stronger reviewer (more bugs caught, fewer false alarms) and only about twice Sonnet 5.5's price
 - `fable`: Architecture-critical discussion (explore_design), decomposition (create_tasks), and escalation after verified failure
 
-`effort` (`low` → `max`) is a second cost lever, set in an agent's or skill's frontmatter: a spawn can override the model but not the effort, so an agent without `effort:` runs at the session's level (Claude Code defaults Opus 5.5 and Sonnet 5.5 to `medium`). "Sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Current frontmatter: `task-worker` `medium` (the documented starting point for well-specified coding, and independent of the coordinator's session effort; raise it if verifier pass rates drop), analyzers `medium`, `pattern-finder` `low`, verifiers `high`, `codebase-locator` `low`.
+`effort` (`low` → `max`) is a second cost lever, set in an agent's or skill's frontmatter: a spawn can override the model but not the effort, so an agent without `effort:` runs at the session's level (Claude Code defaults Opus 5.5 and Sonnet 5.5 to `medium`). "Sonnet at low effort" usually beats dropping to haiku for judgment-bearing work — quality degrades gracefully instead of falling off a tier. Current frontmatter: `task-worker` `medium` (the documented starting point for well-specified coding, and independent of the coordinator's session effort; raise it if verifier pass rates drop), `test-writer` `medium`, analyzers `medium`, `pattern-finder` `low`, verifiers and reviewers (`task-verifier`, `phase-verifier`, `research-validator`, `test-reviewer`, `test-auditor`) `high`, `codebase-locator` `low`.
 
 ## Working with Commands
 

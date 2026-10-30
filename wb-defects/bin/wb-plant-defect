@@ -1,0 +1,2677 @@
+#!/bin/bash -p
+#
+# wb-plant-defect: plant one defect at a time in a copy of one source file, run
+# only the named test files against it with the repository's own test
+# command, and report as JSON whether the tests caught it.
+#
+#   wb-plant-defect setup    --id <id> [--commit <sha> | --working-tree] [--cwd <dir>]
+#                         [--strategy auto|swap|worktree|sandbox] [--lock-wait <s>]
+#   wb-plant-defect baseline --id <id> --test <path>... [--test-file <path>=@<commit> | =- | =@esc:<text> | =@b64:<b64>]...
+#                         [--timeout <s>] [--lock-wait <s>]
+#   wb-plant-defect run      --id <id> --test <path>... [--test-file ...]... [--timeout <s>] [--lock-wait <s>]
+#                         (--file <path> --find <text> --replace <text> [--control] [--label <name>]
+#                          | [--batch-deadline <s>] --case [--control] [--label <name>] --file <path>
+#                            --find <text> --replace <text> [--case ...]...)
+#   wb-plant-defect teardown --id <id> [--lock-wait <s>]
+#
+# One call at a time per id: every call takes the id's gate lock first
+# (${TMPDIR:-/tmp}/wb-defect-lock-<id>), waiting up to --lock-wait seconds
+# (default 15; 0 fails at once) before reporting a lock error in its normal
+# JSON. A batch (repeated --case groups, one target file and test set)
+# runs its cases in order under one gate and prints
+# {"results":[...],"completed":n,"total":m,"aborted":bool,"errors":[]}.
+#
+# Trust: allowing this runner means trusting everything in the repository as
+# code you'd run (its tests and its .claude/wb/testing.md profile), just as
+# allowing its test runner does. As defence in depth it rejects known shells,
+# inline-code flags, and launchers that reach beyond the repository
+# (containers, remote hosts), runs no setup commands, and edits only a copy;
+# a repository script can still run whatever it contains. The test command
+# runs as an argv (no shell); the user's working tree and index are never
+# written; repository hooks, filters, fsmonitor, and external diff drivers
+# never run. The "-p" on the first line keeps bash from sourcing BASH_ENV/ENV
+# or importing exported functions before this file runs.
+#
+# The generic path works for any language: a git worktree at
+# ${TMPDIR:-/tmp}/wb-defect-<id>/wt filled without checkout filters, the
+# defect written into that copy, and the command run there. Swap adapters
+# (pytest, Node, Ruby, go test) are optional accelerators that load the
+# mutated file in place of the original inside the repository itself; each
+# is trusted only once a control break proves it loads the mutated file. A
+# persistent sandbox is used when the profile asks for it.
+#
+# Exit status: 0 whenever it printed JSON (problems go in "errors"), 2 on a
+# usage error. Requires /bin/bash 3.2 or later, git 2.x, sed, diff, ps.
+
+usage() {
+    sed -n '7,15p' "$0" | sed 's/^# \{0,1\}//' >&2
+    exit 2
+}
+usage_msg() {
+    echo "wb-plant-defect: $1" >&2
+    exit 2
+}
+
+# ---------------------------------------------------------------- environment
+# The user's own environment is kept (PATH, version managers, database
+# variables), except variables that would make a shell, git, or a runtime
+# load code we did not choose.
+for _v in $(compgen -e); do
+    case "$_v" in
+        GIT_*|BASH_ENV|ENV|CDPATH|PYTEST_PLUGINS|NODE_OPTIONS|RUBYOPT|GOFLAGS|PERL5OPT|WB_DEFECT_TARGET|WB_DEFECT_SOURCE)
+            unset "$_v" ;;
+    esac
+done
+export GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1 GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0
+
+EMPTY_TREE=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+ATTR_SRC=()
+if git --attr-source="$EMPTY_TREE" version >/dev/null 2>&1; then
+    # Attributes come from the empty tree: no filter, textconv, or diff
+    # driver named in .gitattributes ever runs.
+    ATTR_SRC=(--attr-source="$EMPTY_TREE")
+fi
+
+# Every git call: no hooks, fsmonitor, global attributes, external diff,
+# pager, or automatic gc.
+g() {
+    git --no-pager ${ATTR_SRC[@]+"${ATTR_SRC[@]}"} -c core.hooksPath=/dev/null -c core.fsmonitor=false \
+        -c core.attributesFile=/dev/null -c diff.external= -c core.pager=cat -c core.untrackedCache=false \
+        -c gc.auto=0 -c maintenance.auto=false "$@"
+}
+
+# neutralize_drivers <repo>: every filter, diff, and merge driver configured
+# for this repository (any scope) is overridden with an empty command, so a
+# driver named by .gitattributes or .git/info/attributes never runs. Passed
+# through GIT_CONFIG_COUNT/KEY/VALUE, which accepts any driver name.
+CFG_N=0
+set_cfg() {
+    export "GIT_CONFIG_KEY_$CFG_N=$1" "GIT_CONFIG_VALUE_$CFG_N=$2"
+    CFG_N=$((CFG_N + 1))
+    export GIT_CONFIG_COUNT=$CFG_N
+}
+neutralize_drivers() {
+    local key name
+    while IFS= read -r -d '' key; do
+        case "$key" in
+            filter.*.*)
+                name="${key#filter.}"; name="${name%.*}"
+                set_cfg "filter.$name.clean" ""; set_cfg "filter.$name.smudge" ""
+                set_cfg "filter.$name.process" ""; set_cfg "filter.$name.required" false ;;
+            diff.*.*)
+                name="${key#diff.}"; name="${name%.*}"
+                set_cfg "diff.$name.textconv" ""; set_cfg "diff.$name.command" "" ;;
+            merge.*.*)
+                name="${key#merge.}"; name="${name%.*}"
+                set_cfg "merge.$name.driver" "" ;;
+        esac
+    done < <(git -C "$1" config -z --name-only --get-regexp '^(filter|diff|merge)\..*\.' 2>/dev/null)
+}
+
+# child_env: what the test command and setup commands inherit. Our git
+# settings are dropped; the user's own variables stay.
+child_env() {
+    local v
+    for v in $(compgen -e); do
+        case "$v" in GIT_*) unset "$v" ;; esac
+    done
+}
+
+TMP_BASE="${TMPDIR:-/tmp}"
+while [ "${TMP_BASE%/}" != "$TMP_BASE" ] && [ "$TMP_BASE" != / ]; do TMP_BASE="${TMP_BASE%/}"; done
+[ -d "$TMP_BASE" ] || TMP_BASE=/tmp
+AUTO_TIMEOUT_CAP=100
+# cache_root_ok <path> <create|check>: an absolute path whose nearest
+# existing ancestor is a real directory (not a symlink) owned by the user;
+# with "create", the missing components below it are made one at a time
+# (mode 700), each checked to be a real directory of ours.
+cache_root_ok() {
+    local p="$1" rest="" c
+    case "$p" in /*) ;; *) return 1 ;; esac
+    while [ ! -e "$p" ] && [ ! -L "$p" ]; do
+        rest="${p##*/}${rest:+/$rest}"
+        p="$(dirname -- "$p")"
+    done
+    [ ! -L "$p" ] && [ -d "$p" ] && [ -O "$p" ] || return 1
+    [ -n "$rest" ] && [ "$2" = create ] || return 0
+    set -f
+    local IFS=/
+    for c in $rest; do
+        [ -n "$c" ] || continue
+        p="$p/$c"
+        mkdir -m 700 "$p" 2>/dev/null
+        if [ -L "$p" ] || [ ! -d "$p" ] || [ ! -O "$p" ]; then set +f; return 1; fi
+    done
+    set +f
+    return 0
+}
+
+# choose_cache <create|check>: XDG_CACHE_HOME when it passes, else
+# ~/.cache under the same check. Sets CACHE_ROOT, CACHE_BASE, CACHE_NOTE.
+CACHE_ROOT="" CACHE_BASE="" CACHE_NOTE=""
+choose_cache() {
+    CACHE_ROOT="" CACHE_BASE="" CACHE_NOTE=""
+    if [ -n "${XDG_CACHE_HOME:-}" ]; then
+        if cache_root_ok "$XDG_CACHE_HOME" "$1"; then
+            CACHE_ROOT="$XDG_CACHE_HOME"
+        else
+            CACHE_NOTE="XDG_CACHE_HOME is not under a real directory owned by the current user (or passes through a symlink); using ~/.cache"
+        fi
+    fi
+    if [ -z "$CACHE_ROOT" ]; then
+        cache_root_ok "$HOME/.cache" "$1" || return 1
+        CACHE_ROOT="$HOME/.cache"
+    fi
+    CACHE_BASE="$CACHE_ROOT/wb-defect"
+    return 0
+}
+LOCK_WAIT="${WB_DEFECT_LOCK_WAIT:-60}"
+case "$LOCK_WAIT" in ""|*[!0-9]*) LOCK_WAIT=60 ;; esac
+LOCK_STALE_MIN="${WB_DEFECT_LOCK_STALE_MINUTES:-180}"
+case "$LOCK_STALE_MIN" in ""|*[!0-9]*) LOCK_STALE_MIN=180 ;; esac
+DEFAULT_DEP_DIRS="node_modules vendor/bundle .bundle .venv venv"
+HAVE_PERL=""
+[ -z "${EPOCHREALTIME:-}" ] && perl -MTime::HiRes -e 1 >/dev/null 2>&1 && HAVE_PERL=1
+CONTROL_TEXT=')wb-defect control: this copy of the file is deliberately broken('
+
+# ---------------------------------------------------------------- JSON helpers
+json_str() {
+    local s="$1"
+    # bash 3.2's ${s//x/y} is quadratic: a long string (a large label, diff,
+    # or output tail) is escaped by awk in one linear pass instead.
+    if [ ${#s} -gt 1024 ]; then
+        local nl=""
+        case "$s" in *$'\n') nl='\n' ;; esac
+        printf '"%s%s"' "$(printf '%s' "$s" | LC_ALL=C awk -v ORS="" '
+            BEGIN {
+                for (i = 1; i < 32; i++) ctl[sprintf("%c", i)] = sprintf("\\u%04x", i)
+                ctl[sprintf("%c", 127)] = "\\u007f"
+                ctl["\t"] = "\\t"; ctl["\r"] = "\\r"
+            }
+            {
+                if (NR > 1) printf "\\n"
+                n = length($0)
+                for (i = 1; i <= n; i++) {
+                    c = substr($0, i, 1)
+                    if (c == "\\") printf "\\\\"
+                    else if (c == "\"") printf "\\\""
+                    else if (c in ctl) printf "%s", ctl[c]
+                    else printf "%s", c
+                }
+            }')" "$nl"
+        return
+    fi
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\t'/\\t}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    case "$s" in
+        *[[:cntrl:]]*)
+            local out="" c i code
+            for ((i = 0; i < ${#s}; i++)); do
+                c="${s:i:1}"
+                case "$c" in
+                    [[:cntrl:]])
+                        printf -v code '%d' "'$c"
+                        out="$out$(printf '\\u%04x' "$code")" ;;
+                    *) out="$out$c" ;;
+                esac
+            done
+            s="$out" ;;
+    esac
+    printf '"%s"' "$s"
+}
+
+append() {
+    eval "local cur=\"\${$1}\""
+    if [ -n "$cur" ]; then
+        eval "$1=\"\$cur,\$2\""
+    else
+        eval "$1=\"\$2\""
+    fi
+}
+
+ERRORS=""
+NOTES=""
+SNOTES=""
+add_error() { append ERRORS "$(json_str "$1")"; }
+add_note()  { append NOTES "$(json_str "$1")"; }
+add_snote() { append SNOTES "$(json_str "$1")"; }
+
+str_or_null() { if [ -n "$1" ]; then json_str "$1"; else printf 'null'; fi; }
+bool_json()   { case "$1" in true|false) printf '%s' "$1" ;; *) printf 'null' ;; esac; }
+num_json()    { case "$1" in ""|*[!0-9.]*|*.*.*|.*) printf 'null' ;; *) printf '%s' "$1" ;; esac; }
+
+# ---------------------------------------------------------------- small helpers
+now() {
+    if [ -n "${EPOCHREALTIME:-}" ]; then
+        printf '%s' "${EPOCHREALTIME/,/.}"
+    elif [ -n "$HAVE_PERL" ]; then
+        LC_ALL=C perl -MTime::HiRes=time -e 'printf "%.3f", time'
+    else
+        date +%s
+    fi
+}
+elapsed() { LC_ALL=C awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'; }
+
+nonce() { od -An -N16 -tx1 /dev/urandom | tr -d ' \n'; }
+
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+
+tail_text() {
+    [ -f "$1" ] || return 0
+    local t
+    t="$(tail -n 40 "$1")"
+    [ ${#t} -gt 4000 ] && t="...${t: -4000}"
+    printf '%s' "$t"
+}
+
+is_hex() { case "$1" in ""|*[!0-9a-f]*) return 1 ;; esac; return 0; }
+valid_id() { case "$1" in ""|*[!A-Za-z0-9._-]*|.|..|-*) return 1 ;; esac; return 0; }
+
+# norm_rel <path>: drop ./ and // spellings. Sets NORM.
+norm_rel() {
+    NORM="$1"
+    while :; do
+        case "$NORM" in
+            ./*)   NORM="${NORM#./}" ;;
+            *//*)  NORM="${NORM%%//*}/${NORM#*//}" ;;
+            */./*) NORM="${NORM%%/./*}/${NORM#*/./}" ;;
+            */.)   NORM="${NORM%/.}" ;;
+            */)    NORM="${NORM%/}" ;;
+            *)     break ;;
+        esac
+    done
+}
+
+# rel_problem <path>: why a repository path is unacceptable, or nothing.
+rel_problem() {
+    case "$1" in
+        "")  echo "empty"; return ;;
+        .)   echo "the repository root itself"; return ;;
+        /*)  echo "absolute"; return ;;
+    esac
+    case "$1" in *[[:cntrl:]]*) echo "control character"; return ;; esac
+    case "/$1/" in */../*) echo "a '..' component"; return ;; esac
+    case "/$1" in */-*) echo "a component starting with '-'"; return ;; esac
+}
+
+# check_rel <path> <option>: usage error unless the path is acceptable.
+check_rel() {
+    local r
+    r="$(rel_problem "$1")"
+    [ -z "$r" ] || usage_msg "$2 must be a repository-relative path with no '..' component ($r): $1"
+}
+
+# contained <root> <relative path>: no component of the path under root is a
+# symlink, and the nearest existing directory resolves inside root.
+contained() {
+    local root="$1" rest="$2" cur="$1" part rr dr
+    while [ -n "$rest" ]; do
+        part="${rest%%/*}"
+        if [ "$part" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+        cur="$cur/$part"
+        [ -L "$cur" ] && return 1
+        [ -e "$cur" ] || break
+    done
+    rr="$(cd "$root" 2>/dev/null && pwd -P)" || return 1
+    dr="$(dirname "$root/$2")"
+    while [ ! -d "$dr" ]; do dr="$(dirname "$dr")"; done
+    dr="$(cd "$dr" 2>/dev/null && pwd -P)" || return 1
+    case "$dr/" in "$rr"/*) return 0 ;; esac
+    return 1
+}
+
+# private_dir <dir>: a real directory, ours, mode 700.
+private_dir() {
+    [ -d "$1" ] && [ ! -L "$1" ] && [ -O "$1" ] || return 1
+    case "$(ls -ld "$1")" in drwx------*) return 0 ;; esac
+    return 1
+}
+
+# ---------------------------------------------------------------- command lines
+# parse_argv <string>: split a command line into ARGV with simple quoting
+# ('...', "...", backslash). Shell metacharacters outside quotes are refused,
+# since nothing here is run by a shell. Sets ARGV, or PARSE_ERR and returns 1.
+parse_argv() {
+    local s="$1" i=0 n=${#1} c nx word="" inword=0 q=""
+    ARGV=()
+    PARSE_ERR=""
+    while [ $i -lt $n ]; do
+        c="${s:i:1}"
+        if [ "$q" = "'" ]; then
+            if [ "$c" = "'" ]; then q=""; else word="$word$c"; fi
+        elif [ "$q" = '"' ]; then
+            case "$c" in
+                '"') q="" ;;
+                '\')
+                    nx="${s:i+1:1}"
+                    case "$nx" in
+                        '"'|'\') word="$word$nx"; i=$((i + 1)) ;;
+                        *) word="$word$c" ;;
+                    esac ;;
+                '$'|'`') PARSE_ERR="'$c' inside double quotes (no expansion happens; use single quotes)"; return 1 ;;
+                *) word="$word$c" ;;
+            esac
+        else
+            case "$c" in
+                ' '|$'\t')
+                    if [ $inword = 1 ]; then ARGV[${#ARGV[@]}]="$word"; word=""; inword=0; fi ;;
+                "'") q="'"; inword=1 ;;
+                '"') q='"'; inword=1 ;;
+                '\')
+                    i=$((i + 1))
+                    [ $i -lt $n ] || { PARSE_ERR="trailing backslash"; return 1; }
+                    word="$word${s:i:1}"; inword=1 ;;
+                ';'|'|'|'&'|'`'|'$'|'('|')'|'<'|'>'|'*'|'?'|'['|']'|$'\n'|$'\r')
+                    PARSE_ERR="shell metacharacter '$c' outside quotes (commands run without a shell: no pipes, redirects, &&, ;, \$, globs)"
+                    return 1 ;;
+                *)
+                    case "$c" in [[:cntrl:]]) PARSE_ERR="control character"; return 1 ;; esac
+                    word="$word$c"; inword=1 ;;
+            esac
+        fi
+        i=$((i + 1))
+    done
+    [ -z "$q" ] || { PARSE_ERR="unterminated quote"; return 1; }
+    [ $inword = 1 ] && ARGV[${#ARGV[@]}]="$word"
+    [ ${#ARGV[@]} -gt 0 ] || { PARSE_ERR="empty command"; return 1; }
+    case "${ARGV[0]}" in -*|"{"*) PARSE_ERR="the command must start with a program name"; return 1 ;; esac
+    local w name
+    for w in "${ARGV[@]}"; do
+        case "$w" in
+            '{tests}'|'{test_dirs}') ;;
+            *'{tests}'*|*'{test_dirs}'*) PARSE_ERR="{tests} and {test_dirs} must be whole words"; return 1 ;;
+        esac
+        case "$w" in
+            '{root}') ;;
+            --*'={root}')
+                name="${w%=\{root\}}"; name="${name#--}"
+                case "$name" in ""|*[!A-Za-z0-9._-]*|-*)
+                    PARSE_ERR="{root} must be a whole argument or the value of a --name={root} option: $w"; return 1 ;;
+                esac ;;
+            *'{root}'*) PARSE_ERR="{root} must be a whole argument or the value of a --name={root} option: $w"; return 1 ;;
+        esac
+    done
+    return 0
+}
+
+# ---------------------------------------------------------------- launchers
+# The test command must name the test runner itself: not a shell or a
+# program that runs another command line, and not an interpreter given inline
+# code. LAUNCH_ERR says why when it is refused.
+LAUNCHERS=" sh bash zsh dash ksh mksh pdksh yash ash fish csh tcsh busybox env xargs nohup sudo doas su runuser time nice ionice timeout gtimeout stdbuf setsid chroot unshare nsenter flock caffeinate arch script watch exec eval command builtin osascript open parallel strace ltrace gdb lldb expect tclsh wish pwsh powershell cmd docker docker-compose podman nerdctl kubectl ssh scp sftp rsync flatpak-spawn systemd-run vagrant lima limactl colima "
+
+# resolve_prog <program> <dir>: the program's path after PATH lookup and
+# symlinks (relative names resolve against dir). Prints nothing if not found.
+resolve_prog() {
+    local p="$1" dir="$2" t i=0
+    case "$p" in
+        */*) case "$p" in /*) ;; *) p="$dir/$p" ;; esac ;;
+        *) p="$(command -v -- "$p" 2>/dev/null)"; case "$p" in /*) ;; *) return ;; esac ;;
+    esac
+    while [ -L "$p" ] && [ $i -lt 40 ]; do
+        t="$(readlink -- "$p")"
+        case "$t" in /*) p="$t" ;; *) p="$(dirname -- "$p")/$t" ;; esac
+        i=$((i + 1))
+    done
+    printf '%s' "$p"
+}
+
+known_dispatch() {
+    case "$1" in
+        bundle|bundler|uv|poetry|pipenv|pdm|rye|hatch|conda|mamba|micromamba|npx|bunx|pnpx|npm|pnpm|yarn) return 0 ;;
+        python|python2*|python3*|pypy*|ruby|jruby|truffleruby|perl|perl5*|php|php[0-9]*|node|nodejs|bun|deno) return 0 ;;
+    esac
+    return 1
+}
+
+is_launcher() {
+    local b="${1##*/}"
+    case "$LAUNCHERS" in *" $b "*) return 0 ;; esac
+    return 1
+}
+
+# inline_flag <program basename> <args...>: prints the option that gives the
+# interpreter inline code (or preloads code), if any, before its script or
+# module.
+inline_flag() {
+    local b="$1" w ch i inl="" argch="" skipnext=0
+    shift
+    case "$b" in
+        python|python2*|python3*|pypy*) inl="c"; argch="WXm" ;;
+        ruby|jruby|truffleruby) inl="er"; argch="ICxEFKTW0i" ;;
+        perl|perl5*) inl="eEMm"; argch="ICil0x" ;;
+        php|php[0-9]*) inl="rBREF"; argch="dcztf" ;;
+        node|nodejs|bun)
+            for w in "$@"; do
+                case "$w" in
+                    -e|-p|-pe|-r|-i|--eval|--eval=*|--print|--print=*|--require|--require=*|--import|--import=*|--loader|--loader=*|--experimental-loader*)
+                        printf '%s' "$w"; return ;;
+                    --) return ;;
+                    -*) ;;
+                    *) return ;;
+                esac
+            done
+            return ;;
+        deno) [ "${1:-}" = eval ] && printf 'eval'; return ;;
+        *) return ;;
+    esac
+    for w in "$@"; do
+        if [ $skipnext = 1 ]; then skipnext=0; continue; fi
+        case "$w" in
+            --) return ;;
+            --*) continue ;;
+            -?*) ;;
+            *) return ;;
+        esac
+        i=1
+        while [ $i -lt ${#w} ]; do
+            ch="${w:i:1}"
+            case "$inl" in *"$ch"*) printf -- '-%s' "$ch"; return ;; esac
+            case "$argch" in
+                *"$ch"*)
+                    [ "$ch" = m ] && [ "$b" != perl ] && return
+                    [ $((i + 1)) -ge ${#w} ] && skipnext=1
+                    break ;;
+            esac
+            i=$((i + 1))
+        done
+    done
+}
+
+# launcher_problem <dir>: on the parsed ARGV. Sets LAUNCH_ERR, returns 1.
+launcher_problem() {
+    local dir="$1" idx=0 prog res b sub n=${#ARGV[@]} j f
+    LAUNCH_ERR=""
+    while [ $idx -lt $n ]; do
+        prog="${ARGV[$idx]}"
+        res="$(resolve_prog "$prog" "$dir")"
+        if is_launcher "$prog" || { [ -n "$res" ] && is_launcher "$res"; }; then
+            LAUNCH_ERR="test command refused: ${prog##*/} is a shell or launcher; name the test runner itself"
+            return 1
+        fi
+        # Dispatch on the program it resolves to (a renamed or symlinked
+        # wrapper is still that wrapper), else on the name as written.
+        b="${prog##*/}"
+        [ -n "$res" ] && known_dispatch "${res##*/}" && b="${res##*/}"
+        sub="${ARGV[$((idx + 1))]:-}"
+        case "$b" in
+            bundle|bundler)
+                [ "$sub" = exec ] || break; idx=$((idx + 2)) ;;
+            uv|poetry|pipenv|pdm|rye|hatch|conda|mamba|micromamba)
+                [ "$sub" = run ] || break; idx=$((idx + 2)) ;;
+            npx|bunx|pnpx)
+                idx=$((idx + 1)) ;;
+            npm|pnpm|yarn)
+                case "$sub" in
+                    exec|dlx|x) idx=$((idx + 2)) ;;
+                    node)
+                        # yarn node / pnpm node: node with the rest.
+                        f="$(inline_flag node "${ARGV[@]:$((idx + 2))}")"
+                        if [ -n "$f" ]; then
+                            LAUNCH_ERR="test command refused: $b node is given inline code or preloaded code ($f); run a test file or module instead"
+                            return 1
+                        fi
+                        break ;;
+                    *) break ;;
+                esac ;;
+            *)
+                # The name as written, then the program it resolves to (a
+                # symlink named "tests" pointing at python is still python).
+                f="$(inline_flag "$b" "${ARGV[@]:$((idx + 1))}")"
+                [ -z "$f" ] && [ -n "$res" ] && f="$(inline_flag "${res##*/}" "${ARGV[@]:$((idx + 1))}")"
+                if [ -n "$f" ]; then
+                    LAUNCH_ERR="test command refused: ${prog##*/} is given inline code or preloaded code ($f); run a test file or module instead"
+                    return 1
+                fi
+                break ;;
+        esac
+        # Options of the launcher before the program it runs.
+        while [ $idx -lt $n ]; do
+            j="${ARGV[$idx]}"
+            case "$j" in
+                -c|--call|--call=*)
+                    LAUNCH_ERR="test command refused: $b $j is a launcher running a command line; name the test runner itself"
+                    return 1 ;;
+                -n|--name|-p|--prefix|--with|--python|-e|--env|--package) idx=$((idx + 2)) ;;
+                -*) idx=$((idx + 1)) ;;
+                *) break ;;
+            esac
+        done
+    done
+    return 0
+}
+
+# ---------------------------------------------------------------- env
+env_key_denied() {
+    case "$1" in
+        PATH|BASH_ENV|ENV|HOME|SHELL|IFS|CDPATH|LD_*|DYLD_*|PYTHON*|PYTEST_*|NODE_*|RUBY*|GEM_*|BUNDLE_*|GO*|PERL*|GIT_*|WB_DEFECT_*|UV_NO_SYNC|UV_FROZEN|UV_PROJECT_ENVIRONMENT)
+            return 0 ;;
+    esac
+    return 1
+}
+
+# env_problem <env lines>: why the profile env is unacceptable, or nothing.
+env_problem() {
+    local line kv k
+    set -f
+    while IFS= read -r line; do
+        for kv in $line; do
+            case "$kv" in
+                [A-Za-z_]*=*) ;;
+                *) set +f; echo "not KEY=value: $kv"; return ;;
+            esac
+            k="${kv%%=*}"
+            case "$k" in *[!A-Za-z0-9_]*) set +f; echo "bad variable name: $k"; return ;; esac
+            if env_key_denied "$k"; then set +f; echo "$k may not be set from the profile"; return; fi
+            case "$kv" in *[[:cntrl:]]*) set +f; echo "control character in $k"; return ;; esac
+        done
+    done <<EOF
+$1
+EOF
+    set +f
+}
+
+apply_env() {
+    local line kv
+    set -f
+    while IFS= read -r line; do
+        for kv in $line; do
+            export "${kv%%=*}=${kv#*=}"
+        done
+    done <<EOF
+$1
+EOF
+    set +f
+}
+
+# ---------------------------------------------------------------- state
+D=""
+MARKER=""
+# sset: atomic (write a temporary file, then rename it into place).
+sset() { printf '%s' "$2" > "$D/state/.$1.tmp.$$" && mv -f "$D/state/.$1.tmp.$$" "$D/state/$1"; }
+sget() { [ -f "$D/state/$1" ] && [ ! -L "$D/state/$1" ] && cat "$D/state/$1"; }
+
+# state_dir_ok: an existing state directory is usable only when it is a real
+# directory under the per-user base, ours, mode 700, with our marker.
+state_dir_ok() {
+    local base want got line
+    if [ -L "$D" ]; then add_error "$D is a symlink; refusing to use it"; return 1; fi
+    if [ ! -d "$D" ]; then add_error "no setup for id $ID; run wb-plant-defect setup first"; return 1; fi
+    if ! private_dir "$D"; then
+        add_error "$D is not a private directory of the current user (owner and mode 700); refusing to use it"
+        return 1
+    fi
+    base="$(cd "$TMP_BASE" && pwd -P)"
+    want="$base/wb-defect-$ID"
+    got="$(cd "$D" && pwd -P)"
+    if [ "$got" != "$want" ]; then add_error "$D resolves outside $base; refusing to use it"; return 1; fi
+    line=""
+    [ -f "$MARKER" ] && [ ! -L "$MARKER" ] && IFS= read -r line < "$MARKER"
+    case "$line" in
+        "wb-defect $ID "*) is_hex "${line#"wb-defect $ID "}" && return 0 ;;
+    esac
+    add_error "$D was not created by wb-plant-defect setup (no marker); refusing to use it"
+    return 1
+}
+
+# Our worktree path is always exactly $D/wt; never read from state.
+wt_path() { printf '%s/wt' "$D"; }
+wt_ok() {
+    local wt
+    wt="$(wt_path)"
+    [ -d "$wt" ] && [ ! -L "$wt" ] || return 1
+    [ "$(cd "$wt" && pwd -P)" = "$(cd "$D" && pwd -P)/wt" ]
+}
+
+# ---------------------------------------------------------------- profile
+# The "Defect sandbox" section of .claude/wb/testing.md (a heading of any
+# level): "key: value" lines until the next heading.
+P_STRATEGY="" P_TEST_CMD="" P_CWD="" P_DEPS="" P_BUILDS="" P_SETUP="" P_LOCK="" P_ENV=""
+read_profile() {
+    local file="$REPO/.claude/wb/testing.md" in=0 line key val lower fence=0
+    [ -f "$file" ] && [ ! -L "$file" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%$'\r'}"
+        case "$line" in
+            '```'*) fence=$((1 - fence)); continue ;;
+        esac
+        [ $fence = 1 ] && continue
+        case "$line" in
+            '#'*)
+                case "$(printf '%s' "$line" | sed 's/^#*//')" in [[:space:]]*) ;; *) continue ;; esac
+                lower="$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]' | sed -e 's/^#*[[:space:]]*//' -e 's/[[:space:]#]*$//')"
+                if [ "$lower" = "defect sandbox" ]; then in=1; else in=0; fi
+                continue ;;
+        esac
+        [ $in = 1 ] || continue
+        line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*[-*+][[:space:]]*//' -e 's/^[[:space:]]*//')"
+        case "$line" in *:*) ;; *) continue ;; esac
+        key="$(printf '%s' "${line%%:*}" | tr -d '*_`' | tr '[:upper:]' '[:lower:]' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        val="$(printf '%s' "${line#*:}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        case "$val" in '`'*'`') val="${val#\`}"; val="${val%\`}" ;; esac
+        case "$key" in
+            strategy)               P_STRATEGY="$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')" ;;
+            "test command")         P_TEST_CMD="$val" ;;
+            "test directory"|cwd)   P_CWD="$val" ;;
+            "dependency dirs")      P_DEPS="$(printf '%s' "$val" | tr ',' ' ')" ;;
+            "build output dirs")    P_BUILDS="$(printf '%s' "$val" | tr ',' ' ')" ;;
+            "setup command")        P_SETUP="$P_SETUP$val"$'\n' ;;
+            lockfile|lockfiles)     P_LOCK="$(printf '%s' "$val" | tr ',' ' ')" ;;
+            env)                    P_ENV="$P_ENV$val"$'\n' ;;
+        esac
+    done < "$file"
+}
+
+# ---------------------------------------------------------------- detection
+# Last resort, when the profile names no test command: fixed argv per
+# ecosystem, from marker files in the command's directory.
+detect() {
+    local dir="$1" py pj
+    DET_CMD="" DET_LANG=""
+    if [ -f "$dir/go.mod" ] && command -v go >/dev/null 2>&1; then
+        DET_CMD='go test {test_dirs}'; DET_LANG=go; return
+    fi
+    if [ -f "$dir/pyproject.toml" ] || [ -f "$dir/setup.cfg" ] || [ -f "$dir/setup.py" ] ||
+       [ -f "$dir/pytest.ini" ] || [ -f "$dir/tox.ini" ] || [ -f "$dir/conftest.py" ]; then
+        for py in "$dir/.venv/bin/python" "$dir/venv/bin/python" python3 python; do
+            if { [ -x "$py" ] || command -v "$py" >/dev/null 2>&1; } && "$py" -c 'import pytest' >/dev/null 2>&1; then
+                DET_CMD="$(shq "$py") -m pytest -q {tests}"; DET_LANG=python; return
+            fi
+        done
+    fi
+    if command -v ruby >/dev/null 2>&1 && { [ -f "$dir/Gemfile" ] || [ -f "$dir/.rspec" ] ||
+       ls "$dir"/test/*_test.rb >/dev/null 2>&1 || ls "$dir"/spec/*_spec.rb >/dev/null 2>&1; }; then
+        local bx=""
+        [ -f "$dir/Gemfile" ] && bx="bundle exec "
+        if [ -f "$dir/.rspec" ] || [ -d "$dir/spec" ]; then
+            DET_CMD="${bx}rspec {tests}"
+        else
+            DET_CMD="${bx}ruby -Ilib -Itest {tests}"
+        fi
+        DET_LANG=ruby; return
+    fi
+    if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1; then
+        pj="$(cat "$dir/package.json")"
+        case "$pj" in
+            *'"vitest"'*) DET_CMD='npx vitest run {tests}' ;;
+            *'"jest"'*)   DET_CMD='npx jest {tests}' ;;
+            *'"mocha"'*)  DET_CMD='npx mocha {tests}' ;;
+            *)            DET_CMD='node --test {tests}' ;;
+        esac
+        DET_LANG=node; return
+    fi
+}
+
+# ---------------------------------------------------------------- swap adapters
+choose_adapter() {
+    local cmd="$1" dir="$2"
+    ADAPTER=""
+    case "$cmd" in
+        *pytest*)
+            ADAPTER=python ;;
+        *"go test"*)
+            ADAPTER=go ;;
+        *ruby*|*rspec*|*rake*|*rails*)
+            if [ -f "$dir/config/application.rb" ] || grep -qs 'zeitwerk' "$dir/Gemfile.lock"; then
+                add_snote "ruby adapter skipped: Rails/Zeitwerk autoloading can load the file outside the hook"
+            elif grep -qs 'bootsnap' "$dir/Gemfile.lock"; then
+                add_snote "ruby adapter skipped: bootsnap replaces the load hook"
+            else
+                ADAPTER=ruby
+            fi ;;
+        *jest*|*vitest*)
+            add_snote "node adapter skipped: jest and vitest load modules through their own runtime, not Node's loader" ;;
+        *ts-node*|*tsx\ *|*--loader*|*--experimental-strip-types*|*swc*|*babel*)
+            add_snote "node adapter skipped: the command transpiles sources, and the hook serves untranspiled text" ;;
+        node\ *|*" node "*|*mocha*)
+            if [ -f "$dir/.pnp.cjs" ] || [ -f "$dir/.pnp.js" ] || [ -f "$REPO/.pnp.cjs" ] || [ -f "$REPO/.pnp.js" ]; then
+                add_snote "node adapter skipped: Yarn Plug'n'Play resolves modules outside Node's loader"
+            else
+                ADAPTER=node
+            fi ;;
+    esac
+    [ -n "$ADAPTER" ] || [ -n "$SNOTES" ] || add_snote "no swap adapter matches the test command; using the generic worktree path"
+}
+
+swappable() {
+    case "$1:$2" in
+        python:*.py|ruby:*.rb|go:*.go|node:*.js|node:*.cjs|node:*.mjs) return 0 ;;
+    esac
+    return 1
+}
+
+write_hooks() {
+    local sw="$D/swap"
+    mkdir -p "$sw"
+    cat > "$sw/wb_defect_swap.py" <<'PY'
+"""wb-plant-defect swap adapter for pytest (loaded through PYTEST_PLUGINS).
+
+Whatever finder locates a module, if its file resolves to WB_DEFECT_TARGET
+the module is compiled from WB_DEFECT_SOURCE instead, with the original path
+as its filename. No bytecode is read or written for that module.
+"""
+import os
+import sys
+import importlib.machinery as _machinery
+
+_TARGET = os.environ.get("WB_DEFECT_TARGET") or ""
+_SOURCE = os.environ.get("WB_DEFECT_SOURCE") or ""
+
+
+def _real(path):
+    try:
+        return os.path.realpath(path)
+    except Exception:
+        return path
+
+
+if _TARGET and _SOURCE:
+    _TARGET = _real(_TARGET)
+
+    class _Loader(_machinery.SourceFileLoader):
+        def _mutated(self):
+            with open(_SOURCE, "rb") as handle:
+                return handle.read()
+
+        def get_code(self, fullname):
+            return self.source_to_code(self._mutated(), self.path)
+
+        def get_source(self, fullname):
+            import importlib.util
+            return importlib.util.decode_source(self._mutated())
+
+        def set_data(self, *args, **kwargs):
+            return None
+
+    class _Finder(object):
+        _busy = False
+
+        def find_spec(self, fullname, path=None, target=None):
+            if _Finder._busy:
+                return None
+            _Finder._busy = True
+            try:
+                spec = None
+                for finder in list(sys.meta_path):
+                    if finder is self:
+                        continue
+                    find = getattr(finder, "find_spec", None)
+                    if find is None:
+                        continue
+                    spec = find(fullname, path, target)
+                    if spec is not None:
+                        break
+                if spec is None:
+                    return None
+                origin = getattr(spec, "origin", None)
+                if origin and getattr(spec, "has_location", False) and _real(origin) == _TARGET:
+                    spec.loader = _Loader(fullname, origin)
+                    spec.cached = None
+                return spec
+            finally:
+                _Finder._busy = False
+
+        def invalidate_caches(self):
+            pass
+
+    sys.meta_path.insert(0, _Finder())
+PY
+    cat > "$sw/wb-defect-swap.cjs" <<'JS'
+'use strict';
+// wb-plant-defect swap adapter for Node: serve a mutated copy of one source file
+// when it is loaded (require or import). Preloaded with NODE_OPTIONS=--require.
+const fs = require('fs');
+const path = require('path');
+const Module = require('module');
+const url = require('url');
+const TARGET_RAW = process.env.WB_DEFECT_TARGET || '';
+const SOURCE = process.env.WB_DEFECT_SOURCE || '';
+if (TARGET_RAW && SOURCE && !globalThis.__wbDefectSwap) {
+  globalThis.__wbDefectSwap = true;
+  const real = (p) => { try { return fs.realpathSync(p); } catch (e) { return p; } };
+  const TARGET = real(TARGET_RAW);
+  const isTargetUrl = (u) => {
+    if (typeof u !== 'string' || !u.startsWith('file:')) return false;
+    try { return real(url.fileURLToPath(u)) === TARGET; } catch (e) { return false; }
+  };
+  if (typeof Module.registerHooks === 'function') {
+    Module.registerHooks({
+      load(u, context, nextLoad) {
+        const result = nextLoad(u, context);
+        if (isTargetUrl(u)) return { ...result, source: fs.readFileSync(SOURCE, 'utf8'), shortCircuit: true };
+        return result;
+      },
+    });
+  } else {
+    for (const ext of ['.js', '.cjs']) {
+      const original = Module._extensions[ext] || Module._extensions['.js'];
+      Module._extensions[ext] = function (module, filename) {
+        if (real(filename) === TARGET) return module._compile(fs.readFileSync(SOURCE, 'utf8'), filename);
+        return original(module, filename);
+      };
+    }
+    if (typeof Module.register === 'function') {
+      Module.register(url.pathToFileURL(path.join(__dirname, 'wb-defect-loader.mjs')).href);
+    }
+  }
+}
+JS
+    cat > "$sw/wb-defect-loader.mjs" <<'JS'
+// wb-plant-defect ESM loader, for Node versions without module.registerHooks.
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const real = (p) => { try { return fs.realpathSync(p); } catch (e) { return p; } };
+const TARGET = real(process.env.WB_DEFECT_TARGET || '');
+const SOURCE = process.env.WB_DEFECT_SOURCE || '';
+export async function load(u, context, nextLoad) {
+  const result = await nextLoad(u, context);
+  if (SOURCE && u.startsWith('file:') && result.format === 'module' && real(fileURLToPath(u)) === TARGET) {
+    return { ...result, source: fs.readFileSync(SOURCE, 'utf8'), shortCircuit: true };
+  }
+  return result;
+}
+JS
+    cat > "$sw/wb_defect_swap.rb" <<'RB'
+# wb-plant-defect swap adapter for Ruby: when WB_DEFECT_TARGET is loaded
+# (require, require_relative, load), compile WB_DEFECT_SOURCE in its place,
+# keeping the original path as __FILE__. Preloaded with RUBYOPT=-r.
+target_raw = ENV["WB_DEFECT_TARGET"].to_s
+source = ENV["WB_DEFECT_SOURCE"].to_s
+if !target_raw.empty? && !source.empty? && defined?(RubyVM::InstructionSequence)
+  module WbDefectSwap
+    def load_iseq(path)
+      real = (File.realpath(path) rescue path)
+      if real == WbDefectSwap::TARGET
+        return RubyVM::InstructionSequence.compile(File.read(WbDefectSwap::SOURCE), path, path)
+      end
+      defined?(super) ? super : nil
+    end
+  end
+  WbDefectSwap.const_set(:TARGET, (File.realpath(target_raw) rescue target_raw))
+  WbDefectSwap.const_set(:SOURCE, source)
+  RubyVM::InstructionSequence.singleton_class.prepend(WbDefectSwap)
+end
+RB
+}
+
+swap_env() {
+    local adapter="$1" target="$2" source="$3" sw="$D/swap"
+    export WB_DEFECT_TARGET="$target" WB_DEFECT_SOURCE="$source"
+    case "$adapter" in
+        python)
+            export PYTHONPATH="$sw${PYTHONPATH:+:$PYTHONPATH}"
+            export PYTEST_PLUGINS="wb_defect_swap" ;;
+        node)
+            export NODE_OPTIONS="--require $sw/wb-defect-swap.cjs" ;;
+        ruby)
+            export RUBYOPT="-r$sw/wb_defect_swap.rb" ;;
+        go)
+            if [ -n "$target" ]; then
+                printf '{"Replace":{%s:%s}}\n' "$(json_str "$target")" "$(json_str "$source")" > "$sw/overlay.json"
+                export GOFLAGS="-overlay=$sw/overlay.json"
+            fi ;;
+    esac
+}
+
+# ---------------------------------------------------------------- copies
+# fill_copy <dir>: write the files of the commit (or of the working tree, for
+# --working-tree) into dir without any checkout filter, hook, or diff driver.
+fill_copy() {
+    local dir="$1" sha mode f src dst
+    sha="$(sget sha)"
+    mode="$(sget mode)"
+    if [ "$mode" = working-tree ]; then
+        # Name by name from git's NUL-separated list: no tar, no option
+        # parsing of names (every path is absolute or after --), and a name
+        # with a control character is refused.
+        while IFS= read -r -d '' f; do
+            case "$f" in
+                *[[:cntrl:]]*)
+                    add_error "a working-tree path has a control character; refusing to copy it: $f"
+                    return 1 ;;
+            esac
+            src="$REPO/$f"
+            dst="$dir/$f"
+            [ -e "$src" ] || [ -L "$src" ] || continue
+            [ -e "$dst" ] || [ -L "$dst" ] && continue
+            case "$f" in */*) mkdir -p -- "$dir/${f%/*}" ;; esac
+            if [ -L "$src" ]; then
+                ln -s -- "$(readlink -- "$src")" "$dst" || { add_error "could not copy $f"; return 1; }
+            elif [ -f "$src" ]; then
+                command cp -p -- "$src" "$dst" || { add_error "could not copy $f"; return 1; }
+            fi
+        done < <(g -C "$REPO" ls-files -z --cached --others --exclude-standard 2>/dev/null)
+    else
+        # A throwaway index of the commit, checked out under the copy. Not
+        # git archive: it reads attributes from the archived tree and runs
+        # their smudge filters. Drivers are neutralized and, where git
+        # supports it, attributes come from the empty tree.
+        local idx="$D/fill.index"
+        rm -f "$idx"
+        if ! GIT_INDEX_FILE="$idx" g -C "$REPO" read-tree "$sha" 2>"$D/fill.err" ||
+           ! GIT_INDEX_FILE="$idx" g -C "$REPO" -c core.autocrlf=false checkout-index -a -f --prefix="$dir/" 2>>"$D/fill.err"; then
+            add_error "could not export $sha: $(tail_text "$D/fill.err")"
+            rm -f "$idx"
+            return 1
+        fi
+        rm -f "$idx"
+    fi
+    return 0
+}
+
+# main_worktree: the main worktree's top level when REPO is a linked
+# worktree (the parent of git rev-parse --git-common-dir), else nothing.
+# dev_ino <path>: device and inode, to compare two spellings of a path.
+dev_ino() { stat -f '%d:%i' "$1" 2>/dev/null || stat -c '%d:%i' "$1" 2>/dev/null; }
+
+main_worktree() {
+    local common m listed list
+    common="$(g -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    case "$common" in */.git) m="${common%/.git}" ;; *) return 0 ;; esac
+    [ -n "$m" ] && [ "$m" != "$REPO" ] && [ -d "$m" ] && [ ! -L "$m" ] && [ -O "$m" ] || return 0
+    # Only when git itself lists that directory as the main worktree of this
+    # common dir (the first entry, and not a bare repository).
+    list="$(g -C "$REPO" worktree list --porcelain 2>/dev/null)"
+    listed="$(printf '%s\n' "$list" | sed -n '1s/^worktree //p')"
+    [ -n "$listed" ] || return 0
+    printf '%s\n' "$list" | awk 'NR > 1 && /^$/ { exit } NR > 1 && $0 == "bare" { found = 1 } END { exit !found }' && return 0
+    [ -n "$(dev_ino "$listed")" ] && [ "$(dev_ino "$listed")" = "$(dev_ino "$m")" ] || return 0
+    [ -n "$(dev_ino "$common")" ] && [ "$(dev_ino "$listed/.git")" = "$(dev_ino "$common")" ] || return 0
+    printf '%s' "$m"
+}
+
+link_deps() {
+    local dir="$1" dep cwd sub p src main
+    cwd="$(sget cwd)"
+    main="$(main_worktree)"
+    for dep in $(sget deps); do
+        for sub in "" ${cwd:+"$cwd/"}; do
+            p="$sub$dep"
+            src="$REPO"
+            if [ ! -e "$REPO/$p" ]; then
+                # A linked worktree often has no dependencies of its own
+                # (vendor/bundle, node_modules): use the main worktree's.
+                [ -n "$main" ] && [ -e "$main/$p" ] || continue
+                src="$main"
+            fi
+            [ -e "$dir/$p" ] || [ -L "$dir/$p" ] && continue
+            if ! contained "$src" "$p" || ! contained "$dir" "$p" || [ ! -O "$src/$p" ]; then
+                add_note "not linking $p: it passes through a symlink, leaves the tree, or is not owned by the current user"
+                continue
+            fi
+            mkdir -p "$dir/$(dirname "$p")"
+            if [ "$src" = "$REPO" ]; then
+                ln -s "$REPO/$p" "$dir/$p" && add_note "linked $p"
+            else
+                ln -s "$src/$p" "$dir/$p" && add_note "linked $p from the main worktree ($src)"
+            fi
+        done
+    done
+}
+
+# copy_builds <dir>: gitignored build output present in the source tree
+# (app/assets/builds and similar) is COPIED into the disposable tree (never
+# linked, so a test cannot write through to the real checkout): the whole
+# directory when git ignores it, or its ignored entries when the directory
+# itself is tracked (such as one holding a .keep file). Over the size cap
+# (200 MiB; WB_DEFECT_BUILD_CAP_KB may only lower it) nothing is copied.
+BUILD_DIRS="app/assets/builds public/packs public/packs-test public/assets public/vite public/vite-dev public/vite-test"
+build_cap_kb() {
+    local cap=204800
+    case "${WB_DEFECT_BUILD_CAP_KB:-}" in ""|*[!0-9]*) ;; *) [ "$WB_DEFECT_BUILD_CAP_KB" -lt "$cap" ] && cap="$WB_DEFECT_BUILD_CAP_KB" ;; esac
+    printf '%s' "$cap"
+}
+kb_of() { du -skP "$@" 2>/dev/null | awk '{ t += $1 } END { print t + 0 }'; }
+copy_builds() {
+    local dir="$1" b src e name entries kb cap
+    cap="$(build_cap_kb)"
+    for b in $(sget builds); do
+        src="$REPO/$b"
+        [ -d "$src" ] && [ ! -L "$src" ] && [ -O "$src" ] && contained "$REPO" "$b" || continue
+        if [ ! -e "$dir/$b" ] && [ ! -L "$dir/$b" ]; then
+            g -C "$REPO" check-ignore -q -- "$b" 2>/dev/null || continue
+            contained "$dir" "$b" || continue
+            kb="$(kb_of "$src")"
+            if [ "$kb" -gt "$cap" ]; then
+                add_note "build output $b not copied: ${kb} KiB is over the ${cap} KiB cap"
+                continue
+            fi
+            mkdir -p "$dir/$(dirname "$b")"
+            command cp -pRP "$src" "$dir/$b" && add_note "copied gitignored build output $b"
+        elif [ -d "$dir/$b" ] && [ ! -L "$dir/$b" ] && contained "$dir" "$b"; then
+            entries=()
+            for e in "$src"/* "$src"/.[!.]*; do
+                [ -e "$e" ] || [ -L "$e" ] || continue
+                name="${e##*/}"
+                [ -e "$dir/$b/$name" ] || [ -L "$dir/$b/$name" ] && continue
+                [ ! -L "$e" ] && [ -O "$e" ] || continue
+                g -C "$REPO" check-ignore -q -- "$b/$name" 2>/dev/null || continue
+                entries[${#entries[@]}]="$e"
+            done
+            [ ${#entries[@]} -gt 0 ] || continue
+            kb="$(kb_of "${entries[@]}")"
+            if [ "$kb" -gt "$cap" ]; then
+                add_note "build output in $b not copied: ${kb} KiB is over the ${cap} KiB cap"
+                continue
+            fi
+            command cp -pRP "${entries[@]}" "$dir/$b/" && add_note "copied gitignored build output in $b"
+        fi
+    done
+}
+
+create_worktree() {
+    local wt sha
+    wt="$(wt_path)"
+    sha="$(sget sha)"
+    if [ -z "$sha" ]; then
+        add_error "no commit to check out for a worktree (the repository has no HEAD)"
+        return 1
+    fi
+    if ! g -C "$REPO" worktree add --quiet --no-checkout --detach "$wt" "$sha" >"$D/wt.err" 2>&1; then
+        add_error "git worktree add failed: $(tail_text "$D/wt.err")"
+        return 1
+    fi
+    wt_ok || { add_error "worktree path check failed for $wt"; return 1; }
+    fill_copy "$wt" || return 1
+    link_deps "$wt"
+    copy_builds "$wt"
+    sset has_worktree 1
+    return 0
+}
+
+use_worktree() {
+    if [ "$(sget has_worktree)" != 1 ] || ! wt_ok; then
+        create_worktree || return 1
+    fi
+    sset root "$(wt_path)"
+    sset strategy worktree
+    sset adapter ""
+    rm -f "$D/state/control-"*
+    STRATEGY=worktree
+    ADAPTER=""
+    add_snote "fell back to a worktree: $1"
+    return 0
+}
+
+# ---------------------------------------------------------------- sandbox
+ensure_private() {
+    if [ -L "$1" ]; then add_error "$1 is a symlink; refusing to use it"; return 1; fi
+    [ -d "$1" ] || mkdir -m 700 "$1" 2>/dev/null
+    private_dir "$1" || { add_error "$1 is not a private directory of the current user (mode 700)"; return 1; }
+}
+
+lock_line() { local l=""; [ -f "$1/owner" ] && [ ! -L "$1/owner" ] && IFS= read -r l < "$1/owner"; printf '%s' "$l"; }
+
+# remove_validated <lock dir> <exact|prefix> <owner record> <what>: rename the
+# lock aside, then check the owner record INSIDE the renamed directory (the
+# exact record judged stale, or the "id nonce " prefix of our own). Only a
+# directory that matches is deleted; anything else is put back when the path
+# is free, or left aside, and reported.
+remove_validated() {
+    local lock="$1" mode="$2" want="$3" what="$4" aside got ok=""
+    aside="$lock.aside.$(nonce)"
+    mv "$lock" "$aside" 2>/dev/null || return 1
+    got="$(lock_line "$aside")"
+    case "$mode" in
+        exact)  [ "$got" = "$want" ] && ok=1 ;;
+        prefix) case "$got" in "$want"*) ok=1 ;; esac ;;
+    esac
+    if [ -n "$ok" ]; then
+        rm -rf "$aside"
+        return 0
+    fi
+    if [ ! -e "$lock" ] && [ ! -L "$lock" ] && mv "$aside" "$lock" 2>/dev/null; then
+        add_error "the $what lock changed owner while being ${mode/exact/reclaimed}; left in place ($lock)"
+    else
+        add_error "the $what lock changed owner while being ${mode/exact/reclaimed}; left aside at $aside"
+    fi
+    return 1
+}
+
+# pid_exists <pid>: the process exists (any owner): kill -0, or ps -p for a
+# process signals cannot reach.
+pid_exists() {
+    kill -0 "$1" 2>/dev/null && return 0
+    ps -p "$1" >/dev/null 2>&1
+}
+
+# SB_LOCK / SB_LOCK_NONCE: the sandbox lock this process holds, so an
+# interrupted setup releases it (on_exit). Cleared once setup keeps it for
+# the session (teardown releases it then) or releases it on purpose.
+SB_LOCK=""
+SB_LOCK_NONCE=""
+
+acquire_lock() {
+    local lock="$1" waited=0 line oid aside n
+    while :; do
+        if mkdir -m 700 "$lock" 2>/dev/null; then
+            n="$(nonce)"
+            if ! { printf '%s %s %s\n' "$ID" "$n" "$$" > "$lock/owner.$n" && mv -f "$lock/owner.$n" "$lock/owner"; }; then
+                rm -f "$lock/owner.$n"; rmdir "$lock" 2>/dev/null
+                add_error "could not record the sandbox lock's owner ($lock)"
+                return 1
+            fi
+            SB_LOCK="$lock" SB_LOCK_NONCE="$n"
+            sset lock_nonce "$n"
+            return 0
+        fi
+        line="$(lock_line "$lock")"
+        oid="${line%% *}"
+        if { [ -n "$line" ] && valid_id "$oid" && [ ! -d "$TMP_BASE/wb-defect-$oid" ]; } ||
+           [ -n "$(find "$lock" -maxdepth 0 -mmin +"$LOCK_STALE_MIN" 2>/dev/null)" ]; then
+            if remove_validated "$lock" exact "$line" sandbox; then
+                add_note "took over a stale sandbox lock from ${oid:-an unknown owner}"
+            fi
+            continue
+        fi
+        if [ "$waited" -ge "$LOCK_WAIT" ]; then
+            add_error "sandbox lock held by ${oid:-another run} ($lock); waited ${LOCK_WAIT}s"
+            return 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+}
+
+# release_lock <lock> [<nonce>]: ours only (nonce from this process, else
+# from state), validated inside the renamed directory.
+release_lock() {
+    local lock="$1" mine="${2:-}" line
+    [ -n "$mine" ] || mine="$(sget lock_nonce)"
+    is_hex "$mine" || return 0
+    line="$(lock_line "$lock")"
+    case "$line" in
+        "$ID $mine "*) remove_validated "$lock" prefix "$ID $mine " sandbox ;;
+    esac
+    if [ "$lock" = "$SB_LOCK" ]; then SB_LOCK="" SB_LOCK_NONCE=""; fi
+}
+
+# ---------------------------------------------------------------- per-id gate
+# One call at a time per id: setup, baseline, run, and teardown take the gate
+# before they look at or create the state directory, in the fixed order
+# gate -> sandbox lock (setup only), so no call waits for the gate while
+# holding the sandbox lock. The gate is a sibling of the state directory.
+GATE=""
+GATE_NONCE=""
+LOCK_WAIT_GATE=15
+
+# proc_start <pid>: the process's start time, its identity across pid reuse.
+proc_start() { LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed -e 's/^ *//' -e 's/ *$//'; }
+mtime_of() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+
+# lock_age <dir>: seconds since the directory was last changed (0 if unknown).
+lock_age() {
+    local m
+    m="$(mtime_of "$1")"
+    case "$m" in ""|*[!0-9]*) m="$(date +%s)" ;; esac
+    printf '%s' $(( $(date +%s) - m ))
+}
+
+gate_acquire() {
+    local ticks=0 max=$((LOCK_WAIT_GATE * 5)) line rest opid="" ostart cur n age stale me bad
+    while :; do
+        if [ -L "$GATE" ]; then add_error "$GATE is a symlink; refusing to use it"; return 1; fi
+        if mkdir -m 700 "$GATE" 2>/dev/null; then
+            n="$(nonce)"
+            me="$(proc_start $$)"
+            # The owner record must be complete before the gate counts as ours.
+            if [ -z "$me" ] ||
+               ! { printf '%s %s %s %s\n' "$ID" "$n" "$$" "$me" > "$GATE/owner.$n" && mv -f "$GATE/owner.$n" "$GATE/owner"; }; then
+                rm -f "$GATE/owner.$n" "$GATE/owner"
+                rmdir "$GATE" 2>/dev/null
+                add_error "could not record the owner of the gate lock for id $ID ($GATE)"
+                return 1
+            fi
+            GATE_NONCE="$n"
+            return 0
+        fi
+        if [ -e "$GATE" ] && ! private_dir "$GATE"; then
+            # Released (renamed aside) while we looked: try again.
+            if [ ! -e "$GATE" ] && [ ! -L "$GATE" ]; then continue; fi
+            add_error "$GATE is not a private directory of the current user; refusing to use it"
+            return 1
+        fi
+        line="$(lock_line "$GATE")"
+        stale=""
+        rest="${line#* }"; rest="${rest#* }"
+        opid="${rest%% *}"
+        ostart="${rest#* }"
+        [ "$ostart" = "$rest" ] && ostart=""
+        bad=""
+        case "$opid" in ""|*[!0-9]*) bad=1 ;; esac
+        if [ -z "$line" ] || [ -n "$bad" ] || [ -z "$ostart" ]; then
+            # Ownerless or incomplete record: a lock being created, or one
+            # whose creator died before finishing it. Held while young.
+            age="$(lock_age "$GATE")"
+            [ "$age" -gt 30 ] && stale="no complete owner record for ${age}s"
+        elif ! pid_exists "$opid"; then
+            stale="its owner (pid $opid) has exited"
+        else
+            cur="$(proc_start "$opid")"
+            # A live pid whose identity cannot be read counts as held.
+            if [ -n "$cur" ] && [ "$cur" != "$ostart" ]; then
+                stale="pid $opid now belongs to another process"
+            fi
+        fi
+        if [ -n "$stale" ]; then
+            if remove_validated "$GATE" exact "$line" gate; then
+                add_note "reclaimed the gate lock for id $ID ($stale)"
+            fi
+            [ -n "$ERRORS" ] && return 1
+            continue
+        fi
+        if [ "$ticks" -ge "$max" ]; then
+            add_error "another wb-plant-defect call holds the lock for id $ID (pid ${opid:-unknown}); waited ${LOCK_WAIT_GATE}s (--lock-wait)"
+            return 1
+        fi
+        sleep 0.2
+        ticks=$((ticks + 1))
+    done
+}
+
+# gate_still_ours: checked before a command prints its result, so a gate
+# that changed owner under the call is reported in that result.
+gate_still_ours() {
+    [ -n "$GATE_NONCE" ] || return 0
+    case "$(lock_line "$GATE")" in "$ID $GATE_NONCE "*) return 0 ;; esac
+    add_error "the gate lock for id $ID no longer has this call's owner record; it is left in place"
+    return 1
+}
+
+gate_release() {
+    local line
+    [ -n "$GATE_NONCE" ] || return 0
+    line="$(lock_line "$GATE")"
+    case "$line" in
+        "$ID $GATE_NONCE "*)
+            remove_validated "$GATE" prefix "$ID $GATE_NONCE " gate ;;
+    esac
+    GATE_NONCE=""
+}
+
+# Per-call scratch under the state directory: swap snapshots, mutated and
+# control files, test-file content, and the run log.
+SCR=""
+make_scratch() {
+    SCR="$D/call.$$.$(nonce)"
+    mkdir -m 700 "$SCR" || { SCR=""; add_error "cannot create per-call scratch under $D"; return 1; }
+}
+
+# sandbox_key: the per-repository base. Repository identity (top-level path
+# and root commit), the profile fields that shape the environment, the
+# platform, and the tool versions on PATH.
+sandbox_key() {
+    local t first sha
+    sha="$(sget sha)"
+    first="$(g -C "$REPO" rev-list --max-parents=0 "$sha" 2>/dev/null | tail -n 1)"
+    {
+        printf 'repo=%s\nfirst=%s\n' "$REPO" "$first"
+        printf 'test=%s\ncwd=%s\ndeps=%s\nenv=%s\nlockfiles=%s\n' "$(sget test_cmd)" "$(sget cwd)" "$(sget deps)" "$(sget env)" "$P_LOCK"
+        printf 'platform=%s\n' "$(uname -sm 2>/dev/null)"
+        for t in node python3 ruby; do
+            command -v "$t" >/dev/null 2>&1 && printf '%s=%s\n' "$t" "$("$t" --version 2>&1 | head -n 1)"
+        done
+        command -v go >/dev/null 2>&1 && printf 'go=%s\n' "$(go version 2>&1 | head -n 1)"
+    } | g -C "$REPO" hash-object --stdin
+}
+
+# lock_key: the profile's lockfiles' content, at the commit or in the
+# working tree. Installed dependencies carry over only between copies with
+# the same lock key.
+lock_key() {
+    local lf v sha
+    sha="$(sget sha)"
+    {
+        for lf in $P_LOCK; do
+            if [ "$(sget mode)" = working-tree ]; then
+                v=""
+                [ -f "$REPO/$lf" ] && [ ! -L "$REPO/$lf" ] && v="$(g -C "$REPO" hash-object --no-filters -- "$lf")"
+            else
+                v="$(g -C "$REPO" rev-parse --verify --quiet "$sha:$lf")"
+            fi
+            printf 'lock %s=%s\n' "$lf" "${v:-missing}"
+        done
+    } | g -C "$REPO" hash-object --stdin
+}
+
+# content_key: the exact commit, or a digest of the working-tree files
+# (tracked and untracked, not ignored) for --working-tree.
+content_key() {
+    local f list="$D/digest.paths" links="$D/digest.links" hashes="$D/digest.hashes"
+    if [ "$(sget mode)" != working-tree ]; then
+        printf 'commit %s\n' "$(sget sha)" | g -C "$REPO" hash-object --stdin
+        return
+    fi
+    : > "$list"; : > "$links"
+    while IFS= read -r -d '' f; do
+        case "$f" in *[[:cntrl:]]*) return 1 ;; esac
+        if [ -L "$REPO/$f" ]; then
+            printf '%s -> %s\n' "$f" "$(readlink -- "$REPO/$f")" >> "$links"
+        elif [ -f "$REPO/$f" ]; then
+            printf '%s\n' "$f" >> "$list"
+        fi
+    done < <(g -C "$REPO" ls-files -z --cached --others --exclude-standard 2>/dev/null)
+    (cd "$REPO" && g hash-object --no-filters --stdin-paths < "$list") > "$hashes" 2>/dev/null || return 1
+    { printf 'sha %s\n' "$(sget sha)"; paste -d ' ' "$hashes" "$list"; cat "$links"; } | g -C "$REPO" hash-object --stdin
+}
+
+sandbox_dir() { printf '%s/%s' "$CACHE_BASE" "$1"; }
+copy_dir() { printf '%s/%s/copies/%s' "$CACHE_BASE" "$1" "$2"; }
+
+# remove_copy <copy dir>: a copy under our private base; its worktree goes
+# through git when git lists that exact path.
+remove_copy() {
+    local c="$1" w
+    [ -d "$c" ] && [ ! -L "$c" ] || return 0
+    w="$c/wt"
+    if [ -d "$w" ] && [ ! -L "$w" ]; then
+        w="$(cd "$w" && pwd -P)"
+        if g -C "$REPO" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $w"; then
+            g -C "$REPO" worktree remove --force "$w" >/dev/null 2>&1
+        fi
+    fi
+    rm -rf "$c"
+}
+
+# missing_deps <wt>: the profile's dependency directories that are absent or
+# empty in the copy (at the top or under the test directory).
+missing_deps() {
+    local wt="$1" dep sub found out=""
+    for dep in $(sget deps); do
+        found=""
+        for sub in "" ${P_CWD_N:+"$P_CWD_N/"}; do
+            if [ -d "$wt/$sub$dep" ] && [ ! -L "$wt/$sub$dep" ] && [ -n "$(ls -A "$wt/$sub$dep" 2>/dev/null)" ]; then found=1; fi
+        done
+        [ -n "$found" ] || out="$out ${P_CWD_N:+$P_CWD_N/}$dep"
+    done
+    printf '%s' "${out# }"
+}
+
+NEEDS_SETUP=false
+SETUP_HINT=""
+SANDBOX_COPY=""
+setup_sandbox() {
+    local key sb sha ck lk cdir wt dep sub p keep enc other missing lf
+    sha="$(sget sha)"
+    [ -n "$sha" ] || { add_error "no commit to check out for the sandbox"; return 1; }
+    if [ -n "$(printf '%s' "$P_SETUP" | tr -d '[:space:]')" ]; then
+        add_note "setup command in the profile is ignored: the runner runs no setup commands; install dependencies in the sandbox copy yourself"
+    fi
+    if ! choose_cache create; then
+        add_error "no safe cache directory: XDG_CACHE_HOME and ~/.cache must sit under a real directory owned by the current user, with no symlinked component"
+        return 1
+    fi
+    [ -n "$CACHE_NOTE" ] && add_note "$CACHE_NOTE"
+    ensure_private "$CACHE_BASE" || return 1
+    key="$(sandbox_key)"
+    is_hex "$key" || { add_error "could not compute the sandbox key"; return 1; }
+    sb="$(sandbox_dir "$key")"
+    ensure_private "$sb" || return 1
+    sset sbkey "$key"
+    acquire_lock "$sb/lock" || return 1
+    ensure_private "$sb/copies" || return 1
+    ck="$(content_key)" || { add_error "a working-tree path has a control character; refusing to copy it"; return 1; }
+    lk="$(lock_key)"
+    is_hex "$ck" && is_hex "$lk" || { add_error "could not compute the sandbox content key"; return 1; }
+    cdir="$(copy_dir "$key" "$ck")"
+    wt="$cdir/wt"
+    SANDBOX_COPY="$wt"
+    if [ -L "$cdir" ] || [ -L "$wt" ]; then add_error "$cdir is a symlink; refusing to use it"; return 1; fi
+    if [ -d "$wt" ] && [ -f "$wt/.git" ] && g -C "$wt" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        # The same content again: refill, keeping the dependency directories.
+        keep="$cdir/keep"
+        rm -rf "$keep"; mkdir -m 700 "$keep"
+        for dep in $(sget deps); do
+            for sub in "" ${P_CWD_N:+"$P_CWD_N/"}; do
+                p="$sub$dep"
+                if [ -d "$wt/$p" ] && contained "$wt" "$p"; then
+                    enc="$(printf '%s' "$p" | tr '/' '%')"
+                    mv "$wt/$p" "$keep/$enc"
+                fi
+            done
+        done
+        find "$wt" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+        fill_copy "$wt" || return 1
+        for enc in $(ls -A "$keep"); do
+            p="$(printf '%s' "$enc" | tr '%' '/')"
+            mkdir -p "$wt/$(dirname "$p")"
+            rm -rf "${wt:?}/$p"
+            mv "$keep/$enc" "$wt/$p"
+        done
+        rm -rf "$keep"
+    else
+        rm -rf "$cdir"
+        g -C "$REPO" worktree prune >/dev/null 2>&1
+        mkdir -m 700 "$cdir" || { add_error "cannot create $cdir"; return 1; }
+        if ! g -C "$REPO" worktree add --quiet --no-checkout --detach "$wt" "$sha" >"$D/sb.err" 2>&1; then
+            add_error "could not create the sandbox worktree: $(tail_text "$D/sb.err")"
+            return 1
+        fi
+        fill_copy "$wt" || return 1
+        # Carry installed dependencies over from a copy with the same lockfiles.
+        for other in "$sb/copies"/*; do
+            [ "$other" = "$cdir" ] && continue
+            [ -d "$other/wt" ] && [ ! -L "$other" ] && [ -f "$other/lock-key" ] || continue
+            [ "$(cat "$other/lock-key")" = "$lk" ] || continue
+            for dep in $(sget deps); do
+                for sub in "" ${P_CWD_N:+"$P_CWD_N/"}; do
+                    p="$sub$dep"
+                    if [ -d "$other/wt/$p" ] && contained "$other/wt" "$p" && [ ! -e "$wt/$p" ] && contained "$wt" "$p"; then
+                        mkdir -p "$wt/$(dirname "$p")"
+                        mv "$other/wt/$p" "$wt/$p" && add_note "carried $p over from the previous sandbox copy (same lockfiles)"
+                    fi
+                done
+            done
+        done
+    fi
+    printf '%s' "$lk" > "$cdir/lock-key"
+    # One copy per repository base: older copies go.
+    for other in "$sb/copies"/*; do
+        [ "$other" = "$cdir" ] && continue
+        [ -d "$other" ] && remove_copy "$other"
+    done
+    g -C "$REPO" worktree prune >/dev/null 2>&1
+    sset sbcopy "$ck"
+    missing="$(missing_deps "$wt")"
+    if [ -n "$missing" ]; then
+        NEEDS_SETUP=true
+        lf="${P_LOCK:-no lockfile named in the profile}"
+        SETUP_HINT="Dependencies are not installed in the sandbox copy $wt (missing: $missing; lockfile: $lf). The runner runs no setup commands: install them there yourself, for example with a ! command in Claude Code (! cd '$wt' && <your install command>), then run setup again."
+        add_error "sandbox dependencies are not installed (needs_setup); see setup_hint"
+        return 1
+    fi
+    sset root "$wt"
+    return 0
+}
+
+# ---------------------------------------------------------------- teardown
+do_teardown() {
+    local repo wt listed key
+    TEARDOWN_REMOVED=false
+    if [ ! -e "$D" ] && [ ! -L "$D" ]; then
+        # A crashed run may have left a registration for the worktree path.
+        repo="$(g rev-parse --show-toplevel 2>/dev/null)"
+        if [ -n "$repo" ] && g -C "$repo" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $D/wt"; then
+            g -C "$repo" worktree prune >/dev/null 2>&1
+        fi
+        return
+    fi
+    state_dir_ok || return
+    repo="$(sget repo)"
+    if [ -n "$repo" ] && [ "$(g -C "$repo" rev-parse --show-toplevel 2>/dev/null)" = "$repo" ]; then
+        neutralize_drivers "$repo"
+    else
+        repo=""
+    fi
+    if [ -n "$repo" ] && wt_ok; then
+        wt="$(cd "$(wt_path)" && pwd -P)"
+        listed=""
+        if g -C "$repo" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $wt"; then
+            listed="$wt"
+        elif g -C "$repo" worktree list --porcelain 2>/dev/null | grep -qxF "worktree $(wt_path)"; then
+            listed="$(wt_path)"
+        fi
+        if [ -n "$listed" ]; then
+            g -C "$repo" worktree remove --force "$listed" >/dev/null 2>&1 ||
+                add_note "git worktree remove failed; the directory goes with $D"
+        fi
+    fi
+    key="$(sget sbkey)"
+    if is_hex "$key" && choose_cache check; then release_lock "$(sandbox_dir "$key")/lock"; fi
+    rm -rf "$D"
+    [ -n "$repo" ] && g -C "$repo" worktree prune >/dev/null 2>&1
+    if [ -e "$D" ]; then add_error "could not remove $D"; else TEARDOWN_REMOVED=true; fi
+}
+
+# ---------------------------------------------------------------- per call
+pick_call_root() {
+    CALL_STRATEGY="$STRATEGY"
+    CALL_ROOT="$VALID_ROOT"
+    if [ ${#TEST_FILES[@]} -gt 0 ] && [ "$STRATEGY" = swap ]; then
+        if [ "$(sget has_worktree)" != 1 ] || ! wt_ok; then
+            create_worktree || return 1
+        fi
+        CALL_STRATEGY=worktree
+        CALL_ROOT="$(wt_path)"
+        add_note "ran in a worktree: --test-file replaces test files, which the swap cannot do in place"
+    fi
+    return 0
+}
+
+OVR_PATHS=()
+OVR_BLOBS=()
+RESTORE_LIST=""
+apply_test_files() {
+    local spec p src i=0 content dst orig sha
+    for spec in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
+        p="${spec%%=*}"
+        src="${spec#*=}"
+        i=$((i + 1))
+        content="${SCR:-$D}/testfiles/$i/$p"
+        mkdir -p "$(dirname "$content")"
+        case "$src" in
+            -)
+                cat > "$content" ;;
+            @esc:*)
+                if ! esc_decode "${src#@esc:}" > "$content" ||
+                   [ "$(wc -c < "$content" | tr -d ' ')" -gt "$MAX_DECODED_BYTES" ]; then
+                    add_error "cannot decode the --test-file @esc: content for $p"
+                    return 1
+                fi ;;
+            @b64:*)
+                # Decoded straight into the private per-call scratch.
+                if ! b64_decode "${src#@b64:}" "$content" ||
+                   [ "$(wc -c < "$content" | tr -d ' ')" -gt "$MAX_DECODED_BYTES" ]; then
+                    add_error "cannot decode the --test-file @b64: content for $p"
+                    return 1
+                fi ;;
+            @*)
+                sha="$(g -C "$REPO" rev-parse --verify --quiet --end-of-options "${src#@}^{commit}" 2>/dev/null)"
+                if [ -z "$sha" ] || ! g -C "$REPO" cat-file blob "$sha:$p" > "$content" 2>/dev/null; then
+                    add_error "cannot read $p at ${src#@}"
+                    return 1
+                fi ;;
+        esac
+        dst="$CALL_ROOT/$p"
+        orig="$D/testorig/$p"
+        if [ ! -e "$orig" ] && [ ! -e "$orig.wb-absent" ]; then
+            mkdir -p "$(dirname "$orig")"
+            if [ -e "$dst" ]; then command cp -pf "$dst" "$orig"; else : > "$orig.wb-absent"; fi
+        fi
+        if [ -e "$orig" ]; then
+            RESTORE_LIST="$RESTORE_LIST$orig|$dst"$'\n'
+        else
+            RESTORE_LIST="$RESTORE_LIST-|$dst"$'\n'
+        fi
+        mkdir -p "$(dirname "$dst")"
+        command cp -f "$content" "$dst"
+        OVR_PATHS[${#OVR_PATHS[@]}]="$p"
+        OVR_BLOBS[${#OVR_BLOBS[@]}]="$(g -C "$REPO" hash-object --no-filters -- "$content")"
+    done
+    return 0
+}
+
+restore_test_files() {
+    local bak dst
+    while IFS='|' read -r bak dst; do
+        [ -n "$dst" ] || continue
+        if [ "$bak" = - ]; then rm -f "$dst"; else command cp -pf "$bak" "$dst"; fi
+    done <<EOF
+$RESTORE_LIST
+EOF
+    RESTORE_LIST=""
+}
+
+# heal_root [targets]: with "targets", only the recorded targets (before
+# each case, when this call's --test-file content is already in place).
+heal_root() {
+    [ "$CALL_STRATEGY" = swap ] && return 0
+    local f rel only="${1:-}"
+    if [ -d "$D/orig" ]; then
+        while IFS= read -r -d '' f; do
+            rel="${f#"$D/orig/"}"
+            contained "$CALL_ROOT" "$rel" || continue
+            [ "$only" = targets ] && is_override "$rel" && continue
+            if ! cmp -s "$f" "$CALL_ROOT/$rel"; then
+                command cp -pf "$f" "$CALL_ROOT/$rel"
+                add_note "restored $rel in the copy: an earlier, interrupted run had left its change there"
+            fi
+        done < <(find "$D/orig" -type f -print0)
+    fi
+    if [ -d "$D/testorig" ] && [ "$only" != targets ]; then
+        while IFS= read -r -d '' f; do
+            rel="${f#"$D/testorig/"}"
+            case "$rel" in
+                *.wb-absent)
+                    rel="${rel%.wb-absent}"
+                    contained "$CALL_ROOT" "$rel" || continue
+                    if [ -e "$CALL_ROOT/$rel" ]; then
+                        rm -f "$CALL_ROOT/$rel"
+                        add_note "removed $rel from the copy: an earlier, interrupted run had left it there"
+                    fi ;;
+                *)
+                    contained "$CALL_ROOT" "$rel" || continue
+                    if ! cmp -s "$f" "$CALL_ROOT/$rel"; then
+                        command cp -pf "$f" "$CALL_ROOT/$rel"
+                        add_note "restored $rel in the copy: an earlier, interrupted run had left its change there"
+                    fi ;;
+            esac
+        done < <(find "$D/testorig" -type f -print0)
+    fi
+}
+
+# RUN_CHILD: our test command's pid, set only while it is not yet reaped,
+# so its process group id cannot belong to anyone else. Never read from state.
+RUN_CHILD=""
+RESTORE_FROM=""
+RESTORE_TO=""
+call_cleanup() {
+    if [ -n "$RUN_CHILD" ]; then
+        kill -KILL -- -"$RUN_CHILD" 2>/dev/null
+    fi
+    if [ -n "$RESTORE_FROM" ] && [ -f "$RESTORE_FROM" ]; then
+        command cp -pf "$RESTORE_FROM" "$RESTORE_TO" 2>/dev/null
+    fi
+    [ -n "$RESTORE_LIST" ] && restore_test_files
+}
+
+prepare_call() {
+    local spec t
+    pick_call_root || return 1
+    if [ -n "$VALID_CWD" ] && ! contained "$CALL_ROOT" "$VALID_CWD"; then
+        add_error "test directory $VALID_CWD passes through a symlink or leaves $CALL_ROOT"
+        return 1
+    fi
+    if [ -n "$FILE" ] && ! contained "$CALL_ROOT" "$FILE"; then
+        add_error "target under a linked directory (or a symlink) in $CALL_ROOT: $FILE; refusing to write through it"
+        return 1
+    fi
+    for spec in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
+        if ! contained "$CALL_ROOT" "${spec%%=*}"; then
+            add_error "--test-file under a linked directory (or a symlink) in $CALL_ROOT: ${spec%%=*}; refusing to write through it"
+            return 1
+        fi
+    done
+    heal_root
+    apply_test_files || return 1
+    for t in "${TESTS[@]}"; do
+        [ -e "$CALL_ROOT/$t" ] || add_error "test file not found: $t"
+    done
+    [ -z "$ERRORS" ]
+}
+
+# tests_key: the test set as given: every --test in argv order (duplicates
+# kept), then every --test-file as path and content blob, NUL-delimited.
+tests_key() {
+    local t i
+    {
+        for t in "${TESTS[@]}"; do printf 'test\0%s\0' "$t"; done
+        for i in ${OVR_PATHS[@]+"${!OVR_PATHS[@]}"}; do printf 'test-file\0%s\0%s\0' "${OVR_PATHS[$i]}" "${OVR_BLOBS[$i]}"; done
+    } | g -C "$REPO" hash-object --stdin
+}
+
+# is_override <path>: the path is one of this call's --test-file paths.
+is_override() {
+    local p
+    for p in ${OVR_PATHS[@]+"${OVR_PATHS[@]}"}; do [ "$p" = "$1" ] && return 0; done
+    return 1
+}
+
+# build_argv: the test command's argv with {tests}, {test_dirs}, {root}
+# substituted as separate elements. Sets RUN_ARGV.
+build_argv() {
+    local w t rel dirs="" d cwd="$VALID_CWD"
+    RUN_ARGV=()
+    parse_argv "$VALID_TEST_CMD" || return 1
+    for w in "${ARGV[@]}"; do
+        case "$w" in
+            '{tests}'|'{test_dirs}')
+                for t in "${TESTS[@]}"; do
+                    if [ -n "$cwd" ]; then
+                        case "$t" in "$cwd"/*) rel="${t#"$cwd"/}" ;; *) rel="$CALL_ROOT/$t" ;; esac
+                    else
+                        rel="$t"
+                    fi
+                    if [ "$w" = '{tests}' ]; then
+                        RUN_ARGV[${#RUN_ARGV[@]}]="$rel"
+                    else
+                        case "$rel" in
+                            /*) d="$(dirname "$rel")" ;;
+                            *)  d="./$(dirname "$rel")"; d="${d%/.}" ;;
+                        esac
+                        case "$dirs" in *$'\n'"$d"$'\n'*) ;; *) dirs="$dirs"$'\n'"$d"$'\n'; RUN_ARGV[${#RUN_ARGV[@]}]="$d" ;; esac
+                    fi
+                done ;;
+            *)
+                RUN_ARGV[${#RUN_ARGV[@]}]="${w//\{root\}/$CALL_ROOT}" ;;
+        esac
+    done
+}
+
+# child_running <pid>: our unreaped child is still running (not a zombie).
+child_running() {
+    case "$(ps -o stat= -p "$1" 2>/dev/null)" in
+        ""|Z*|" Z"*) return 1 ;;
+    esac
+    return 0
+}
+
+# run_tests <swap target or ""> <swap source or "">: exec the argv in the call
+# root (plus the test directory) with RUN_TIMEOUT. This process owns the
+# timeout: it polls its own child and signals the child's process group only
+# on timeout and only before reaping the child (so the group id is still
+# ours). After a normal exit nothing is signalled.
+run_tests() {
+    local target="$1" source="$2" dir log="${SCR:-$D}/run.log" pid start end t0 i
+    dir="$CALL_ROOT${VALID_CWD:+/$VALID_CWD}"
+    build_argv
+    RT_CMD="${RUN_ARGV[*]}"
+    rm -f "$log"
+    start="$(now)"
+    set -m
+    (
+        cd "$dir" || exit 127
+        child_env
+        apply_env "$(sget env)"
+        export PYTHONDONTWRITEBYTECODE=1
+        export PYTEST_ADDOPTS="-p no:cacheprovider${PYTEST_ADDOPTS:+ $PYTEST_ADDOPTS}"
+        if [ "$CALL_STRATEGY" = swap ]; then
+            swap_env "$ADAPTER" "$target" "$source"
+        else
+            # A copy's dependency directories are links into the repository:
+            # uv must not sync (re-install the project into) them.
+            export UV_NO_SYNC=1 UV_FROZEN=1
+            case " ${RUN_ARGV[*]} " in
+                *pytest*|*python*)
+                    local pp="$dir"
+                    [ -d "$dir/src" ] && pp="$pp:$dir/src"
+                    export PYTHONPATH="$pp${PYTHONPATH:+:$PYTHONPATH}" ;;
+            esac
+        fi
+        exec "${RUN_ARGV[@]}"
+    ) </dev/null >"$log" 2>&1 &
+    pid=$!
+    set +m
+    RUN_CHILD="$pid"
+    RT_TIMEDOUT=false
+    t0=$SECONDS
+    while child_running "$pid"; do
+        if [ $((SECONDS - t0)) -ge "$RUN_TIMEOUT" ]; then
+            RT_TIMEDOUT=true
+            kill -TERM -- -"$pid" 2>/dev/null
+            i=0
+            while [ $i -lt 10 ] && child_running "$pid"; do sleep 0.2; i=$((i + 1)); done
+            # Still unreaped, so the group is still ours: whatever in it
+            # outlived TERM goes now.
+            kill -KILL -- -"$pid" 2>/dev/null
+            break
+        fi
+        sleep 0.2
+    done
+    wait "$pid" 2>/dev/null
+    RT_EXIT=$?
+    RUN_CHILD=""
+    end="$(now)"
+    RT_DUR="$(elapsed "$start" "$end")"
+    RT_LOG="$log"
+}
+
+# check_b64 <value>: a --test-file <path>=@b64:<base64> value must be strict
+# base64 (A-Z a-z 0-9 + /, "=" padding only at the end, length a multiple of
+# 4, no whitespace), at most 64 KiB encoded (48 KiB decoded).
+MAX_B64_BYTES=65536
+MAX_DECODED_BYTES=49152
+check_b64() {
+    local v="$1" core
+    [ ${#v} -le "$MAX_B64_BYTES" ] || usage_msg "--test-file @b64: more than $MAX_B64_BYTES bytes encoded"
+    case "$v" in *[!A-Za-z0-9+/=]*) usage_msg "--test-file @b64: only the base64 alphabet is allowed (no whitespace)" ;; esac
+    core="${v%=}"; core="${core%=}"
+    case "$core" in *=*) usage_msg "--test-file @b64: padding (=) is allowed only at the end" ;; esac
+    [ $(( ${#v} % 4 )) -eq 0 ] || usage_msg "--test-file @b64: the length must be a multiple of 4"
+}
+
+# esc_decode <text>: the escaped single-line form: \n newline, \t tab, \\
+# backslash; any other backslash escape makes awk exit 3. Writes to stdout.
+esc_decode() {
+    printf '%s' "$1" | LC_ALL=C awk -v ORS="" '
+        {
+            s = $0
+            while ((i = index(s, "\\")) > 0) {
+                printf "%s", substr(s, 1, i - 1)
+                e = substr(s, i + 1, 1)
+                if (e == "n") printf "\n"
+                else if (e == "t") printf "\t"
+                else if (e == "\\") printf "\\"
+                else exit 3
+                s = substr(s, i + 2)
+            }
+            printf "%s", s
+        }'
+}
+
+# check_esc <text>: no real newline, only \n \t \\ escapes, at most 48 KiB
+# decoded.
+check_esc() {
+    local size
+    case "$1" in *$'\n'*) usage_msg "--test-file @esc: a real newline is not allowed (write it as \\n)" ;; esac
+    esc_decode "$1" > /dev/null || usage_msg "--test-file @esc: only \\n, \\t, and \\\\ escapes are allowed"
+    size="$(esc_decode "$1" | wc -c | tr -d ' ')"
+    [ "$size" -le "$MAX_DECODED_BYTES" ] || usage_msg "--test-file @esc: more than $MAX_DECODED_BYTES bytes decoded"
+}
+
+# b64_decode <value> <out file>: decode into a file in this run's private
+# state directory.
+b64_decode() {
+    printf '%s' "$1" | base64 -d > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | base64 -D > "$2" 2>/dev/null && return 0
+    printf '%s' "$1" | openssl base64 -d -A > "$2" 2>/dev/null
+}
+
+# ---------------------------------------------------------------- arguments
+SUB="$1"
+[ $# -gt 0 ] && shift
+ID="" COMMIT="" WORKING_TREE="" STRATEGY_ARG="" CWD_ARG="" FILE="" FIND="" REPLACE=""
+FIND_SET="" REPLACE_SET="" CONTROL=false LABEL="" TIMEOUT_ARG="" LOCK_WAIT_ARG="" BATCH_DEADLINE=""
+SINGLE_SET=""
+TESTS=()
+TEST_FILES=()
+# Batch: repeated --case groups, each with its own --file, --find, --replace,
+# --control, --label. Shared options come before the first --case.
+NCASE=0
+C_FILE=() C_FIND=() C_REPL=() C_FINDSET=() C_REPLSET=() C_CTL=() C_LABEL=()
+MAX_CASES=50
+MAX_CASE_BYTES=262144
+shared_opt() { [ "$NCASE" = 0 ] || usage_msg "shared options must come before the first --case: $1"; }
+while [ $# -gt 0 ]; do
+    _c=$((NCASE - 1))
+    case "$1" in
+        --id)           shared_opt "$1"; [ $# -ge 2 ] || usage; ID="$2"; shift 2 ;;
+        --commit)       shared_opt "$1"; [ $# -ge 2 ] || usage; COMMIT="$2"; shift 2 ;;
+        --working-tree) shared_opt "$1"; WORKING_TREE=1; shift ;;
+        --strategy)     shared_opt "$1"; [ $# -ge 2 ] || usage; STRATEGY_ARG="$2"; shift 2 ;;
+        --cwd)          shared_opt "$1"; [ $# -ge 2 ] || usage; CWD_ARG="$2"; shift 2 ;;
+        --test)         shared_opt "$1"; [ $# -ge 2 ] || usage; TESTS[${#TESTS[@]}]="$2"; shift 2 ;;
+        --test-file)    shared_opt "$1"; [ $# -ge 2 ] || usage; TEST_FILES[${#TEST_FILES[@]}]="$2"; shift 2 ;;
+        --timeout)      shared_opt "$1"; [ $# -ge 2 ] || usage; TIMEOUT_ARG="$2"; shift 2
+                        case "$TIMEOUT_ARG" in ""|*[!0-9]*|0) usage ;; esac ;;
+        --lock-wait)    shared_opt "$1"; [ $# -ge 2 ] || usage; LOCK_WAIT_ARG="$2"; shift 2
+                        case "$LOCK_WAIT_ARG" in ""|*[!0-9]*) usage_msg "--lock-wait takes a number of seconds (0 fails at once)" ;; esac ;;
+        --batch-deadline) shared_opt "$1"; [ $# -ge 2 ] || usage; BATCH_DEADLINE="$2"; shift 2
+                        case "$BATCH_DEADLINE" in ""|*[!0-9]*|0) usage_msg "--batch-deadline takes a positive number of seconds" ;; esac ;;
+        --case)
+            [ "$SUB" = run ] || usage_msg "--case is for run"
+            [ -z "$SINGLE_SET" ] || usage_msg "--file, --find, --replace, --control, and --label go inside a --case in a batch"
+            NCASE=$((NCASE + 1)); _c=$((NCASE - 1))
+            C_FILE[$_c]="" C_FIND[$_c]="" C_REPL[$_c]="" C_FINDSET[$_c]="" C_REPLSET[$_c]="" C_CTL[$_c]=false C_LABEL[$_c]=""
+            shift ;;
+        --file)
+            [ $# -ge 2 ] || usage
+            if [ "$NCASE" -gt 0 ]; then C_FILE[$_c]="$2"; else FILE="$2"; SINGLE_SET=1; fi; shift 2 ;;
+        --find)
+            [ $# -ge 2 ] || usage
+            if [ "$NCASE" -gt 0 ]; then C_FIND[$_c]="$2"; C_FINDSET[$_c]=1; else FIND="$2"; FIND_SET=1; SINGLE_SET=1; fi; shift 2 ;;
+        --replace)
+            [ $# -ge 2 ] || usage
+            if [ "$NCASE" -gt 0 ]; then C_REPL[$_c]="$2"; C_REPLSET[$_c]=1; else REPLACE="$2"; REPLACE_SET=1; SINGLE_SET=1; fi; shift 2 ;;
+        --control)
+            if [ "$NCASE" -gt 0 ]; then C_CTL[$_c]=true; else CONTROL=true; SINGLE_SET=1; fi; shift ;;
+        --label)
+            [ $# -ge 2 ] || usage
+            if [ "$NCASE" -gt 0 ]; then C_LABEL[$_c]="$2"; else LABEL="$2"; SINGLE_SET=1; fi; shift 2 ;;
+        --test-cmd)     usage_msg "--test-cmd was removed: the test command comes from the Defect sandbox section of .claude/wb/testing.md (or detection)" ;;
+        --sed)          usage_msg "--sed was removed: use --find and --replace (literal text)" ;;
+        -h|--help)      usage ;;
+        *)              usage ;;
+    esac
+done
+case "$SUB" in setup|baseline|run|teardown) ;; *) usage ;; esac
+valid_id "$ID" || usage
+# A gate path is wb-defect-lock-<id>: an id starting with lock- would name
+# another id's gate as its state directory.
+case "$ID" in lock-*) usage_msg "an id may not start with lock-: $ID" ;; esac
+case "$STRATEGY_ARG" in ""|auto|swap|worktree|sandbox) ;; *) usage ;; esac
+[ -n "$COMMIT" ] && [ -n "$WORKING_TREE" ] && usage
+case "$COMMIT" in -*) usage_msg "--commit must name a commit, not an option: $COMMIT" ;; esac
+[ -n "$LOCK_WAIT_ARG" ] && LOCK_WAIT_GATE="$LOCK_WAIT_ARG"
+BATCH=""
+[ "$NCASE" -gt 0 ] && BATCH=1
+[ -z "$BATCH_DEADLINE" ] || [ -n "$BATCH" ] || usage_msg "--batch-deadline is for a batch (run with --case)"
+NEED_PRIOR_CONTROL=""
+if [ "$SUB" = run ] && [ -z "$BATCH" ]; then
+    [ -n "$FILE" ] && [ -n "$FIND_SET" ] && [ -n "$REPLACE_SET" ] && [ -n "$FIND" ] || usage
+fi
+if [ -n "$BATCH" ]; then
+    # Prevalidate every case before anything runs: a malformed batch runs nothing.
+    [ "$NCASE" -le "$MAX_CASES" ] || usage_msg "a batch takes at most $MAX_CASES cases ($NCASE given)"
+    _bytes=0
+    _seen_control=""
+    for _i in "${!C_FILE[@]}"; do
+        _n=$((_i + 1))
+        [ -n "${C_FILE[$_i]}" ] || usage_msg "case $_n has no --file"
+        [ -n "${C_FINDSET[$_i]}" ] && [ -n "${C_FIND[$_i]}" ] || usage_msg "case $_n needs a non-empty --find"
+        [ -n "${C_REPLSET[$_i]}" ] || usage_msg "case $_n has no --replace"
+        norm_rel "${C_FILE[$_i]}"; check_rel "$NORM" --file; C_FILE[$_i]="$NORM"
+        [ "${C_FILE[$_i]}" = "${C_FILE[0]}" ] ||
+            usage_msg "every case in a batch names the same --file (case $_n names ${C_FILE[$_i]}, case 1 names ${C_FILE[0]})"
+        _bytes=$((_bytes + $(LC_ALL=C; printf '%s%s' "${C_FIND[$_i]}" "${C_REPL[$_i]}" | wc -c)))
+        if [ "${C_CTL[$_i]}" = true ]; then
+            _seen_control=1
+        elif [ -z "$_seen_control" ]; then
+            # Resolved after the state is read: a control for this exact pair
+            # must already be established.
+            NEED_PRIOR_CONTROL=1
+        fi
+    done
+    [ "$_bytes" -le "$MAX_CASE_BYTES" ] || usage_msg "a batch's --find and --replace text is limited to $MAX_CASE_BYTES bytes ($_bytes given)"
+    FILE="${C_FILE[0]}"
+fi
+if [ "$SUB" = baseline ] || [ "$SUB" = run ]; then
+    [ ${#TESTS[@]} -gt 0 ] || usage
+fi
+if [ -n "$FILE" ]; then norm_rel "$FILE"; check_rel "$NORM" --file; FILE="$NORM"; fi
+if [ -n "$CWD_ARG" ]; then norm_rel "$CWD_ARG"; check_rel "$NORM" --cwd; CWD_ARG="$NORM"; fi
+for _i in ${TESTS[@]+"${!TESTS[@]}"}; do
+    norm_rel "${TESTS[$_i]}"; check_rel "$NORM" --test; TESTS[$_i]="$NORM"
+done
+_stdin=0
+for _i in ${TEST_FILES[@]+"${!TEST_FILES[@]}"}; do
+    _spec="${TEST_FILES[$_i]}"
+    case "$_spec" in *=*) ;; *) usage_msg "--test-file takes <path>=@<commit> or <path>=- (stdin)" ;; esac
+    norm_rel "${_spec%%=*}"; check_rel "$NORM" --test-file
+    _src="${_spec#*=}"
+    case "$_src" in
+        -) _stdin=$((_stdin + 1))
+           [ -z "$BATCH" ] || usage_msg "--test-file <path>=- (stdin) is not accepted in a batch; use <path>=@<commit>" ;;
+        @b64:*) check_b64 "${_src#@b64:}" ;;
+        @esc:*) check_esc "${_src#@esc:}" ;;
+        @file:*) usage_msg "--test-file <path>=@file: was removed; pass the content as <path>=@b64:<base64>" ;;
+        @?*) case "${_src#@}" in -*) usage_msg "--test-file commit must not start with '-': $_src" ;; esac ;;
+        *) usage_msg "--test-file takes <path>=@<commit>, <path>=- (stdin), <path>=@esc:<escaped text>, or <path>=@b64:<base64>: $_spec" ;;
+    esac
+    TEST_FILES[$_i]="$NORM=$_src"
+done
+[ "$_stdin" -le 1 ] || usage_msg "only one --test-file can read stdin (<path>=-)"
+if [ -n "$FILE" ]; then
+    for _spec in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
+        [ "${_spec%%=*}" = "$FILE" ] && usage_msg "--file may not be a --test-file path (the defect and the replacement would collide): $FILE"
+    done
+fi
+D="$TMP_BASE/wb-defect-$ID"
+MARKER="$D/.wb-defect"
+GATE="$TMP_BASE/wb-defect-lock-$ID"
+
+# ================================================================ setup
+setup_fail() {
+    printf '{"id":%s,"strategy":"none","adapter":null,"root":null,"repo":%s,"cwd":null,"language":null,"test_cmd":null,"test_argv":null,"test_cmd_source":null,"needs_setup":false,"setup_hint":null,"sandbox_copy":null,"dep_dirs":null,"build_dirs":null,"strategy_notes":[],"notes":[%s],"errors":[%s]}\n' \
+        "$(json_str "$ID")" "$(str_or_null "$REPO")" "$NOTES" "$ERRORS"
+    exit 0
+}
+
+cmd_setup() {
+    local requested strategy="none" sha mode test_cmd source cwd lang="" dirty="" r dep line
+    REPO="$(g rev-parse --show-toplevel 2>/dev/null)"
+    [ -n "$REPO" ] || { add_error "not inside a git work tree"; setup_fail; }
+    neutralize_drivers "$REPO"
+    if [ -e "$D" ] || [ -L "$D" ]; then
+        # Only a directory this script made is torn down; anything else at
+        # that path is left exactly as it is.
+        state_dir_ok || setup_fail
+        do_teardown
+        [ -z "$ERRORS" ] || setup_fail
+    fi
+    if ! mkdir -m 700 "$D" 2>/dev/null || ! private_dir "$D"; then
+        add_error "cannot create a private $D"
+        setup_fail
+    fi
+    printf 'wb-defect %s %s\n' "$ID" "$(nonce)" > "$MARKER"
+    mkdir -m 700 "$D/state"
+    sset repo "$REPO"
+
+    if [ -n "$WORKING_TREE" ]; then
+        mode=working-tree
+        sha="$(g -C "$REPO" rev-parse --verify --quiet "HEAD^{commit}")"
+    else
+        mode=commit
+        sha="$(g -C "$REPO" rev-parse --verify --quiet --end-of-options "${COMMIT:-HEAD}^{commit}")"
+        [ -n "$sha" ] || add_error "commit not found: ${COMMIT:-HEAD}"
+    fi
+    sset mode "$mode"
+    sset sha "$sha"
+
+    read_profile
+    requested="${STRATEGY_ARG:-${P_STRATEGY:-auto}}"
+    case "$requested" in auto|swap|worktree|sandbox) ;; *) add_note "unknown profile strategy '$requested'; using auto"; requested=auto ;; esac
+    # The sandbox keeps a persistent copy registered as a worktree of the
+    # repository: that is the user's choice, made in the profile, never a
+    # caller's --strategy alone.
+    if [ "$requested" = sandbox ] && [ "$P_STRATEGY" != sandbox ]; then
+        add_error "sandbox needs \`strategy: sandbox\` in .claude/wb/testing.md (it keeps a persistent copy registered as a worktree of the repository, so only the profile can choose it)"
+    fi
+
+    # Profile and CLI paths: same rules as any repository path.
+    norm_rel "${CWD_ARG:-$P_CWD}"
+    cwd="$NORM"
+    if [ -n "$cwd" ]; then
+        r="$(rel_problem "$cwd")"
+        if [ -n "$r" ]; then add_error "test directory must be repository-relative ($r): $cwd"
+        elif [ ! -d "$REPO/$cwd" ] || ! contained "$REPO" "$cwd"; then add_error "test directory not found inside the repository: $cwd"
+        fi
+    fi
+    sset cwd "$cwd"
+    P_CWD_N="$cwd"
+    local deps=""
+    for dep in ${P_DEPS:-$DEFAULT_DEP_DIRS}; do
+        norm_rel "$dep"
+        r="$(rel_problem "$NORM")"
+        if [ -n "$r" ]; then add_error "dependency dir must be repository-relative ($r): $dep"; else deps="$deps $NORM"; fi
+    done
+    sset deps "${deps# }"
+    local builds=""
+    for dep in ${P_BUILDS:-$BUILD_DIRS}; do
+        norm_rel "$dep"
+        r="$(rel_problem "$NORM")"
+        if [ -n "$r" ]; then add_error "build output dir must be repository-relative ($r): $dep"; else builds="$builds $NORM"; fi
+    done
+    sset builds "${builds# }"
+    r="$(env_problem "$P_ENV")"
+    [ -z "$r" ] || add_error "profile env refused: $r"
+    sset env "$P_ENV"
+    if [ -n "$(printf '%s' "$P_SETUP" | tr -d '[:space:]')" ] && [ "$requested" != sandbox ]; then
+        add_note "setup command in the profile is ignored: the runner runs no setup commands"
+    fi
+
+    if [ -n "$P_TEST_CMD" ]; then
+        test_cmd="$P_TEST_CMD"; source=profile
+    else
+        detect "$REPO${cwd:+/$cwd}"
+        test_cmd="$DET_CMD"; lang="$DET_LANG"; source=detected
+        [ -n "$test_cmd" ] && add_note "test command detected from marker files; add a test command to the Defect sandbox section of .claude/wb/testing.md"
+    fi
+    if [ -z "$test_cmd" ]; then
+        add_error "no test command: add 'test command: <command with {tests}>' to the Defect sandbox section of .claude/wb/testing.md"
+        source=""
+    elif ! parse_argv "$test_cmd"; then
+        add_error "test command refused ($PARSE_ERR): $test_cmd"
+    elif ! launcher_problem "$REPO${cwd:+/$cwd}"; then
+        add_error "$LAUNCH_ERR: $test_cmd"
+    fi
+    sset test_cmd "$test_cmd"
+    [ -z "$ERRORS" ] || setup_fail
+
+    if [ "$mode" = commit ] && [ -n "$sha" ]; then
+        local tmpidx="$D/index.tmp" realidx
+        realidx="$(g -C "$REPO" rev-parse --path-format=absolute --git-path index 2>/dev/null)"
+        [ -f "$realidx" ] && command cp -pf "$realidx" "$tmpidx"
+        if [ -n "$(GIT_INDEX_FILE="$tmpidx" g -C "$REPO" status --porcelain --untracked-files=normal 2>/dev/null)" ] ||
+           [ "$(g -C "$REPO" rev-parse HEAD 2>/dev/null)" != "$sha" ]; then
+            dirty=1
+        fi
+        rm -f "$tmpidx"
+    fi
+    case "$requested" in
+        auto|swap)
+            choose_adapter "$test_cmd" "$REPO${cwd:+/$cwd}"
+            if [ -n "$ADAPTER" ] && [ -n "$dirty" ]; then
+                add_snote "$ADAPTER adapter skipped: the working tree differs from $sha, and the swap runs in the working tree"
+                ADAPTER=""
+            fi
+            if [ -n "$ADAPTER" ]; then
+                strategy=swap
+                sset root "$REPO"
+                write_hooks
+                add_snote "$ADAPTER adapter chosen; trusted once a control break is caught"
+            elif create_worktree; then
+                sset root "$(wt_path)"
+                strategy=worktree
+            fi ;;
+        worktree)
+            add_snote "worktree strategy requested"
+            if create_worktree; then
+                sset root "$(wt_path)"
+                strategy=worktree
+            fi ;;
+        sandbox)
+            add_snote "sandbox strategy requested"
+            if setup_sandbox; then
+                strategy=sandbox
+                # Kept for the session: teardown releases it.
+                SB_LOCK="" SB_LOCK_NONCE=""
+            fi ;;
+    esac
+    [ -n "$lang" ] || lang="$ADAPTER"
+    sset strategy "$strategy"
+    sset adapter "$ADAPTER"
+    if [ "$strategy" = none ]; then
+        local key
+        key="$(sget sbkey)"
+        is_hex "$key" && release_lock "$(sandbox_dir "$key")/lock"
+    fi
+
+    local root_json="null" argv_json="" w deps_json="" builds_json=""
+    [ "$strategy" != none ] && root_json="$(json_str "$(sget root)")"
+    for w in $(sget deps); do append deps_json "$(json_str "$w")"; done
+    for w in $(sget builds); do append builds_json "$(json_str "$w")"; done
+    parse_argv "$test_cmd"
+    for w in "${ARGV[@]}"; do append argv_json "$(json_str "$w")"; done
+    gate_still_ours
+    printf '{"id":%s,"strategy":%s,"adapter":%s,"root":%s,"repo":%s,"cwd":%s,"language":%s,"test_cmd":%s,"test_argv":[%s],"test_cmd_source":%s,"needs_setup":%s,"setup_hint":%s,"sandbox_copy":%s,"dep_dirs":[%s],"build_dirs":[%s],"strategy_notes":[%s],"notes":[%s],"errors":[%s]}\n' \
+        "$(json_str "$ID")" "$(json_str "$strategy")" "$(str_or_null "$ADAPTER")" "$root_json" "$(json_str "$REPO")" \
+        "$(str_or_null "$cwd")" "$(str_or_null "$lang")" "$(str_or_null "$test_cmd")" "$argv_json" "$(str_or_null "$source")" \
+        "$(bool_json "$NEEDS_SETUP")" "$(str_or_null "$SETUP_HINT")" "$(str_or_null "$SANDBOX_COPY")" "$deps_json" "$builds_json" \
+        "$SNOTES" "$NOTES" "$ERRORS"
+}
+
+# load_state: validate every value read back from state against what it
+# must be; a value that is not is refused, never used.
+load_state() {
+    local v r dep
+    state_dir_ok || return 1
+    STRATEGY="$(sget strategy)"
+    case "$STRATEGY" in
+        swap|worktree|sandbox) ;;
+        none) add_error "defect checks cannot run here (setup strategy none)"; return 1 ;;
+        *) add_error "invalid state: strategy"; return 1 ;;
+    esac
+    REPO="$(sget repo)"
+    case "$REPO" in /*) ;; *) add_error "invalid state: repo"; return 1 ;; esac
+    if [ "$(g -C "$REPO" rev-parse --show-toplevel 2>/dev/null)" != "$REPO" ]; then
+        add_error "invalid state: repo is not a repository top level"; return 1
+    fi
+    neutralize_drivers "$REPO"
+    v="$(sget mode)"
+    case "$v" in commit|working-tree) ;; *) add_error "invalid state: mode"; return 1 ;; esac
+    v="$(sget sha)"
+    [ -z "$v" ] || is_hex "$v" || { add_error "invalid state: sha"; return 1; }
+    ADAPTER="$(sget adapter)"
+    case "$STRATEGY:$ADAPTER" in
+        swap:python|swap:node|swap:ruby|swap:go|worktree:|sandbox:) ;;
+        *) add_error "invalid state: adapter"; return 1 ;;
+    esac
+    v="$(sget has_worktree)"
+    case "$v" in ""|1) ;; *) add_error "invalid state: has_worktree"; return 1 ;; esac
+    v="$(sget root)"
+    case "$STRATEGY" in
+        swap)
+            [ "$v" = "$REPO" ] || { add_error "invalid state: root"; return 1; } ;;
+        worktree)
+            [ "$v" = "$(wt_path)" ] && wt_ok || { add_error "invalid state: root"; return 1; } ;;
+        sandbox)
+            local key ck
+            key="$(sget sbkey)"
+            ck="$(sget sbcopy)"
+            choose_cache check && is_hex "$key" && is_hex "$ck" && [ "$v" = "$(copy_dir "$key" "$ck")/wt" ] && [ -d "$v" ] && [ ! -L "$v" ] &&
+                private_dir "$(sandbox_dir "$key")" && private_dir "$(copy_dir "$key" "$ck")" ||
+                { add_error "invalid state: root"; return 1; } ;;
+    esac
+    VALID_ROOT="$v"
+    VALID_CWD="$(sget cwd)"
+    if [ -n "$VALID_CWD" ]; then
+        r="$(rel_problem "$VALID_CWD")"
+        [ -z "$r" ] || { add_error "invalid state: cwd"; return 1; }
+    fi
+    for dep in $(sget deps) $(sget builds); do
+        [ -z "$(rel_problem "$dep")" ] || { add_error "invalid state: deps"; return 1; }
+    done
+    [ -z "$(env_problem "$(sget env)")" ] || { add_error "invalid state: env"; return 1; }
+    VALID_TEST_CMD="$(sget test_cmd)"
+    parse_argv "$VALID_TEST_CMD" || { add_error "invalid state: test command ($PARSE_ERR)"; return 1; }
+    launcher_problem "$REPO${VALID_CWD:+/$VALID_CWD}" || { add_error "invalid state: $LAUNCH_ERR"; return 1; }
+    return 0
+}
+
+# read_bool <key>: BOOL is exactly true, false, or empty; any other stored
+# value is refused (and removed), never used.
+read_bool() {
+    BOOL="$(sget "$1")"
+    case "$BOOL" in
+        true|false|"") ;;
+        *) add_error "invalid state value for $1; ignored (control not established)"
+           rm -f "$D/state/$1"
+           BOOL="" ;;
+    esac
+}
+
+# read_baseline <key>: BASELINE is "true|false <seconds>" or empty.
+read_baseline() {
+    BASELINE="$(sget "$1")"
+    case "$BASELINE" in
+        "") return ;;
+        true\ *|false\ *)
+            case "${BASELINE#* }" in ""|*[!0-9]*) ;; *) return ;; esac ;;
+    esac
+    add_error "invalid state value for $1; ignored"
+    rm -f "$D/state/$1"
+    BASELINE=""
+}
+
+# ================================================================ baseline
+# bundler_hint <output>: a setup hint when the test command could not find
+# its gems (bundler not finding an executable or a gem).
+bundler_hint() {
+    case "$1" in
+        *"bundler: command not found"*|*"Could not find "*" in locally installed gems"*|*"Could not find "*" in any of the sources"*|*"Bundler::GemNotFound"*)
+            printf '%s' "The test command could not find its gems. Bundler installs to BUNDLE_PATH (often vendor/bundle, set in .bundle/config); a copy gets vendor/bundle and .bundle only as links to the repository's own, or the main worktree's when the repository is a linked worktree, and only when they exist there. Install the bundle where the repository keeps it (for example bundle config set --local path vendor/bundle, then bundle install, in the repository; or in the sandbox copy for strategy sandbox), or name the directory under dependency dirs in the Defect sandbox profile, then run setup again." ;;
+    esac
+}
+
+cmd_baseline() {
+    local passed=false code="" dur="" timeout="" tail="" hint=""
+    if load_state && make_scratch && prepare_call; then
+        RUN_TIMEOUT="${TIMEOUT_ARG:-$AUTO_TIMEOUT_CAP}"
+        run_tests "" ""
+        restore_test_files
+        code="$RT_EXIT"
+        dur="$RT_DUR"
+        tail="$(tail_text "$RT_LOG")"
+        if [ "$RT_TIMEDOUT" = true ]; then
+            add_error "baseline timed out after ${RUN_TIMEOUT}s"
+        elif [ "$RT_EXIT" = 0 ]; then
+            passed=true
+        else
+            hint="$(bundler_hint "$(tail -n 200 "$RT_LOG" 2>/dev/null)")"
+        fi
+        timeout="$(LC_ALL=C awk -v d="$dur" -v cap="$AUTO_TIMEOUT_CAP" 'BEGIN { t = 5 * d; if (t < 10) t = 10; t = (t == int(t)) ? t : int(t) + 1; if (t > cap) t = cap; printf "%d", t }')"
+        sset "baseline-$(tests_key)" "$passed $timeout"
+    fi
+    gate_still_ours
+    printf '{"passed":%s,"exit_code":%s,"duration_s":%s,"timeout_s":%s,"strategy":%s,"output_tail":%s,"setup_hint":%s,"notes":[%s],"errors":[%s]}\n' \
+        "$(bool_json "$passed")" "$(num_json "$code")" "$(num_json "$dur")" "$(num_json "$timeout")" "$(str_or_null "$CALL_STRATEGY")" \
+        "$(json_str "$tail")" "$(str_or_null "$hint")" "$NOTES" "$ERRORS"
+}
+
+# ================================================================ run
+mutate() {
+    local orig="$1" mut="$2" content rest
+    APPLIED=false
+    mkdir -p "$(dirname "$mut")"
+    content="$(cat "$orig"; printf x)"
+    content="${content%x}"
+    case "$content" in
+        *"$FIND"*) ;;
+        *) add_error "find text not found in $FILE"; return 1 ;;
+    esac
+    rest="${content#*"$FIND"}"
+    case "$rest" in
+        *"$FIND"*) add_error "find text matches more than once in $FILE; give a longer, unique --find"; return 1 ;;
+    esac
+    if [ "$FIND" = "$REPLACE" ]; then
+        add_error "--replace equals --find; nothing would change"
+        return 1
+    fi
+    printf '%s' "${content%%"$FIND"*}$REPLACE$rest" > "$mut"
+    APPLIED=true
+    return 0
+}
+
+attempt() {
+    local mut="$1" orig="$ORIG_PATH"
+    if [ "$CALL_STRATEGY" = swap ]; then
+        run_tests "$CALL_ROOT/$FILE" "$mut"
+    else
+        RESTORE_FROM="$orig" RESTORE_TO="$CALL_ROOT/$FILE"
+        command cp -f "$mut" "$CALL_ROOT/$FILE"
+        run_tests "" ""
+        command cp -pf "$orig" "$CALL_ROOT/$FILE" 2>/dev/null
+        if ! cmp -s "$orig" "$CALL_ROOT/$FILE"; then
+            add_error "could not restore $FILE in $CALL_ROOT"
+            RESTORE_FAILED=1
+        fi
+        RESTORE_FROM="" RESTORE_TO=""
+    fi
+    if [ "$RT_TIMEDOUT" = true ]; then
+        OUTCOME=timeout
+    elif [ "$RT_EXIT" = 0 ]; then
+        OUTCOME=survived
+    elif [ "$RT_EXIT" = 126 ] || [ "$RT_EXIT" = 127 ]; then
+        OUTCOME=error
+        add_error "test command could not run (exit $RT_EXIT): $RT_CMD"
+    else
+        case " $RT_CMD " in
+            *pytest*)
+                if [ "$RT_EXIT" = 4 ] || [ "$RT_EXIT" = 5 ]; then
+                    OUTCOME=error
+                    add_error "pytest exit $RT_EXIT (usage error or no tests collected)"
+                    return
+                fi ;;
+        esac
+        OUTCOME=caught
+    fi
+}
+
+fallback_from_swap() {
+    [ "$CALL_STRATEGY" = swap ] || return 1
+    use_worktree "$1" || return 1
+    VALID_ROOT="$(wt_path)"
+    pick_call_root
+    record_orig
+    return 0
+}
+
+record_orig() {
+    if [ "$CALL_STRATEGY" = swap ]; then
+        ORIG_PATH="${SCR:-$D}/snap/$FILE"
+        mkdir -p "$(dirname "$ORIG_PATH")"
+        command cp -pf "$CALL_ROOT/$FILE" "$ORIG_PATH"
+    else
+        ORIG_PATH="$D/orig/$FILE"
+        if [ ! -f "$ORIG_PATH" ]; then
+            mkdir -p "$(dirname "$ORIG_PATH")"
+            command cp -pf "$CALL_ROOT/$FILE" "$ORIG_PATH"
+        fi
+    fi
+}
+
+# run_common: what every case of a call shares (one target file and one test
+# set): state, the call root, --test-file content, the baseline, the pair key.
+COMMON_FAIL=""
+BASELINE_V=""
+CKEY=""
+run_common() {
+    load_state || return 1
+    make_scratch || return 1
+    if [ "$STRATEGY" = swap ] && ! swappable "$ADAPTER" "$FILE"; then
+        use_worktree "$FILE is not a file the $ADAPTER adapter can serve" && VALID_ROOT="$(wt_path)"
+    fi
+    prepare_call || return 1
+    local key
+    key="$(tests_key)"
+    read_baseline "baseline-$key"
+    BASELINE_V="$BASELINE"
+    # The control is per (target file, test set including --test-file content).
+    CKEY="control-$(printf '%s\n%s\n' "$FILE" "$key" | g -C "$REPO" hash-object --stdin)"
+    if [ -n "$BASELINE_V" ] && [ "${BASELINE_V%% *}" = false ]; then
+        add_error "baseline failed for these tests, so a defect cannot be judged"
+        return 1
+    fi
+    return 0
+}
+
+# item_json: the per-run object from the item variables, in parts a batch
+# can shorten: ITEM_HEAD (every field up to "adapter"), ITEM_DIFF and
+# ITEM_TAIL (raw), ITEM_SN/ITEM_NO/ITEM_ER (JSON list bodies), ITEM_SUM (a
+# minimal summary for the oversized-output fallback); and ITEM_PRE/ITEM_POST
+# for printing a whole object around the output tail.
+item_json() {
+    local tests_json="" t label="${LABEL:-defect}"
+    for t in "${TESTS[@]}"; do append tests_json "$(json_str "$t")"; done
+    ITEM_HEAD="$(printf '{"label":%s,"file":%s,"test":[%s],"applied":%s,"outcome":%s,"exit_code":%s,"duration_s":%s,"timeout_s":%s,"control":%s,"control_ok":%s,"auto_control":%s,"target_blob":%s,"test_blobs":{%s},"strategy":%s,"adapter":%s' \
+        "$(json_str "$label")" "$(str_or_null "$FILE")" "$tests_json" "$(bool_json "$APPLIED")" "$(json_str "$I_OUTCOME")" \
+        "$(num_json "$I_CODE")" "$(num_json "$I_DUR")" "$(num_json "$I_TIMEOUT")" "$(bool_json "$CONTROL")" "$(bool_json "$I_CONTROL_OK")" "$(str_or_null "$I_AUTO")" \
+        "$(str_or_null "$I_TARGET_BLOB")" "$I_TEST_BLOBS" "$(str_or_null "${CALL_STRATEGY:-$STRATEGY}")" "$(str_or_null "$ADAPTER")")"
+    ITEM_DIFF="$I_DIFF"
+    ITEM_TAIL="$I_TAIL"
+    ITEM_SN="$SNOTES" ITEM_NO="$NOTES" ITEM_ER="$ERRORS"
+    [ ${#label} -gt 100 ] && label="${label:0:100}..."
+    ITEM_SUM="$(printf '{"label":%s,"outcome":%s,"control":%s,"control_ok":%s,"target_blob":%s,"test_blobs":{%s}}' \
+        "$(json_str "$label")" "$(json_str "$I_OUTCOME")" "$(bool_json "$CONTROL")" "$(bool_json "$I_CONTROL_OK")" \
+        "$(str_or_null "$I_TARGET_BLOB")" "$I_TEST_BLOBS")"
+    ITEM_PRE="$ITEM_HEAD,\"diff\":$(json_str "$ITEM_DIFF"),\"output_tail\":"
+    ITEM_POST="$(printf ',"strategy_notes":[%s],"notes":[%s],"errors":[%s]}' "$SNOTES" "$NOTES" "$ERRORS")"
+}
+
+reset_item() {
+    APPLIED=false
+    I_OUTCOME=not_run I_CODE="" I_DUR="" I_TAIL="" I_TARGET_BLOB="" I_TEST_BLOBS="" I_DIFF="" I_TIMEOUT=""
+    I_CONTROL_OK="" I_AUTO=""
+}
+
+# run_item: one defect (or control) on the shared preparation.
+PAIR_CONTROL_FAILED=""
+RESTORE_FAILED=""
+run_item() {
+    local mut ctl t OUTCOME keep_code keep_dur keep_tail remaining
+    reset_item
+    if [ -n "$COMMON_FAIL" ]; then
+        return
+    fi
+    heal_root targets
+    if [ ! -f "$CALL_ROOT/$FILE" ]; then
+        add_error "target file not found: $FILE"
+        I_OUTCOME=error
+        return
+    fi
+    if [ -n "$BATCH" ] && [ "$CONTROL" != true ] && [ -n "$PAIR_CONTROL_FAILED" ]; then
+        add_error "the control for this target and test set was not caught earlier in this batch; defect not run"
+        read_bool "$CKEY"; I_CONTROL_OK="$BOOL"
+        return
+    fi
+    I_TIMEOUT="${BASELINE_V#* }"
+    [ -n "$BASELINE_V" ] || I_TIMEOUT=$AUTO_TIMEOUT_CAP
+    RUN_TIMEOUT="${TIMEOUT_ARG:-$I_TIMEOUT}"
+    if [ -n "$BATCH_DEADLINE" ]; then
+        remaining=$((BATCH_END - SECONDS))
+        [ "$remaining" -lt "$RUN_TIMEOUT" ] && RUN_TIMEOUT="$remaining"
+    fi
+    I_TIMEOUT="$RUN_TIMEOUT"
+    record_orig
+    I_TARGET_BLOB="$(g -C "$CALL_ROOT" hash-object --no-filters -- "$ORIG_PATH")"
+    for t in "${TESTS[@]}"; do
+        append I_TEST_BLOBS "$(json_str "$t"):$(json_str "$(g -C "$CALL_ROOT" hash-object --no-filters -- "$t")")"
+    done
+    mut="$SCR/mutated/$FILE"
+    ctl="$SCR/control/$FILE"
+    mkdir -p "$(dirname "$ctl")"
+    printf '%s\n' "$CONTROL_TEXT" > "$ctl"
+    if mutate "$ORIG_PATH" "$mut"; then
+        I_DIFF="$(diff -u -L "a/$FILE" -L "b/$FILE" "$ORIG_PATH" "$mut")"
+        while :; do
+            attempt "$mut"
+            I_OUTCOME="$OUTCOME"
+            I_CODE="$RT_EXIT"
+            I_DUR="$RT_DUR"
+            I_TAIL="$(tail_text "$RT_LOG")"
+            [ -n "$RESTORE_FAILED" ] && break
+            if [ "$CONTROL" = true ]; then
+                if [ "$I_OUTCOME" = survived ] &&
+                   fallback_from_swap "the control break survived the $ADAPTER adapter"; then
+                    continue
+                fi
+                case "$I_OUTCOME" in
+                    caught)   sset "$CKEY" true ;;
+                    survived) sset "$CKEY" false ;;
+                esac
+                break
+            fi
+            # Single runs establish a missing control automatically; a batch
+            # requires an explicit one (checked before anything ran).
+            BOOL=""
+            [ -z "$BATCH" ] && [ "$I_OUTCOME" = survived ] && read_bool "$CKEY"
+            if [ -z "$BATCH" ] && [ "$I_OUTCOME" = survived ] && [ "$BOOL" != true ]; then
+                keep_code="$RT_EXIT" keep_dur="$RT_DUR" keep_tail="$I_TAIL"
+                attempt "$ctl"
+                I_AUTO="$OUTCOME"
+                if [ "$OUTCOME" = caught ]; then
+                    sset "$CKEY" true
+                elif [ "$OUTCOME" = survived ] &&
+                     fallback_from_swap "the automatic control break survived the $ADAPTER adapter"; then
+                    I_AUTO=""
+                    continue
+                elif [ "$OUTCOME" = survived ]; then
+                    sset "$CKEY" false
+                    add_note "the automatic control break (the whole file replaced by a syntax error) survived: these tests do not load $FILE from $CALL_ROOT, so this survivor is not evidence of a weak test"
+                else
+                    add_note "the automatic control break ended $OUTCOME; control not established"
+                fi
+                I_CODE="$keep_code" I_DUR="$keep_dur" I_TAIL="$keep_tail"
+            fi
+            break
+        done
+    else
+        I_OUTCOME=error
+    fi
+    rm -f "$mut" "$ctl"
+    if [ -n "$BATCH" ] && [ "$CONTROL" = true ]; then
+        if [ "$I_OUTCOME" = caught ]; then PAIR_CONTROL_FAILED=""; else PAIR_CONTROL_FAILED=1; fi
+    fi
+    read_bool "$CKEY"
+    I_CONTROL_OK="$BOOL"
+}
+
+# skip_item <reason>: a case not run (batch deadline, abort, lock).
+skip_item() {
+    reset_item
+    ERRORS=""
+    NOTES="$COMMON_NOTES"
+    SNOTES="$COMMON_SNOTES"
+    add_error "$1"
+}
+
+batch_case() {
+    FILE="${C_FILE[$1]}" FIND="${C_FIND[$1]}" REPLACE="${C_REPL[$1]}" CONTROL="${C_CTL[$1]}" LABEL="${C_LABEL[$1]}"
+}
+
+# emit_batch: the envelope, built in a file and measured in bytes. Over the
+# cap, bounded fields are replaced step by step (output tails, then diffs,
+# then notes) and the size measured again; if it is still over, a small
+# envelope of per-case summaries is printed with an "output truncated" error.
+MAX_OUTPUT=1048576
+DROPPED='"[dropped: output size cap]"'
+write_envelope() {
+    local level="$1" errs="$2" i first=1 diff tail sn no
+    printf '{"results":['
+    for i in ${R_HEAD[@]+"${!R_HEAD[@]}"}; do
+        [ -n "$first" ] || printf ','
+        first=""
+        if [ "$level" -ge 4 ]; then
+            printf '%s' "${R_SUM[$i]}"
+            continue
+        fi
+        diff="$(json_str "${R_DIFF[$i]}")" tail="$(json_str "${R_TAIL[$i]}")" sn="${R_SN[$i]}" no="${R_NO[$i]}"
+        [ "$level" -ge 1 ] && tail="$DROPPED"
+        [ "$level" -ge 2 ] && diff="$DROPPED"
+        [ "$level" -ge 3 ] && sn="" no=""
+        printf '%s,"diff":%s,"output_tail":%s,"strategy_notes":[%s],"notes":[%s],"errors":[%s]}' \
+            "${R_HEAD[$i]}" "$diff" "$tail" "$sn" "$no" "${R_ER[$i]}"
+    done
+    printf '],"completed":%s,"total":%s,"aborted":%s,"errors":[%s]}\n' \
+        "$B_COMPLETED" "${#R_HEAD[@]}" "$(bool_json "$B_ABORTED")" "$errs"
+}
+
+emit_batch() {
+    local f level errs size why
+    f="$(mktemp "$TMP_BASE/wb-defect-out.XXXXXX")" || { write_envelope 4 "$B_ERRORS"; return; }
+    for level in 0 1 2 3 4; do
+        errs="$B_ERRORS"
+        case "$level" in
+            1) why="output tails dropped" ;;
+            2) why="output tails and diffs dropped" ;;
+            3) why="output tails, diffs, and notes dropped" ;;
+            4) why="output truncated: per-case summaries only (label, outcome, control, control_ok, blobs)" ;;
+        esac
+        [ "$level" -ge 1 ] && append errs "$(json_str "output over $MAX_OUTPUT bytes: $why")"
+        write_envelope "$level" "$errs" > "$f"
+        size="$(wc -c < "$f" | tr -d ' ')"
+        [ "$size" -le "$MAX_OUTPUT" ] && break
+    done
+    cat "$f"
+    rm -f "$f"
+}
+
+R_HEAD=() R_DIFF=() R_TAIL=() R_SN=() R_NO=() R_ER=() R_SUM=()
+B_COMPLETED=0
+B_ABORTED=false
+B_ERRORS=""
+store_item() {
+    local n=${#R_HEAD[@]}
+    item_json
+    R_HEAD[$n]="$ITEM_HEAD" R_DIFF[$n]="$ITEM_DIFF" R_TAIL[$n]="$ITEM_TAIL"
+    R_SN[$n]="$ITEM_SN" R_NO[$n]="$ITEM_NO" R_ER[$n]="$ITEM_ER" R_SUM[$n]="$ITEM_SUM"
+}
+
+cmd_run() {
+    local i
+    # The batch deadline counts from the start of the call (bash's SECONDS:
+    # whole seconds; bash 3.2 has no finer or monotonic clock).
+    [ -n "$BATCH_DEADLINE" ] && BATCH_END=$((SECONDS + BATCH_DEADLINE))
+    [ -n "$BATCH" ] && batch_case 0
+    if run_common; then COMMON_FAIL=""; else COMMON_FAIL=1; fi
+    COMMON_ERRORS="$ERRORS"
+    COMMON_NOTES="$NOTES"
+    COMMON_SNOTES="$SNOTES"
+    if [ -z "$BATCH" ]; then
+        run_item
+        [ ${#TEST_FILES[@]} -gt 0 ] && restore_test_files
+        gate_still_ours
+        item_json
+        printf '%s%s%s\n' "$ITEM_PRE" "$(json_str "$ITEM_TAIL")" "$ITEM_POST"
+        return
+    fi
+    if [ -z "$COMMON_FAIL" ] && [ -n "$NEED_PRIOR_CONTROL" ]; then
+        read_bool "$CKEY"
+        if [ "$BOOL" != true ]; then
+            usage_msg "a defect comes before any --control case of its target and test set, and no control is established for that exact pair (same --test files and --test-file content); put a --control case first"
+        fi
+    fi
+    for i in "${!C_FILE[@]}"; do
+        batch_case "$i"
+        ERRORS="$COMMON_ERRORS" NOTES="$COMMON_NOTES" SNOTES="$COMMON_SNOTES"
+        if [ -n "$COMMON_FAIL" ]; then
+            reset_item
+        elif [ "$B_ABORTED" = true ]; then
+            skip_item "batch aborted: an earlier case's restore could not be verified; case not run"
+        elif [ -n "$BATCH_DEADLINE" ] && [ $((BATCH_END - SECONDS)) -lt 1 ]; then
+            skip_item "batch deadline reached (--batch-deadline ${BATCH_DEADLINE}s); case not run"
+        else
+            RESTORE_FAILED=""
+            run_item
+            B_COMPLETED=$((B_COMPLETED + 1))
+            [ -n "$RESTORE_FAILED" ] && B_ABORTED=true
+        fi
+        if [ ${#I_DIFF} -gt 4000 ]; then I_DIFF="${I_DIFF:0:4000}"$'\n'"[truncated]"; fi
+        store_item
+    done
+    [ ${#TEST_FILES[@]} -gt 0 ] && restore_test_files
+    local e
+    [ -n "$COMMON_FAIL" ] && B_ERRORS="$COMMON_ERRORS"
+    [ "$B_ABORTED" = true ] && append B_ERRORS "$(json_str "aborted: a restore could not be verified; the remaining cases were not run")"
+    if [ -n "$BATCH_DEADLINE" ] && [ "$B_COMPLETED" -lt "$NCASE" ] && [ "$B_ABORTED" != true ] && [ -z "$COMMON_FAIL" ]; then
+        append B_ERRORS "$(json_str "batch deadline reached after $B_COMPLETED of $NCASE cases")"
+    fi
+    gate_still_ours || append B_ERRORS "$(json_str "the gate lock for id $ID no longer has this call's owner record; it is left in place")"
+    emit_batch
+}
+
+# ================================================================ teardown
+cmd_teardown() {
+    do_teardown
+    gate_still_ours
+    printf '{"removed":%s,"errors":[%s]}\n' "$(bool_json "$TEARDOWN_REMOVED")" "$ERRORS"
+}
+
+# gate_fail: the command's normal output when the gate could not be taken.
+gate_fail() {
+    case "$SUB" in
+        setup) setup_fail ;;
+        baseline)
+            printf '{"passed":false,"exit_code":null,"duration_s":null,"timeout_s":null,"strategy":null,"output_tail":"","setup_hint":null,"notes":[%s],"errors":[%s]}\n' "$NOTES" "$ERRORS" ;;
+        run)
+            if [ -n "$BATCH" ]; then
+                local i
+                COMMON_NOTES="$NOTES" COMMON_SNOTES="" COMMON_ERRORS="$ERRORS"
+                for i in "${!C_FILE[@]}"; do
+                    batch_case "$i"
+                    reset_item
+                    ERRORS="$COMMON_ERRORS" NOTES="$COMMON_NOTES" SNOTES=""
+                    store_item
+                done
+                B_ERRORS="$COMMON_ERRORS"
+                emit_batch
+            else
+                reset_item
+                item_json
+                printf '%s%s%s\n' "$ITEM_PRE" "$(json_str "$ITEM_TAIL")" "$ITEM_POST"
+            fi ;;
+        teardown)
+            printf '{"removed":false,"errors":[%s]}\n' "$ERRORS" ;;
+    esac
+}
+
+# on_exit: kill a running test's group, put back an applied mutation and
+# replaced test files, drop the per-call scratch, release the gate.
+on_exit() {
+    call_cleanup
+    # A setup interrupted while holding the sandbox lock releases it.
+    if [ -n "$SB_LOCK" ]; then release_lock "$SB_LOCK" "$SB_LOCK_NONCE"; fi
+    if [ -n "$SCR" ] && [ -d "$SCR" ]; then rm -rf "$SCR"; fi
+    SCR=""
+    gate_release
+}
+
+if ! gate_acquire; then
+    gate_fail
+    exit 0
+fi
+trap on_exit EXIT
+trap 'on_exit; exit 130' INT
+trap 'on_exit; exit 143' TERM
+
+case "$SUB" in
+    setup)    cmd_setup ;;
+    baseline) cmd_baseline ;;
+    run)      cmd_run ;;
+    teardown) cmd_teardown ;;
+esac
+exit 0

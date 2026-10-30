@@ -1,6 +1,6 @@
 ---
 name: create_handoff
-description: Write a handoff document that carries this session's working context — decisions, discoveries, deviations from plan, beads state, next steps — into a new session, model, or agent. Use when ending or pausing a session, switching models or machines, when asked to hand off, checkpoint, or save context, or before compaction on long-running work. Takes the project directory under docs/plans/ and an optional reason.
+description: Write a handoff document that carries this session's working context — decisions, discoveries, deviations from plan, beads state, next steps — into a new session, model, or agent. Use when ending or pausing a session, switching models or machines, when asked to hand off, checkpoint, or save context, or when the user chooses a handoff over another compaction. Takes the project directory under docs/plans/ and an optional reason.
 argument-hint: [project-directory] [handoff-reason]
 allowed-tools: Read
 ---
@@ -20,7 +20,7 @@ Handoff documents preserve:
 - Context not captured in formal docs
 - Exact state for seamless resumption
 - Blockers and their solutions
-- Next steps with specific guidance
+- The next step, recorded as the stage command to run (not as instructions to start coding)
 
 ## Initial Response
 
@@ -108,11 +108,11 @@ Determine the current implementation state:
    - Gotchas encountered
    - Solutions to tricky problems
    - Performance considerations discovered
-   - Run `bd memories <project>` and list the entries this session added with `bd remember`; keep the ones that still qualify, `bd forget` the ones that were task-specific. Memories are workspace-wide across every plan in this repository and are excluded from `bd export` by default; only a Dolt remote or `bd backup` carries them to another machine.
+   - Run `bd memories <project>` and list the entries this session added with `bd remember`; keep the ones that still qualify, `bd forget` the ones that were task-specific, and check that each carries its source marker ([Memories](../../docs/reference/rules-and-intents.md#memories)). Memories are workspace-wide across every plan in this repository and are excluded from `bd export` by default; only a Dolt remote or `bd backup` carries them to another machine.
 
 3. **Deviations and Decisions**:
    - Where we deviated from plan and why
-   - Judgment calls made
+   - Judgment calls made (each `judged:` record, and each `delegation:` record in force on the epic)
    - Trade-offs accepted
 
 4. **Current Blockers**:
@@ -174,12 +174,12 @@ This handoff captures:
 - Current progress: Phase [N], [X]% complete
 - Critical learnings: [count] discoveries
 - Active blockers: [count] issues
-- Next steps: [count] specific tasks
+- Next command: [the stage command recorded for the next session]
 
 To resume this work in a new session:
 /resume_handoff [full path to handoff file]
 
-The handoff includes all context needed for seamless continuation.
+It restores the context and stops with the next command for you to run.
 ```
 
 ## Important Guidelines
@@ -193,7 +193,7 @@ The handoff includes all context needed for seamless continuation.
 - Problems solved and how
 - Active blockers and attempted solutions
 - Critical discoveries about codebase
-- Next immediate steps
+- Next step as the exact stage command (for example `/wb:implement <plan-dir> <phase>`), because a resumed session stops and hands that command to the user instead of starting the work
 
 **Include When Relevant**:
 
@@ -229,7 +229,7 @@ Create a handoff when:
 - Blocked and need different expertise
 - Completed significant milestone
 - Made important discoveries
-- The session has already needed `/compact` once this phase and is heading for another — hand off instead; a second compaction compounds summary drift
+- The session has already needed `/compact` once this phase and is heading for another — the implement stages ask the user whether to hand off or compact; a second compaction compounds summary drift
 
 ### Why a Handoff Instead of a Second `/compact`
 
@@ -254,7 +254,7 @@ Typical workflows:
 **Phase Completion Handoff**:
 
 1. Complete Phase N
-2. `/validate_execution` - Verify work
+2. The phase checkpoint verifies the work (`/validate_phase <plan-dir> <phase>` re-checks it)
 3. **`/create_handoff`** - Document for next phase
 4. [New session]
 5. `/resume_handoff` - Start Phase N+1
