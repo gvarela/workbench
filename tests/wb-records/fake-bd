@@ -1,0 +1,58 @@
+#!/bin/bash
+# A stand-in for bd in the wb-records tests: comments live in $FAKE_BD_STORE,
+# one file per comment, never in a real beads database.
+#   bd comments add <issue> -f <file>   store the file's bytes as a comment
+#   bd comments <issue> --json          list them in bd's JSON shape
+# BD_FAIL makes "add" fail; BD_MANGLE stores the text with an extra byte;
+# BD_JSON_MODE=compact|reorder|extra|malformed changes the JSON's shape.
+STORE="${FAKE_BD_STORE:?}"
+printf '%s\n' "$*" >> "$STORE/log"
+if [ "$1" = comments ] && [ "$2" = add ]; then
+    issue="$3"
+    [ "$4" = -f ] && [ -n "$5" ] || { echo "fake bd: expected add <issue> -f <file>" >&2; exit 9; }
+    if [ -n "${BD_FAIL:-}" ]; then
+        echo "Error: database is locked" >&2
+        exit 1
+    fi
+    mkdir -p "$STORE/$issue"
+    n=$(ls "$STORE/$issue" | grep -c '\.txt$')
+    nn=$(printf '%04d' $((n + 1)))
+    if [ -n "${BD_MANGLE:-}" ]; then
+        { cat "$5"; printf 'X'; } > "$STORE/$issue/$nn.txt"
+    else
+        cp "$5" "$STORE/$issue/$nn.txt"
+    fi
+    echo "Comment added to $issue"
+    exit 0
+fi
+if [ "$1" = comments ] && [ "$3" = --json ]; then
+    python3 -I - "$STORE/$2" "$2" <<'PY'
+import json, os, sys
+d, issue = sys.argv[1], sys.argv[2]
+out = []
+if os.path.isdir(d):
+    for name in sorted(f for f in os.listdir(d) if f.endswith(".txt")):
+        n = name[:-4]
+        with open(os.path.join(d, name), "rb") as fh:
+            text = fh.read().decode("utf-8", "surrogateescape")
+        out.append({"id": "c-" + n, "issue_id": issue, "author": "t", "text": text,
+                    "created_at": "2026-10-27T00:00:%02dZ" % (int(n) % 60)})
+mode = os.environ.get("BD_JSON_MODE", "")
+if mode == "reorder":
+    out = [dict(reversed(list(c.items()))) for c in out]
+if mode == "extra":
+    out = [dict(c, meta={"nested": [1, {"text": "decoy", "id": "decoy"}], "flag": True, "n": -1.5e3, "z": None}) for c in out]
+if mode == "compact":
+    s = json.dumps(out, separators=(",", ":"), ensure_ascii=False)
+else:
+    s = json.dumps(out, indent=2, ensure_ascii=False)
+# Go's encoder escapes these; the reader must decode \u escapes.
+s = s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+if mode == "malformed":
+    s = s[: max(1, len(s) // 2)]
+sys.stdout.write(s + "\n")
+PY
+    exit 0
+fi
+echo "fake bd: unsupported: $*" >&2
+exit 9

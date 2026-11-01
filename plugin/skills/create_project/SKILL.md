@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — the four initial file template
 
 ## Initial Response
 
-This stage needs from you: the goal, what success looks like, and what is out of scope. Project name, base directory, and ticket are the mechanics.
+This stage needs from you: the goal, what success looks like, and what is out of scope, and which of those are hard limits rather than aims. Project name, base directory, and ticket are the mechanics.
 
 When invoked, check for arguments:
 
@@ -45,17 +45,24 @@ Every project states its intent before any file is written. Three parts, all req
 - **Success looks like**: two to four observable statements (what a person could see or check when the project has done its job; not numbers, which design refines later)
 - **Non-goals**: what this project will not do
 
-Take it from the request when the request carries it. If the prose that invoked this stage (or the arguments) states a goal, an outcome, or a boundary, draft all three parts from it and confirm in one exchange:
+Each line also records why it exists, where its words came from, whether the user has reviewed it, and how hard it is, because later stages narrow these lines, and a line that lost its reason gets enforced as a rule nobody chose. The fields and their meanings are [Source and review](../../docs/reference/rules-and-intents.md#source-and-review) and [Strength](../../docs/reference/rules-and-intents.md#strength):
+
+- **why**: the reason, in a few words
+- **source**: the user's words, quoted verbatim from whichever of their messages holds them, with its date; or `drafted from [the request, the ticket, ...]` for wording you wrote
+- **reviewed**: `yes` once a reply addresses the line, otherwise `no`
+- **strength**: `hard` or `aim`, as that clause defines them (when it is hard for safety, data integrity, or honesty of evidence, the why says which)
+
+Take it from the request when the request carries it. If the prose that invoked this stage (or the arguments) states a goal, an outcome, or a boundary, draft all three parts from it and confirm in one exchange, with one question about strength:
 
 ```
 I read the intent as:
-- Goal: [one sentence]
-- Success looks like: [two to four statements]
+- Goal: [one sentence] (why: [reason])
+- Success looks like: [two to four statements, each with its why]
 - Non-goals: [list, or "none stated"]
-Correct, or what should change?
+Which of these are hard limits rather than aims? Correct anything that should change.
 ```
 
-If the request carries none of it, ask for the three parts in one message before proceeding. Do not create the directory or any file while any part is empty; the Intent section is written from the confirmed text, and the amendment list starts empty.
+If the request carries none of it, ask for the three parts in one message before proceeding, with the same question. A reply changes only the lines it addresses: those get `reviewed: yes`, the user's new words as their source, and the strength they gave. Every line the reply skips keeps its source, so the user's earlier words stay theirs, and keeps `reviewed: no` and strength `aim`, unless it protects safety, data integrity, or honesty of evidence. Ask the strength question once; do not ask again about the lines the reply skipped. Do not create the directory or any file while any part is empty; the Intent section is written from the reply, and the amendment list starts empty.
 
 ## Process Steps
 
@@ -108,7 +115,7 @@ Create four foundation files:
 
 **1. README.md** - Navigation hub
 
-Read the "README.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in. Fill the Intent section from the confirmed intent; two to four Success statements; the Amendments list starts with its placeholder line.
+Read the "README.md Template" section of [templates.md](templates.md) NOW and create the file from it with all metadata values filled in. Fill the Intent section from the reply: two to four Success statements, each line with its why, source, and strength in the template's form; the Amendments list starts with its placeholder line.
 
 **2. research.md** - Research documentation
 
@@ -150,6 +157,7 @@ Present the created structure:
 - Goal: [goal sentence]
 - Success looks like: [statement 1]; [statement 2]; ...
 - Non-goals: [list]
+- Hard limits: [each line recorded as hard, or "none"]; not reviewed: [each line your reply did not address, or "none"]
 
 🔄 Next Steps:
 
@@ -177,7 +185,7 @@ Ready to begin research phase!
 - `$2` - Base directory (optional, defaults to docs/plans)
 - `$3` - Ticket reference (optional)
 - `$ARGUMENTS` - All arguments as a single string
-- Intent is never an argument; it comes from the invoking prose or one question, and is confirmed before files are written
+- Intent is never an argument; it comes from the invoking prose or one question, and is confirmed before files are written (only the lines the reply addresses count as reviewed)
 
 ### Status Progression
 

@@ -4,7 +4,7 @@ Human-facing rationale for this skill. Not loaded at invocation; the operative p
 
 ## Relationship to implement_inline
 
-Both skills run the same plan (research.md, design.md, tasks.md, beads) with the same discipline: ⛔ BARRIER synchronization points, TDD cycle enforcement (Red → Green → Refactor), beads for ALL tracking, ZERO SCOPE CREEP, phase boundary verification, manual verification checkpoints, one commit per verified task. `implement` is the default execution path: the session coordinates and fresh-context workers implement, one task at a time, each verified. `implement_inline` runs the same plan inline on the session model. Coordinated was introduced as an evolution of inline; since 3.0.0 it is the recommended path and inline is the deliberate choice.
+Both skills run the same plan (research.md, design.md, tasks.md, beads) with the same discipline: ⛔ BARRIER synchronization points, TDD cycle enforcement (Red → Green → Refactor), beads for all tracking, zero scope creep, phase boundary verification, manual verification checkpoints, one commit per verified task. `implement` is the default execution path: the session coordinates and fresh-context workers implement, one task at a time, each verified. `implement_inline` runs the same plan inline on the session model. Coordinated was introduced as an evolution of inline; since 3.0.0 it is the recommended path and inline is the deliberate choice.
 
 - **Coordinator Pattern**: Main agent orchestrates, workers implement in fresh context
 - **Context Efficiency**: Main window stays clean, workers are ephemeral

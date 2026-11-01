@@ -36,11 +36,14 @@ Check the file path or create a new handoff.
 ```
 ⚠️ Warning: Git state doesn't match handoff
 
-Handoff commit: [commit]
-Current commit: [different commit]
+Handoff written at: [commit subject] ([short hash])
+You are now at: [commit subject] ([short hash]), [N commits after the handoff's, or on a different branch]
+What it means: [the commits since the handoff, in plain words, and whether they touch files the handoff's next step changes]
 
 Options:
 1. Continue anyway (may have merge conflicts)
 2. Checkout handoff commit: git checkout [commit]
 3. Create new handoff from current state
+
+Recommendation: [option and the reason].
 ```

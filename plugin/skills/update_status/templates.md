@@ -55,6 +55,8 @@ Add implementation notes if status changes:
 
 ## Confirmation Message Template (Step 7)
 
+Write the Next Steps as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says: each step names the work in plain words with any id in parentheses, and says why it comes next.
+
 ```
 ✅ Status updated successfully!
 
@@ -73,5 +75,5 @@ Add implementation notes if status changes:
 - Git branch: [branch-name]
 
 **Next Steps**:
-[Contextual suggestions based on new status]
+[Contextual suggestions based on new status: what to do, in plain words, and why]
 ```

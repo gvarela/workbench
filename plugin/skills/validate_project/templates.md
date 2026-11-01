@@ -103,7 +103,7 @@ Based on the validation results:
 - tasks.md: [status] (last_updated: [date])
 
 **Beads State**:
-- Epic: [id] ([status])
+- Epic: [epic title] ([id], [status])
 - Phase milestones: [count] ([open/closed])
 - Task issues: [count] ([open/in_progress/closed])
 

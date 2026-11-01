@@ -30,20 +30,20 @@ This skill includes `nvim-helper.sh` for tmux/nvim operations. Add to your permi
 
 1. Initialize nvim pane:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
-# Returns: NVIM_PANE=%123
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh setup
+   # Returns: NVIM_PANE=%123
+   ```
 
 2. Get the diff:
 
-```bash
-# Default: last commit
-git show HEAD --stat
+   ```bash
+   # Default: last commit
+   git show HEAD --stat
 
-# Or specific range
-git diff main..HEAD --stat
-```
+   # Or specific range
+   git diff main..HEAD --stat
+   ```
 
 3. Parse changes into logical groups:
    - Group related hunks that solve same problem
@@ -67,15 +67,15 @@ If more than 2-3 problems: flag as code smell, suggest splitting.
 
 1. Open file at line:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open src/auth.ts 42
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh open src/auth.ts 42
+   ```
 
 2. Focus nvim for user inspection:
 
-```bash
-${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
-```
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
+   ```
 
 3. Give ONE line context: "Change X/N - [Problem]. [brief description]"
 4. Wait for questions
@@ -93,12 +93,12 @@ Flag violations:
 ⚠ TDD: src/auth.ts changed but src/auth.test.ts unchanged
 ```
 
-Don't block - just note. User decides if intentional.
+Don't block - just note. User decides if intentional. If the user wants a broader look at test quality beyond this diff, point them to `/wb:test-audit`; it is a separate run, not part of this walkthrough.
 
 ## Navigation
 
 | Command | Action |
-|---------|--------|
+| --------- | -------- |
 | `next` | Next logical change |
 | `back` | Previous change |
 | `skip to [file]` | Jump to specific file |
@@ -114,21 +114,21 @@ Don't block - just note. User decides if intentional.
 
 ## Wrap-up
 
-When user says "done":
+When user says "done", write each listed item as [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md) says (plain words first, file or id after):
 
 ```
 ## Review Summary
 
 **Changes reviewed**: X/Y
-**Problems addressed**: [list]
+**Problems addressed**: [each problem in plain words, with its files after it]
 
 **TDD Status**:
 - ✓ Changes with tests: N
-- ⚠ Changes without tests: M [list files if any]
+- ⚠ Changes without tests: M [each: what the untested change does, and its file]
 
-**Notes**: [any flags raised during review]
+**Notes**: [each flag raised: what it is, what it risks, and whether it holds the PR]
 
-Ready for PR? [yes/concerns]
+Ready for PR? [yes, or each concern with a recommendation]
 ```
 
 ## Script Reference
@@ -150,7 +150,7 @@ ${CLAUDE_PLUGIN_ROOT}/skills/review-prep/nvim-helper.sh focus
 ## Code Smell Flags
 
 | Smell | Response |
-|-------|----------|
+| ------- | ---------- |
 | >2-3 problems per diff | "Consider splitting this PR" |
 | Change doesn't map to stated problem | "This seems unrelated - intentional?" |
 | Pattern repeated 3+ times | "Extract helper? (your call)" |

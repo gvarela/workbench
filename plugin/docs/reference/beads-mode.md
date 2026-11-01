@@ -56,4 +56,4 @@ Why the check matters: a missing `.beads/metadata.json` makes bd open an empty d
 
 ## Memory
 
-`bd remember` memories are workspace-wide, shared across every plan in the repository. They are excluded from `bd export` by default, since they may contain sensitive agent context, so only a Dolt remote or `bd backup` carries them to another machine. Search with `bd memories <keyword>`; update a memory in place with `bd remember --key <key>`.
+`bd remember` memories are workspace-wide, shared across every plan in the repository. They are excluded from `bd export` by default, since they may contain sensitive agent context, so only a Dolt remote or `bd backup` carries them to another machine. Search with `bd memories <keyword>`; update a memory in place with `bd remember --key <key>`. Each memory starts with its source marker, as [Memories](rules-and-intents.md#memories) says.

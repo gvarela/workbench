@@ -34,18 +34,19 @@ Task({
   prompt: `Identify testing requirements for the implementation.
 
   From design.md:
-  - Success criteria: [criteria]
+  - Acceptance Criteria: [each AC-n with its Observed at and Examples]
+  - Harness Decisions: [table]
   - Risk areas: [risks]
 
   From research.md:
-  - Existing test patterns: [patterns]
-  - Test frameworks in use: [frameworks]
+  - Testing Conventions: [frameworks, commands, harness per boundary, test file grouping]
 
-  Determine:
-  - Unit tests needed (with file:line for each component)
-  - Integration tests required
-  - Edge cases from risk analysis
-  - Test fixtures needed
+  For each acceptance criterion, determine:
+  - The boundary it is observed at, whether a harness is present there (per Testing Conventions), and the test file an outer test at that boundary belongs in, following the existing test file grouping (Testing Conventions, or `.claude/wb/testing.md` when research has none), so criteria the grouping puts together share a file
+  - The inner cases its Examples imply, with the file:line of the code each exercises
+  - Fixtures or factories the existing tests already offer for it
+
+  Do not propose a separate unit or integration test list; the criteria drive the tests.
 
   DO NOT write any files. Return your findings as a report.`,
   subagent_type: "wb:codebase-analyzer",
