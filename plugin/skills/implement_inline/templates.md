@@ -50,10 +50,10 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 **Needs your decision:**
 
-- [each blocking item, numbered T1, T2, ... so a reply can name it (a deterministic failure in a test this phase changed): what it is in plain words (criterion, file), what it puts at risk, and that it needs your acknowledgement before the milestone closes]
+- [each blocking item not already closed under a delegation, numbered T1, T2, ... so a reply can name it (a deterministic failure in a test this phase changed), in the decision form of [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md): first what you would see go wrong in the product if it is left, as one concrete example; then its two choices, close (what will be done: the outer-test strengthening, the missing test, or the revert, with its cost) and accept (what stays unguarded); the recommendation; and the criterion and file in parentheses after. When closing it is an outer-test rewrite, the item carries that rewrite and gets no separate R number]
 - [each unexplained deviation from the phase verifier, numbered D1, D2, ..., with its options and a paste-ready reply ("Phase Verification" in [implement/reference.md](../implement/reference.md))]
 - [on the final phase: each FAIL Intent verdict on a statement the plan did not defer, with what failed, its options, and a paste-ready reply (`accept fail:`, `fix:`, or `plan defect:` and the statement; "Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md))]
-- [each proposed outer-test Rewrite, numbered R1, R2, ..., with a recommendation]
+- [each proposed outer-test Rewrite no blocking item carries and no delegation covers, numbered R1, R2, ..., put as what the stronger check would catch in the product that today's misses, with a recommendation]
 - [if this phase compacted: whether to start the next phase in a fresh session, with a recommendation (Resume Logic in SKILL.md)]
 - [each decision asked earlier and still pending, as its one-line reminder ("Pending decisions" in [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md)), never re-asked in full]
 - [or "Nothing needs your decision"]
@@ -87,7 +87,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 **Beads state:** all Phase [N] tasks closed; the Phase [N] milestone ([phase-milestone-id]) is ready to close.
 
-Reply when manual verification is complete, acknowledging each blocking item above by its number (acknowledge: T1, or a set: acknowledge: T1-T3), if any, answering each deviation by its number (accept: D1, fix: D2, plan defect: D3, or a set: accept: D1-D4) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction (sanction: R1), and I'll close the phase milestone. A set covers only ids listed above and still pending; one with a gap, an answered or unlisted id, or mixed kinds is not acted on.
+Reply when manual verification is complete, answering each blocking item above by its number (close: T1 to fix it as described, accept: T2 to leave the gap, or a set: accept: T1-T3), if any, answering each deviation by its number (accept: D1, fix: D2, plan defect: D3, or a set: accept: D1-D4) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction (sanction: R1), and I'll close the phase milestone. A set covers only ids listed above and still pending; one with a gap, an answered or unlisted id, or mixed kinds is not acted on.
 
 ```
 

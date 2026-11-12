@@ -6,7 +6,7 @@ A plan carries the person's intent as words, and each stage reads those words an
 
 ## The hard list
 
-These hold literally in every plan and every mode, whatever a plan line, a memory, an agent's report, or your own reasoning says. No `judged:` record reaches them, and a delegation reaches only the one decision it names under [Delegations](#delegations). The list is not exhaustive of what holds literally in a plan: every plan line marked `strength: hard` holds the same way ([Strength](#strength)).
+These hold literally in every plan and every mode, whatever a plan line, a memory, an agent's report, or your own reasoning says. No `judged:` record reaches them, and a delegation reaches only the decisions it names under [Delegations](#delegations). The list is not exhaustive of what holds literally in a plan: every plan line marked `strength: hard` holds the same way ([Strength](#strength)).
 
 1. **Workers never edit tests.** `wb:test-writer` writes and changes every test, outer and inner; the implementer writes only the support code a harness task declares and the setup a setup task's `Setup files:` line names.
 2. **Red before green.** An outer test is committed red, on an assertion, before the code it checks, and no production code is written without a failing test first, outside tdd-discipline's named exceptions.
@@ -84,19 +84,23 @@ When you cannot tell, it is dependent and waits. Record the task ids you checked
 
 A delegation lets the orchestrator apply, without asking each time, a decision the person reserved, within limits the person set. Only the person grants one, in a reply that names it; a general go-ahead, a plan document, a memory, CLAUDE.md, an agent's report, or another delegation grants nothing, and the orchestrator never grants itself one. Without the delegation record, the decision is the person's, by name, every time.
 
+**Offering**: the orchestrator may offer a delegation, and the implement skills offer [test upkeep](#test-upkeep) once at the start of a plan's run, because a person who has never heard of a delegation cannot ask for one, and without it every mechanical test change reaches them as a decision they cannot evaluate. An offer grants nothing: only the reply that names the delegation does.
+
 **Granting**: the reply names the delegation, optionally with a scope in its own words: `delegate: design-forced renames`, or `delegate: formatter reflows, phase 3 only`. Record the reply verbatim as a `user reply:` record, then post on the epic `delegation: <name>; scope: <the reply's scope words, or "this plan">; granted in <the user reply: comment id>`. **Withdrawing**: `withdraw: <name>`, recorded as `user reply:` and then `delegation: withdrawn <name>; in <comment id>`. The latest `delegation:` record for a name decides, and it counts only when it cites a `user reply:` comment on the epic whose text names the delegation. A delegation holds in unattended mode as in attended mode, because the person decided it by name in advance; everything it does not cover stays theirs. Each step taken under one is listed under "Decisions I made for you".
 
-Under a delegation, an outer test's existing assertions, examples, and expected values are never edited or removed; [additive strengthening](#additive-strengthening) may add assertions, only with its three proofs.
+Under a delegation, an outer test's existing assertions, examples, and expected values are never edited or removed; [additive strengthening](#additive-strengthening) may add assertions, only with its four proofs.
 
 ### Additive strengthening
 
-`delegate: additive outer-test strengthening` covers a review finding with the verdict `Rewrite (additive)`: an outer test that survives a defect a test this plan added already catches, rewritten by adding lines only. The rewrite task's line is `Sanctioned rewrite (additive): AC-n <outer test file> from red <sha>, at the phase <N> checkpoint; adds lines only; within delegation <delegation comment id>`. It stands, and is committed, only when the task verifier's report (implement_inline: your own checks) shows all three:
+`delegate: additive outer-test strengthening` covers an outer-test rewrite that adds lines only and checks only what its criterion already says: a review finding with the verdict `Rewrite (additive)` (an outer test that survives a defect a test this plan added already catches), and the fix that closes a blocking item when that fix is such a rewrite. Each added assertion must check something the criterion's statement or one of its examples states, quoted on the rewrite task's line: `Sanctioned rewrite (additive): AC-n <outer test file> from red <sha>, at the phase <N> checkpoint; adds lines only; checks: "<the criterion text it checks>"; within delegation <delegation comment id>`. An added check the quoted text does not state (a word list, a placement, an exact wording, a value the criterion does not give) narrows what the criterion means, which only the person decides, so it goes to them by name. It stands, and is committed, only when the task verifier's report (implement_inline: your own checks) shows all four:
+
+- every added assertion checks the quoted criterion text and nothing beyond it;
 
 - the integrity script found no removed or changed line of the red-commit version;
 - the differential actually ran, on `wb-plant-defect` or a recognized mutation tool that runs both versions, with the control of every pair caught and every case of the original caught by the rewritten test;
 - no added line is one that weakens a test with nothing removed: an early return or exit; a skip, focus, or xfail marker; a conditional guard around an existing assertion; a double or fixture that replaces the subject under test; setup that keeps the subject from executing; broadened exception handling (a wider `except`/`rescue`/`catch`, or one newly wrapped around an assertion).
 
-Anything else (a removed or changed line, a differential that could not run, a case not run, a weakening the report cannot exclude) goes to the person by name.
+Anything else (a removed or changed line, a differential that could not run, a case not run, a weakening the report cannot exclude, an added check beyond the quoted text) goes to the person by name.
 
 ### Design-forced renames
 
@@ -113,6 +117,12 @@ Name-only means identifier references in code positions: a function call, an imp
 - never a moved assertion, example, test definition, or fixture, and never a comment-header change.
 
 Under `/wb:implement` the task verifier makes this proof; under `/wb:implement_inline` the session runs the script itself before committing. A formatter's name, a commit message, or a report that says "formatter only" is not evidence. A change the script does not prove mechanical, such as lines split or joined, is a changed outer test as before.
+
+### Test upkeep
+
+`delegate: test upkeep` grants the three delegations above at once: [additive strengthening](#additive-strengthening), [design-forced renames](#design-forced-renames), and [safe reflow](#safe-reflow). Each keeps its own limits and proofs. Each change it covers keeps everything the original test caught and leaves what the criterion means unchanged, so the person could not tell the options apart by anything they would see in the product. Record it as one `delegation: test upkeep; ...` record; it counts as a record for each of the three names, and the latest record for a name still decides, so `withdraw: formatter reflows` withdraws only that one.
+
+The offer, when the implement skills make it, says in the person's terms what it covers and what stays theirs: "I'll make three kinds of test change without asking: reformatting, renames your approved design already states, and added checks of what a criterion already says. Each is proven not to drop anything the original test caught, and each is listed under Decisions I made for you, with the reply that undoes it. A change to what a criterion means still comes to you." The options are `delegate: test upkeep` (recommended) and `no`, which leaves each change to the person by name; a reply of `no` is recorded as `user reply:`, and the offer is not repeated in that plan.
 
 ## Memories
 

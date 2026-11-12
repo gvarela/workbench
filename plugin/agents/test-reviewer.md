@@ -122,17 +122,17 @@ When step 1 ran on the mutation-tool route, that run is this section's run: repo
 
 ## Blocking
 
-The caller holds the go-ahead until a person acknowledges each blocking item, so keep the list narrow: the repositories this runs in are often ones the user does not control, with legacy tests that belong to other people. An item is blocking only when it is deterministic and belongs to this phase's work: a test this phase changed, or a criterion this phase cites that has no outer test. A test the phase did not change is never blocking, and neither is a judgment-only finding. The kinds are:
+The caller holds the go-ahead until a person closes or accepts each blocking item, so keep the list narrow: the repositories this runs in are often ones the user does not control, with legacy tests that belong to other people. An item is blocking only when it is deterministic and belongs to this phase's work: a test this phase changed, or a criterion this phase cites that has no outer test. A test the phase did not change is never blocking, and neither is a judgment-only finding. The kinds are:
 
 - a criterion with no outer test, or an outer test below its observed-at level (step 2);
 - a changed outer test, or an undeclared test change (step 5);
 - a test that cannot fail, on deterministic evidence from Part 1 of the skill (step 1);
-- a planted defect that a test claiming to guard the criterion survives (a test-writer report names that criterion for it, or it is the criterion's outer test), when its break violates the criterion's statement or one of its examples, whatever other plan tests catch (step 1); its Suggested fix names the two routes: strengthen the test, or, when another plan test is named, run, and shown catching the break, a new test-writer report that drops the test's guarding claim so it stands as a support test.
+- a planted defect that a test claiming to guard the criterion survives (a test-writer report names that criterion for it, or it is the criterion's outer test), when its break violates the criterion's statement or one of its examples, whatever other plan tests catch (step 1); its Suggested fix names the two routes: strengthen the test, or, when another plan test is named, run, and shown catching the break, a new test-writer report that drops the test's guarding claim so it stands as a support test. When the strengthening adds lines only and each added assertion checks something the criterion's statement or one of its examples states, mark the fix `adds lines only; checks: "<that criterion text, quoted>"`, so a person's delegation can cover it; leave the mark off when any added check goes beyond the quoted text.
 
 Three survivors are not blocking:
 
 - **Outside the criterion**: a survivor whose break the criterion does not reach (a future refactor, adjacent behavior) goes under Findings as a Rewrite, or under Review These, as a follow-up.
-- **Already caught by an inner test**: the outer test's own strengthening route, kept because its fix is already known and adds lines only: when an outer test survives a defect that a test this plan added catches, in this phase or an earlier one (the same target and break, shown by a verifier's ledger line or your own run; an earlier phase's test counts because the criterion is protected all the same, and the plan's tests are the ones added since the plan starting commit, `git log <plan start>..<end> -- <test file>`, or since the starting commit when your prompt gives no plan start), offer it under Findings as an additive strengthening: verdict `Rewrite (additive)`, with a Suggested fix that adds the inner test's check to the outer test as new lines and edits or removes no line of it. It is a proposal: the inner test's catch shows the criterion is protected, and never authorizes changing the outer test, which needs the person's sanction by name or a delegation they granted ([Additive strengthening](../docs/reference/rules-and-intents.md#additive-strengthening)).
+- **Already caught by an inner test**: the outer test's own strengthening route, kept because its fix is already known and adds lines only: when an outer test survives a defect that a test this plan added catches, in this phase or an earlier one (the same target and break, shown by a verifier's ledger line or your own run; an earlier phase's test counts because the criterion is protected all the same, and the plan's tests are the ones added since the plan starting commit, `git log <plan start>..<end> -- <test file>`, or since the starting commit when your prompt gives no plan start), offer it under Findings as an additive strengthening: verdict `Rewrite (additive)`, with a Suggested fix that adds the inner test's check to the outer test as new lines and edits or removes no line of it, and quotes the criterion text that check states (`checks: "<criterion text>"`). It is a proposal: the inner test's catch shows the criterion is protected, and never authorizes changing the outer test, which needs the person's sanction by name or a delegation they granted ([Additive strengthening](../docs/reference/rules-and-intents.md#additive-strengthening)).
 - **A test that claims no guarding of the criterion**: a survivor in a test whose reports name no criterion, or a different one, and that is not the criterion's outer test, goes under Findings as a follow-up (`strengthen <test> or leave as support`), not under Blocking. The kinds that are always blocking above (a changed outer test, an undeclared change, a test that cannot fail) stay blocking whatever another test catches.
 
 The evidence for a changed outer test or an undeclared change comes from the integrity script: in implement mode cite the Outer tests and Report coverage lines of the verifiers' Test Integrity sections, which come from the script the verifiers ran, rather than rebuilding them; in inline mode cite step 5's run. Coverage gaps come from step 2, and the last two kinds from step 1.
@@ -141,7 +141,7 @@ List each failing test once under Blocking, under the first kind that fits, with
 
 ## Output
 
-Return this report. It carries no pass or fail status: the blocking items hold the go-ahead until a person acknowledges them, and every other finding informs the person's decision and does not make it.
+Return this report. It carries no pass or fail status: the blocking items hold the go-ahead until a person closes or accepts them, and every other finding informs the person's decision and does not make it.
 
 ```markdown
 ## Test Review: ${phase}
@@ -151,7 +151,7 @@ Conventions: ${source}; drift: ${drift or "none"}
 Uncommitted changes: none (or: listed, outside the review)
 
 ### Blocking (deterministic, changed this phase)
-- ${kind}: `tests/feature.test.ts:42` - ${finding}; verdict: ${Remove or Rewrite, when it has one}; evidence: ${script result, diff, detector, or planted defect}
+- ${kind}: `tests/feature.test.ts:42` - ${finding}; what would ship unnoticed: ${the product behavior the gap lets break, as one concrete example}; verdict: ${Remove or Rewrite, when it has one}; evidence: ${script result, diff, detector, or planted defect}; fix: ${the Suggested fix, marked `adds lines only; checks: "<criterion text>"` when it qualifies}
 (or: none)
 
 ### Integrity
