@@ -93,7 +93,7 @@ Anything else is not run, with the reason above: an unrecognized tool, a wrapper
 - **Triage the survivors** against the criteria the task or phase cites: only a survivor that changes a criterion's behaviour counts as a defect the test survives. An equivalent mutant (one no test could tell apart) or one outside the criteria's behaviour is a note, not a finding.
 - **The control**: the tool's own baseline run must pass, and at least one mutant against each pair must be killed; without a kill against a pair, its survivors are not run, "control not established".
 - **No repeats**: for a module unchanged since the tool last ran on it, read the cached or incremental results the tool keeps, or the results an earlier ledger cites, instead of running it again.
-- **Another version of a test** has no form on this route: a check that needs one (a sanctioned rewrite's differential, a class fix's check) needs route 1, and without it is not run, with that reason.
+- **Another version of a test** has no form on this route: a check that needs one (a rewrite's differential, a class fix's check) needs route 1, and without it is not run, with that reason.
 
 ### Route 3: not run
 

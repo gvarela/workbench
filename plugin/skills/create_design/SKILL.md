@@ -208,6 +208,8 @@ The template includes `bd create` command snippets for tracking assumptions and 
 
 ### Step 6: Review and Iterate
 
+Before presenting, spawn `wb:judge` with no `model` parameter and this prompt: `Judge this stop.` then `- Plan directory: [path]`, `- Stop: design approval`, `- Task or milestone: none`, `- Finding or item: the design is ready for approval`, `- What the coordinator would ask: approval of design.md`, `- Verifications so far: 0`. You wrote the design, so you are not the one to say what its approval would pass in silence. It returns a list: each criterion or metric stricter than the Intent line it refines, each Intent line whose strength nobody answered, each criterion the person will have to check by hand, and each open question with no answer or owner. Add every item it lists to the message below, under the heading it belongs to, and do not drop one because you think it minor.
+
 1. **Present the design**:
 
    ```

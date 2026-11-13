@@ -112,7 +112,7 @@ Determine the current implementation state:
 
 3. **Deviations and Decisions**:
    - Where we deviated from plan and why
-   - Judgment calls made (each `judged:` record, and each `delegation:` record in force on the epic)
+   - Judgment calls made (each `judged:` and `rewrite:` record)
    - Trade-offs accepted
 
 4. **Current Blockers**:

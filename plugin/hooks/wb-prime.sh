@@ -33,7 +33,7 @@ What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
   create_design: approve the approach, the refined metrics, the acceptance criteria with how each will be proven and harness decisions, and each listed choice that tightens your intent; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
   create_tasks: confirm the phases and checkpoints; decide each design item no task delivers (add a task, defer it, or drop it), and each earlier outer test the design renames
-  implementation: once per plan, yes or no to mechanical test changes without asking (delegate: test upkeep); a go-ahead at each phase checkpoint after the checks the prover could not do, closing or accepting each blocking test gap and answering each disproven criterion and each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction; or "run unattended" in your own message, until your next one
+  implementation: a go-ahead at each phase checkpoint after the checks the prover could not do, answering each disproven criterion and each unexplained deviation by name; a decision when a halt reaches you, which a judge agent sends only for a product question, an integrity finding, or a plan defect; or "run unattended" in your own message, until your next one
   validate_phase: the phase to check, or all; the checks the prover could not do; an answer for each disproven criterion and each unexplained deviation
 Long form: /wb:help. Replace this text for a repository with .claude/wb/PRIME.md (print the default with hooks/wb-prime.sh --export).
 ORIENTATION
