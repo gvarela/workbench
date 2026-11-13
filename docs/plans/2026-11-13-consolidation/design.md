@@ -95,7 +95,15 @@ Three principles, applied in order of evidence per unit of effort.
 
 ### Later phases (decided in outline; each gets its own design pass)
 
-- **D6. Bookkeeping tool.** A `wb` command files tasks with their links, writes records, and posts with confirmation, so the bad state cannot be created; verifiers stop failing tasks for record slips. The fingerprint cap is fixed.
+- **D6. Bookkeeping in the tool (Phase 2, built).** The record-keeping steps that halted runs become single commands in the existing `wb-records` helper, and the prose that described them goes.
+  - **`wb-records put <issue> --file <path>`**: posts any text as one comment and reads it back in the same call, printing the comment id. task-worker, `wb:test-writer`, and the coordinator use it; each agent names that comment id in the block it returns, so "posted" is never a guess. It replaces a post command, a separate confirming read, and a rule never to hand back in the same turn.
+  - **`wb-records have <issue> <comment-id>...`**: the coordinator checks the ids its agents returned in one call before the verifier runs. A missing report is posted from what the agent returned, or the agent is continued and asked for it. That is repair, not a stop.
+  - **`wb-records file --from <issue> --title ... --escaped '...'`**: creates an issue with its `discovered-from` link and confirms the link, adding it once when it is missing. `wb-records link` does the same for an existing issue.
+  - **A missing link is a record gap.** The task verifier no longer treats a rewrite task without the link as unsanctioned. It names the gap on a Record gaps line of its returned block, which never makes the verdict FAIL, and the coordinator repairs it with `wb-records link`. The sanction is judged by its line and the reply or delegation behind it.
+  - **The tree fingerprint** covers an ignored directory over its size or file cap by each file's path, size, and modification time, and names it in `metadata_dirs`, instead of erroring.
+  - **Why the existing helper and not a new `wb` command**: `wb-records` already posts and confirms by read-back, has a test suite with a stand-in for bd, and is covered by the permission rule the README gives for unattended runs. A `bin/` directory would put a command on the PATH, but a plugin with one cannot be installed on claude.ai or in Cowork.
+  - **Not in this phase**: parking a task and continuing independent work at a verification cap in attended mode. It changes who decides at a stop, so it belongs with the judge (D8).
+  - **Trade-offs**: the Record gaps line relies on the verifier classifying a gap correctly; a gap that does change a judgment about the tests, such as a test change with no report, stays an integrity finding. The metadata fingerprint does not catch a same-size rewrite that restores the old modification time.
 - **D7. Proof in place of sanction.** An outer test may change when `wb:test-writer` makes the change, the criterion text is unchanged, and a differential run shows every original case still caught. Lost coverage and a change in a criterion's meaning stay the person's. The delegations collapse into this rule.
 - **D8. Judge.** A Fable agent receives a script-built packet for every would-be stop and returns repaired, settled, halted, or a question for the person. It can order a re-check; it never clears a FAIL, waives integrity, or changes what a criterion means. Tested offline on the session stops before live use (the trial plan in `prompts-qhoh.7`).
 - **D9. Graph and prompts.** The agent graph and the instruction text, changed together because each mechanism above deletes prose.
@@ -116,9 +124,9 @@ Three principles, applied in order of evidence per unit of effort.
 | Finding (research.md) | Phase | Status |
 | --- | --- | --- |
 | Nothing runs the product; manual checks return to the system | 1 (D1 to D3) | Built |
-| Record slips halt runs (missing link, missing field, a post that did not land) | 2 (D6) | Outlined |
-| The tree fingerprint errors on a large dependency directory | 2 (D6) | Outlined |
-| At a verification cap the run halts and waits; in attended mode it could park the task and continue independent work | 2 (D6) | Outlined here |
+| Record slips halt runs (missing link, a post that did not land) | 2 (D6) | Built: scripts tested; the verifier's Record gaps line is not yet exercised in a live run |
+| The tree fingerprint errors on a large dependency directory | 2 (D6) | Built and tested; not yet run on the repository that showed it |
+| At a verification cap the run halts and waits; in attended mode it could park the task and continue independent work | 4 (D8) | Moved: it changes who decides at a stop |
 | Outer tests must stay byte-identical, so upkeep takes a third or more of worker runs | 3 (D7) | Outlined |
 | Stops ask the person about test internals | 3 (D7) and 4 (D8) | Outlined |
 | Criteria recorded as aims are still enforced literally by verifiers | 3 (D7) and 4 (D8) | Outlined here: the verifier reads a criterion's strength, and a literal-wording dispute on an aim goes to the judge |
@@ -127,7 +135,7 @@ Three principles, applied in order of evidence per unit of effort.
 | Nested test-writer spawns are asynchronous; workers poll | 5 (D9) | Outlined |
 | The task verifier is 53 to 60 percent of subagent tokens | 5 (D9) | Outlined; needs the measurement above |
 | Instruction text is 2.4 times 4.0.0; steps are skipped; a skill is cut after compaction | 5 (D9) | Outlined |
-| About 26 record types | 2 (D6) and 5 (D9) | Outlined |
+| About 26 record types | 5 (D9) | Outlined; Phase 2 changed how records are posted, not how many there are |
 | A session can run a mixed plugin version after a reload | Practice now, 5 (D9) | Each trial starts a fresh session; recorded in beads memory `wb-skill-loading-and-compaction` |
 | No step reviews production code quality; no simplify step after green | Deferred (`prompts-qhoh.7`) | Not in this plan: each adds a mechanism |
 | The Nov 12 checkpoint wording has not run in a fresh session | The person's trials | Open question in research.md |

@@ -37,7 +37,7 @@ This plan implements [design.md](design.md). Phase 1 is detailed here. Phases 2 
 | Phase | Delivers | Design |
 | --- | --- | --- |
 | 1 | The prover: proof at every checkpoint | D1 to D5 |
-| 2 | Bookkeeping tool: record slips cannot halt a run | D6 |
+| 2 | Bookkeeping in the tool: record slips cannot halt a run | D6 |
 | 3 | Proof in place of sanction for outer-test changes | D7 |
 | 4 | Judge and stop routing | D8 |
 | 5 | Agent graph and prompt budgets | D9 |
@@ -143,6 +143,34 @@ The same spawn and report sections, pointing at implement's reference section.
 
 The person's trials on two projects decide whether proof at the checkpoint works, and whether Phase 2 starts as planned.
 
+## Phase 2: Bookkeeping in the Tool
+
+### Objective
+
+A record-keeping slip cannot halt a run: posting and filing are single commands that cannot half-succeed, a missing link is repaired, and the tree fingerprint works on a repository with a large dependency directory.
+
+### Changes
+
+1. **`plugin/scripts/wb-records`**: `put`, `have`, `file`, `link` (tests first in `tests/wb-records/run.sh`, with `tests/wb-records/fake-bd` extended for `bd create`, `bd dep add`, and `bd dep list`).
+2. **`plugin/scripts/test-integrity`**: `--fingerprint` covers an oversized ignored directory by metadata and reports `metadata_dirs` (tests first in `tests/test-integrity/run.sh`).
+3. **Posting**: `agents/task-worker.md`, `agents/test-writer.md`, and "Posting text to beads" in `docs/reference/non-interactive-shell.md` post with `wb-records put` and return the comment id; `skills/implement/SKILL.md` Step 6 checks the returned ids with `wb-records have`.
+4. **Filing**: "Evidence in Beads" in `skills/implement/reference.md`, and the filing lines in `skills/implement_inline/SKILL.md` and `skills/validate_phase/SKILL.md`, use `wb-records file`.
+5. **Record gaps**: `agents/task-verifier.md` reports a missing `discovered-from` link on a Record gaps line that never fails the task.
+6. **Docs**: `plugin/scripts/README.md`, `docs/beads-guide.md` inventory, CHANGELOG.
+
+All of Phase 2 is tracked as `prompts-ia25.10`.
+
+### Success Criteria
+
+- `bash tests/wb-records/run.sh` and `bash tests/test-integrity/run.sh` pass on bash 5 and bash 3.2
+- A smoke run of the new subcommands against a real scratch beads database matches the stand-in
+- One full `/wb:implement` phase on the fixture completes with workers and test-writers posting through `wb-records put`
+- Instruction text does not grow in this phase
+
+### ⛔ CHECKPOINT: Phase 2 Complete
+
+The person's trials show whether record slips still stop a run.
+
 ## Implementation Notes
 
 - 2026-11-13: plan created from the review of the alpha. The person gave the go-ahead to proceed with these concepts and asked for the prover first, to test in their two projects.
@@ -158,5 +186,11 @@ The person's trials on two projects decide whether proof at the checkpoint works
   - Not exercised end to end: a disproven criterion as a P item. This fixture's criteria all held. The agent trials cover the disproven state; the P-item wording in a real checkpoint is for the person's trials.
   - Volume: prover 30 tool calls; test reviewer 49; phase verifier 27; three task verifiers 28 to 33; coordinator 66; the whole run about $9.
   - The same checkpoint raised one test decision whose own text says "Is this a real choice? Mostly no … A rule still requires your sanction by name". That is the case Phase 3 (proof in place of sanction) removes.
-- **Status fields** in this file's frontmatter are stale until `/wb:update_status` runs; seven of eight Phase 1 tasks are closed in beads, and the milestone stays open for the person's trials.
-- **Size**: Phase 1 adds 19,399 characters of instruction text to the alpha's 926,134 (2%). `agents/prover.md` is 9,244. Later phases have to remove more than this for M4.
+- **Status fields** in this file's frontmatter are stale until `/wb:update_status` runs; all eight Phase 1 tasks are closed in beads, and the milestone stays open for the person's trials.
+- **Size**: the alpha's 926,134 characters counted script code with the instruction text. Measured apart (`validation/size.sh`), instruction text is 847,880 at the alpha and script code 78,254. Phase 1 added about 19,400 characters of instruction text; `agents/prover.md` is 9,244. Later phases have to remove more than this for M4.
+- **2026-11-13, Phase 2**:
+  - Scripts, tests first: `wb-records` gains `put`, `have`, `file`, and `link` (26 new cases; 78 pass on bash 5 and 3.2), and `test-integrity --fingerprint` covers an oversized ignored directory by metadata (7 new cases; 160 pass on both). A smoke run of the new `wb-records` commands against a real scratch beads database matched the stand-in: the post confirmed in one call, the description stored byte for byte, the link present, and the linked task still ready.
+  - One full `/wb:implement` phase on the fixture after the prompt changes: workers and test-writers made 6 `put` calls, every returned block cited its comment id, the coordinator's 3 `have` checks found every id present, 1 issue was filed with `file`, 28 posts were confirmed and none failed, and the working tree ended clean. The run cost about $8.
+  - Not exercised: the task verifier's Record gaps line (no task in the fixture is a rewrite task with a missing link), and the fingerprint on the repository that showed the cap error.
+  - Size: the prompt commit removes a net 439 characters of instruction text; the scripts' README grows by about 1,400 and script code by about 7,600. Instruction text stands at 868,761 against the alpha's 847,880, and script code at 85,887 against 78,254.
+  - Moved to Phase 4: parking a task and continuing independent work at a verification cap in attended mode, because it changes who decides at a stop.
