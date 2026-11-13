@@ -133,7 +133,7 @@ wb-records manifest <issue-id> <record-name> <sha256> [<sha256>...]
 wb-records read <issue-id> <record-name>
 ```
 
-Record names: `verification report`, `defect ledger`, `test integrity`, `phase verification`.
+Record names: `verification report`, `defect ledger`, `test integrity`, `phase verification`, `proof`.
 
 - `post`: decodes the text (`--escaped`: only the three escapes, no real newlines in the argument; base64: the RFC 4648 alphabet, `=` padding only at the end, length a multiple of 4, at most 64 KiB encoded), removes trailing newlines, and refuses (exit 2) text containing a NUL byte (records are text only), text over 48 KiB, or text whose first line does not start with `<record-name>:` or `<record-name> (i/n):` (a `<record-name> manifest:` line is refused: only `manifest` posts manifests). It writes the text to a private (mode 700) temporary file, runs `bd comments add <issue-id> -f <file>` (the issue id must match `[A-Za-z0-9._-]+`), removes the file, reads the comments back with `bd comments <issue-id> --json`, and confirms the newest comment is exactly the posted text. Output: `{"posted": true|false, "sha256": "<hex of the posted text>", "bytes": n, "comment_id": "<id>"|null, "error": "<why>"|null}`; a bd failure or a read-back that does not match gives `posted: false`. No shell ever sees the text.
 - `manifest`: the only way to post `<record-name> manifest: parts=<n> sha256=<h1>,<h2>,...`; it builds the line and posts it through the same path, so the line is never typed by hand (each sha256 must be 64 lowercase hex characters).

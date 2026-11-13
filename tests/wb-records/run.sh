@@ -72,10 +72,13 @@ exit_is 2 "post: a prefix that is not at the start is refused" wr post ISS-2 --e
 exit_is 2 "post: bad base64 is refused" wr post ISS-2 'not*base64'
 exit_is 2 "post: an invalid issue id is refused" wr post 'ISS 2;rm' --escaped 'verification report: x'
 [ "$(wc -l < "$FAKE_BD_STORE/log")" = "$before" ] && ok "post: refused input never reaches bd" || fail "post: refused input never reaches bd"
-for p in 'test integrity:' 'phase verification (2/3):'; do
+for p in 'test integrity:' 'phase verification (2/3):' 'proof (1/2):'; do
     out="$(wr post ISS-P --escaped "$p body")"
     check "$out" 'd["posted"] is True' "post: prefix accepted: $p"
 done
+PR="$(wr post ISS-PR --escaped 'proof:\n- AC-1: proven')"
+wr manifest ISS-PR 'proof' "$(field "$PR" 'd["sha256"]')" >/dev/null
+check "$(wr read ISS-PR 'proof')" 'd["status"]=="ok" and d["parts"]==1 and "AC-1: proven" in d["text"]' "read: a proof record posts, takes a manifest, and reads back ok"
 out="$(BD_FAIL=1 wr post ISS-3 --escaped 'verification report: x')"
 check "$out" 'd["posted"] is False and d["error"] and d["comment_id"] is None' "post: a bd failure gives posted false with the error"
 out="$(BD_MANGLE=1 wr post ISS-3 --escaped 'verification report: y')"

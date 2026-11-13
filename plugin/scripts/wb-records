@@ -9,7 +9,7 @@
 #   wb-records read <issue-id> <record-name>
 #
 # Record names: "verification report", "defect ledger", "test integrity",
-# "phase verification". A posted text must start with "<record-name>:" or
+# "phase verification", "proof". A posted text must start with "<record-name>:" or
 # "<record-name> (i/n):"; only the manifest subcommand writes
 # "<record-name> manifest:" lines. Records are text: a NUL is refused.
 #
@@ -55,7 +55,7 @@ done
 MAX_TEXT_BYTES=49152
 MAX_JSON_BYTES=8388608
 MAX_B64_BYTES=65536
-RECORD_NAMES="verification report|defect ledger|test integrity|phase verification"
+RECORD_NAMES="verification report|defect ledger|test integrity|phase verification|proof"
 
 # ---------------------------------------------------------------- helpers
 json_str() {
