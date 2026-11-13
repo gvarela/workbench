@@ -38,7 +38,7 @@ This plan implements [design.md](design.md). Phase 1 is detailed here. Phases 2 
 | --- | --- | --- |
 | 1 | The prover: proof at every checkpoint | D1 to D5 |
 | 2 | Bookkeeping in the tool: record slips cannot halt a run | D6 |
-| 3 | Proof in place of sanction for outer-test changes | D7 |
+| 3 | Outer tests change on proof, not on sanction | D7 |
 | 4 | Judge and stop routing | D8 |
 | 5 | Agent graph and prompt budgets | D9 |
 
@@ -170,6 +170,35 @@ All of Phase 2 is tracked as `prompts-ia25.10`.
 ### ⛔ CHECKPOINT: Phase 2 Complete
 
 The person's trials show whether record slips still stop a run.
+
+## Phases 3 to 5: The Rework
+
+### Objective
+
+Outer tests change on proof (D7), a judge decides what a stop is (D8), and the graph and prompts are rebuilt around both (D9). The three phases rewrite the same coordinator and verifier files, so they were designed together and each file was rewritten once. Tracked as `prompts-ia25.11`, `.12`, and `.13`.
+
+### Changes
+
+1. **Structural first**: `skills/implement/reference.md` split into `context.md`, `records.md`, `outer-tests.md`, `failures.md`, `checkpoint.md`, and `unattended.md`, text unchanged, with every reference repointed. Later deletions then show in the diff.
+2. **`skills/implement/SKILL.md`** rewritten as one loop: tests before the worker, the worker's `needs test:` block brokered by the coordinator, one rule for stops, the checkpoint in its playbook.
+3. **`agents/judge.md`** (new), and "The Judge" in `failures.md`: repair, settle, recheck, person; what it may settle and what it never does.
+4. **`outer-tests.md`** and **`docs/reference/rewrite-verification.md`** (new): the proof rule, how a rewrite is filed, run, checked, and recorded.
+5. **`agents/task-worker.md`**, **`test-writer.md`**, **`task-verifier.md`**, **`test-reviewer.md`** rewritten; `sub-agent-prompts.md` rewritten with the test-writer's four modes and the judge's prompt.
+6. **`checkpoint.md`**: the report template; a blocking test gap whose fix is tests only closes without asking; every other item goes through the judge.
+7. **`docs/reference/rules-and-intents.md`**: Outer tests and The judge replace Sanction and Delegations.
+8. **`skills/implement_inline`** made thin; `validate_phase`, `create_tasks`, `create_design` (the judge before approval), help, wb-prime, and the intake lines updated.
+9. **Docs**: CHANGELOG, CLAUDE.md, README, commands reference, workflow guide.
+
+### Validation
+
+- **Judge replay** (`validation/judge-cases.py`, `run-judge-trials.sh`): twelve stops modeled on the trial sessions', records inline, with the accepted outcomes of each.
+- **Blind integrity trials** (`validation/run-ac5.sh`): the testing-guidance plan's two AC-5 sets, unchanged, delivered through beads and the plan as the verifier now reads them; scored with that plan's scorer and answer keys.
+- **End to end** (`validation/run-headless.sh`): `/wb:implement` on the planned fixture and its trap variants, and `/wb:implement_inline` on the planned fixture.
+- **Size** (`validation/size.sh`), lint, `claude plugin validate`, and the script test suites.
+
+### ⛔ CHECKPOINT: The Rework Complete
+
+The person runs it on their two projects, each phase in a fresh session.
 
 ## Implementation Notes
 

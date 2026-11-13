@@ -167,7 +167,7 @@ If a record was not posted, return in place of the block a first line naming it 
 A failing test, a change outside the task, or a requirement not met fails it. So does a test that claims to guard a criterion and does not (Step 3). These always fail, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
 
 - **a mirrored oracle**: an expected value computed by calling the code under test, which a planted defect in that code leaves passing;
-- **a loosened assertion, with proof**: a planted defect or a counterexample shows it now accepts wrong behavior the original rejected. Without that proof it is a note;
+- **a loosened assertion, with proof**: a realistic break of the code (Step 3), or a counterexample, shows it now accepts wrong behavior the original rejected. A break contrived only to separate the two versions is not proof, and without proof it is a note. A declared change that replaces one case with another is judged the same way;
 - **a vacuous test**: one shown unable to fail;
 - **a skipped or deleted guard**;
 - **an undeclared test change**, including a support file that holds a test case and a setup file with a changed example or assertion;
