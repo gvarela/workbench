@@ -104,20 +104,41 @@ Three principles, applied in order of evidence per unit of effort.
   - **Why the existing helper and not a new `wb` command**: `wb-records` already posts and confirms by read-back, has a test suite with a stand-in for bd, and is covered by the permission rule the README gives for unattended runs. A `bin/` directory would put a command on the PATH, but a plugin with one cannot be installed on claude.ai or in Cowork.
   - **Not in this phase**: parking a task and continuing independent work at a verification cap in attended mode. It changes who decides at a stop, so it belongs with the judge (D8).
   - **Trade-offs**: the Record gaps line relies on the verifier classifying a gap correctly; a gap that does change a judgment about the tests, such as a test change with no report, stays an integrity finding. The metadata fingerprint does not catch a same-size rewrite that restores the old modification time.
-- **D7. Proof in place of sanction.** An outer test may change when `wb:test-writer` makes the change, the criterion text is unchanged, and a differential run shows every original case still caught. Lost coverage and a change in a criterion's meaning stay the person's. The delegations collapse into this rule.
-- **D8. Judge.** A Fable agent receives a script-built packet for every would-be stop and returns repaired, settled, halted, or a question for the person. It can order a re-check; it never clears a FAIL, waives integrity, or changes what a criterion means. Tested offline on the session stops before live use (the trial plan in `prompts-qhoh.7`).
-- **D9. Graph and prompts.** The agent graph and the instruction text, changed together because each mechanism above deletes prose.
-  - **Graph**:
-    - Tests before the worker, with no nested spawns: the coordinator has `wb:test-writer` write a task's tests, then spawns the worker; a worker that needs another test returns "needs test" and the coordinator brokers it (`prompts-gdkf`). Nested spawns launch asynchronously whatever the worker asks, and a killed worker lost its unposted reports.
-    - A narrower task verifier: the sanctioned-rewrite cases move to their own agent or playbook, since most tasks never reach them. Whether planted defects move from per task to per phase is decided by measuring which checks caught the production defects (research.md, Open Questions).
-    - One coordinator session per phase, resumed from beads and the plan, so context does not reach 900K tokens and a session never runs a mixed plugin version.
-  - **Context**:
-    - A generated task brief: a script assembles each task's criterion text, seam, commands, and files into one record. Each agent reads the brief and its own role definition; no agent reads whole plan documents.
-    - Rare branches become playbooks loaded when their trigger fires, not paragraphs every run carries.
-  - **Prompts**:
-    - Budgets in characters, checked by `validation/size.sh`: about 8,000 per agent definition and 15,000 for the coordinator core.
-    - The coordinator's loop and checkpoint essentials come first in SKILL.md, because only a skill's first 5,000 tokens are restored after compaction.
-    - The record types collapse to the few the tool writes.
+- **D7. Outer tests change on proof, not on sanction (Phase 3).**
+  - **The rule**: an outer test changes only through a rewrite task that `wb:test-writer` carries out. The change lands without asking the person when the task verifier's report shows all three:
+    1. the criterion's text in design.md is unchanged;
+    2. nothing the red-commit version caught is lost, shown one of three ways: **mechanical** (the integrity script proves the change is a reflow, an import re-sort, or whitespace), **name only** (only identifier references in code positions changed, for a rename design.md states), or **differential** (every case the red-commit version caught is still caught, run on the defect runner or a recognized mutation tool);
+    3. every added assertion checks what the criterion's statement or an example already states.
+  - **Otherwise the person decides**: a case the original caught is lost, an added check goes beyond the criterion (that changes what it means), or no route can run the differential.
+  - **What starts a rewrite**: a blocking test gap whose fix is the outer test, a rename a design revision forces, or a formatter. A judgment-only proposal is a follow-up and is never run on the coordinator's own initiative.
+  - **Blocking test gaps close without asking** when the fix changes tests only and is proven as above (an inner test through `wb:test-writer`, or an outer test by this rule). They appear under "Decisions I made for you" with what was done and how to undo it. A gap whose fix needs production code, or costs coverage, still goes to the person.
+  - **Record**: one `rewrite:` comment on the task (the test, the reason, which proof, the verifier's report). It replaces the sanction line's approval clause, `re-baseline:`, and `delegation:`.
+  - **Removed**: the three delegations and `delegate: test upkeep`, the once-per-plan offer, R-numbered proposals, the `checks:` quote field, and sanction "by name" for changes that pass the rule. `not claimed:` stays, written only on the person's reply, because accepting lost coverage is theirs.
+  - **Rationale**: in two sessions the person approved every such ask, one fixture checkpoint said of its own question "Is this a real choice? Mostly no", and upkeep took a third or more of worker runs. The proofs are the ones the delegations already required; what goes is the ceremony of granting them.
+  - **Trade-offs**: a change the person reserved in the first design now lands on evidence. The floor is unchanged: workers never edit tests, a change with no proof is still a changed outer test and a FAIL, and without a defect runner the differential cannot run and the person is asked.
+- **D8. `wb:judge`, and one rule for stops (Phase 4).**
+  - **The rule**: before the coordinator stops to ask the person anything other than a phase checkpoint's go-ahead, it consults `wb:judge`. The judge returns one of four outcomes:
+    - **repair**: a bookkeeping gap; it says what to post or link, and the run goes on;
+    - **settle**: a call inside its classes, recorded as `judged:` with its reason and listed under "Decisions I made for you";
+    - **recheck**: a fresh, targeted verification of a named finding, when a verifier's reading is in doubt;
+    - **person**: the question, written for the person in product terms (what would go wrong, the real choices, a recommendation).
+  - **Classes it may settle**: whether a finding falls inside the cited criterion or is a follow-up; a literal-wording dispute on a line whose strength is aim; whether a deviation is explained by an existing record; a wb rule that leaves a needed change no route, when the plan's purpose is clear; and what to do after a failed re-verification when the choice is about process, at most one further fix attempt per task (three verifications in all).
+  - **Never**: turn a FAIL into a PASS, waive an integrity finding, change what a criterion means, accept lost coverage, decide product behavior or scope, approve work outside the plan, or judge a hard line. Those return **person**.
+  - **Independence**: the coordinator wants green, so the judge is given ids and the stop's kind, not the coordinator's account. It reads the verifier's records, the criterion, and the diff itself. It is a fresh agent each time, on Fable at high effort, and edits nothing.
+  - **Checkpoint items** go through it too: each item the coordinator would list under "Needs your decision" is first classed by the judge, so only **person** items are asked.
+  - **Design approval**: `create_design` spawns the judge once before asking for approval, to list narrowings and questions the approval would pass in silence.
+  - **Replaces**: the bounded auto-continue's conditions and cross-check, the rule-gap halt, the record-only re-check, the lost-coverage fix check, and the handoff question. The failed re-verification halt and the plan-defect halt remain as what the person sees when the judge returns **person**.
+  - **Unattended mode**: a **person** outcome goes on the `deferred:` ledger and parks the task, as today.
+  - **Validated before live use** by an offline replay: case packets drawn from the trial sessions' stops, with the expected outcome for each, including cases that must reach the person and cases that press the judge to clear a failure.
+  - **Trade-offs**: one Fable spawn per would-be stop. A wrong **settle** is a decision made for the person; the classes are narrow, every one is recorded with how to reverse it, and the replay is the gate.
+- **D9. Graph and prompts (Phase 5).**
+  - **Tests before the worker, no nested spawns**: the coordinator has `wb:test-writer` write the task's tests (the outer test for a criterion with no red commit, then the task's inner tests) and then spawns the worker. A worker that needs another test stops and returns a `needs test:` block; the coordinator spawns the test-writer and continues the worker. `task-worker` loses the Agent tool. Nested spawns launched asynchronously in every observed case, workers polled, and a killed worker lost unposted reports.
+  - **Playbooks**: `skills/implement/reference.md` is split by trigger into files the coordinator reads only when the trigger fires: `context.md`, `records.md`, `outer-tests.md`, `failures.md`, `checkpoint.md`, `unattended.md`. The task verifier's rewrite checks move to `docs/reference/rewrite-verification.md`, read only for a rewrite task.
+  - **Budgets, in characters** (`validation/size.sh`): `implement/SKILL.md` under 20,000, so the whole loop survives the 5,000-token restore after compaction; each playbook under 14,000; `task-verifier.md` under 24,000; other agents under 14,000.
+  - **`implement_inline`** becomes the same loop with the session as the worker: it keeps what differs (no per-task verifier; the test review checks integrity at the checkpoint) and points at implement's playbooks for the rest.
+  - **One coordinator session per phase**: each checkpoint report ends by recommending a fresh session for the next phase, which also keeps a session on one plugin version.
+  - **Deferred within this phase**: a generated task brief. Agents already read their task and criteria themselves; a script that assembles them is worth building only if the trials show agents misreading the plan.
+  - **Integrity floor check (M5)**: the earlier plan's blind-trial sets are run against the rewritten task verifier.
 
 ### Where each review finding lands
 
