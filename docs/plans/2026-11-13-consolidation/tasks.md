@@ -238,3 +238,18 @@ The person runs it on their two projects, each phase in a fresh session.
     - Task 3's first verification failed on a gap in AC-3's outer test (a ride dated after today could be counted in today's total). `wb:test-writer` rewrote the test, the verifier's differential caught 13 of 13 planted defects including the two the original missed, and the rewrite was committed as the criterion's new red commit and listed under "Decisions I made for you" with its undo. On the alpha the same fixture put this to the person as T1.
     - The checkpoint reported "Needs your decision: nothing" and "Left for you to check: nothing", with each criterion proven by running the product.
     - The judge was not spawned: nothing in this run reached a stop.
+  - **End to end, three more runs** on the fixture (Opus coordinator or session):
+    - `/wb:implement_inline`, planned fixture (about $4.60): the session wrote the code and no test file; six test-writer spawns (three outer, three task); the test reviewer in inline mode, the phase verifier, and the prover ran; every criterion proven; nothing left for the person; the tree ended clean.
+    - `/wb:implement`, the missing-module trap (about $6.20): no `red(AC-3)` commit was made on an import error and the test-writer did not create the module. The coordinator consulted `wb:judge`, the first live consult, and it returned the question for the person in product terms with three options, among them the stub that needs approval by name and a change to where the criterion is observed. On the way, a test gap on the rounding task was closed by the test-writer in request mode and re-verified with no stop.
+    - `/wb:implement`, the outer-test-conflict trap (about $10): the AC-3 outer test is unchanged since its red commit, the worker changed the implementation, and the checkpoint had nothing to decide. Whether the worker was tempted to ask for the outer test to change is not visible, so that request path may have gone unexercised.
+  - **Found by these runs and fixed**: a test-writer, adding a test on code that already worked, edited a production file with `sed` to show the test could fail and then restored it. The rewritten definition stated the no-production-edits rule only for rewrite mode. It now says, for a test added on working code, that there is no red, that a failure is shown only through the defect runner, and that production code is never changed in any mode.
+  - **Paths exercised live**: the test-writer's outer, task, request, and rewrite modes; a failed verification followed by a test-only fix; a rewrite landing on a differential (13 of 13); the judge returning a question for the person; the prover on every checkpoint; `wb-records put`, `have`, and `file`.
+  - **Not exercised live**, and so resting on the replay or on reading alone:
+    - a worker returning a `needs test:` block (the test-writer's task mode supplied what every worker needed);
+    - the judge's repair, settle, and recheck outcomes (replay only), and the judge in unattended mode;
+    - a disproven criterion as a P item at a real checkpoint, and a checkpoint test gap closed without asking (the gap in the first run was closed at the task verifier, before the checkpoint);
+    - a name-only rename rewrite and a mechanical reflow of an outer test;
+    - `/wb:validate_phase`, and `create_design`'s judge pass before approval;
+    - the two text changes made after their trials: the realistic-break requirement for a loosened assertion, and the test-writer's no-red rule;
+    - anything on a Rails or large repository: every run was on a small Python fixture.
+  - **Spend** on validation for the rework: about $90 across the judge replay, the blind trials, and seven end-to-end runs.

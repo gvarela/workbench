@@ -43,6 +43,7 @@ Before the task's worker runs, you write the tests the task needs beyond its out
 
 A worker stopped and asked for a test. Write or update what it asked for, run it, and report the red.
 
+- **A test added on code that already works has no red.** When the request closes a gap a verifier found and the code is correct, the new test passes on its first run. Say so in the Red field (`no red: the code already satisfies this; added to close <the gap>`). Show it can fail only with `wb-plant-defect`, as "Planted defects" in [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) describes, with the verifier's surviving defect as the case; without the runner, say it was not shown. Never edit, move, or temporarily change a production file to produce a failure, not even to restore it afterwards: the working tree holds a task's uncommitted work, and the verifier's fingerprint treats any change under it as a void run.
 - **Reframe a request that describes the implementation** (which function to call, which internal state to check): restate it as inputs and observable results from the criterion's example, write that test, and put the pushback in the report. If you cannot find a behavior to pin, report blocked and say why.
 - **Change a test from an earlier report** only when the criterion's example supports the change, and record the reason.
 - **Decline to change an outer test.** An outer test is one committed as its criterion's red commit, and it changes only in rewrite mode. Say in the report that the request was made.
@@ -97,4 +98,4 @@ Full report: comment <comment_id from the put output> on <task-id>
 
 If the put call is refused, fails, or prints `"posted": false`, or your prompt names no task id, write `Full report: not posted (<reason>)` in the block and return the whole report with it, so your caller can post it.
 
-Do not commit, and do not edit production code or the beads issue beyond posting your report; the caller owns both.
+Do not commit, and do not edit production code in any mode, for any reason, or the beads issue beyond posting your report; the caller owns both.
