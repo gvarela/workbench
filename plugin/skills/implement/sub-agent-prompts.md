@@ -109,11 +109,11 @@ Provide:
 
 **Re-verify** using the task-verifier agent with the same context plus one line, `Re-verification: yes; the earlier verification report: comment holds the FAIL, and the defect ledger: comment its Defect ledger`, again with no `model` parameter. It runs every integrity check, re-plants the defects behind the FAIL and the rest of their class, and always every ledger line whose target or test blob the fix changed, and carries the rest of the ledger over, since the suite run covers the unchanged code; a survivor outside the class comes back as a follow-up, not a FAIL. Add nothing to the prompt that asks it to skip the blob-changed lines, whatever the cost or churn. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
 
-**If re-verification fails**: check the "Bounded auto-continue" in [reference.md](reference.md) first. Only when all four of its conditions hold in the returned block, and the task has had fewer than three verifications, post the `auto-continue:` record and spawn one more fix worker from this prompt, then re-verify as above. Otherwise, or when that re-verification fails too, halt the phase with the "Failed Re-verification Halt" in reference.md, and spawn no further fix worker until the person's reply asks for one.
+**If re-verification fails**: check the "Bounded auto-continue" in [failures.md](failures.md) first. Only when all four of its conditions hold in the returned block, and the task has had fewer than three verifications, post the `auto-continue:` record and spawn one more fix worker from this prompt, then re-verify as above. Otherwise, or when that re-verification fails too, halt the phase with the "Failed Re-verification Halt" in failures.md, and spawn no further fix worker until the person's reply asks for one.
 
 ## Phase Verifier Prompt (Step 8)
 
-Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn, so the two run in parallel. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Phase Verification" in [reference.md](reference.md) says where each value comes from.
+Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn, so the two run in parallel. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Phase Verification" in [checkpoint.md](checkpoint.md) says where each value comes from.
 
 ```
 Verify Phase ${phase} of the plan against its tasks.
@@ -133,7 +133,7 @@ Read the planned changes, the Design Coverage rows, the Intent statements, and t
 
 ## Prover Prompt (Step 8)
 
-Spawn with `subagent_type: "wb:prover"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn and the phase verifier. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Proof" in [reference.md](reference.md) says where each value comes from.
+Spawn with `subagent_type: "wb:prover"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn and the phase verifier. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Proof" in [checkpoint.md](checkpoint.md) says where each value comes from.
 
 ```
 Prove Phase ${phase} of the plan.

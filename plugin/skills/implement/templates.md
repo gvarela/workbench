@@ -35,7 +35,7 @@ ${each `judged:` record posted this phase (the rule, the purpose, what was done)
 
 **What this phase delivered** (by acceptance criterion):
 ${each criterion and task done as behavior the user can now rely on: "- <behavior> (AC-n, task <id>)"}
-- Intent progress: ${one line per README Intent statement, with its status from the phase verifier ("Phase Verification" in reference.md)}
+- Intent progress: ${one line per README Intent statement, with its status from the phase verifier ("Phase Verification" in checkpoint.md)}
 - Intent verdicts (final phase only, in place of Intent progress): ${each statement with the verdict written to the README (PASS, FAIL, or DEFERRED) and its evidence in one clause, and each still awaiting your manual check, with no suffix written; as [intent-verdicts.md](../../docs/reference/intent-verdicts.md) says}
 - Deviations from the plan: ${each, in plain words, with the answer the user gave (accepted, fixed, or plan defect), or "none"}
 
@@ -53,7 +53,7 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 **Execution Statistics:**
 - Worker agents spawned: ${workerCount}
 - Total tasks completed: ${completedCount}
-- Execution mode: sequential${; unattended from the `user reply:` record of <date> to <the message that ended it, or "still running">, when the phase ran in unattended mode ("Unattended Mode" in reference.md)}
+- Execution mode: sequential${; unattended from the `user reply:` record of <date> to <the message that ended it, or "still running">, when the phase ran in unattended mode ("Unattended Mode" in unattended.md)}
 
 **Beads tracking:**
 - ✅ Phase ${phase} milestone closed (${phaseMilestoneId})
@@ -64,7 +64,7 @@ ${each criterion and task done as behavior the user can now rely on: "- <behavio
 - Next phase: ${nextPhaseTaskCount} tasks available (run \`bd ready\`)
 - Files modified: ${codeFileCount} code files, ${testFileCount} test files
 
-**Context:** compactions this phase: ${compactionCount}${; when 1 or more, the fresh-session choice the user made at the checkpoint ("Handoff Decision" in reference.md)}
+**Context:** compactions this phase: ${compactionCount}${; when 1 or more, the fresh-session choice the user made at the checkpoint ("Handoff Decision" in failures.md)}
 
 Ready to proceed to Phase ${phase + 1}.
 ```

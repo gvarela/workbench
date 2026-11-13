@@ -148,7 +148,7 @@ Before any beads issue exists, map every design.md In Scope item and every Succe
 
 Then check the plan itself against the agents' findings: research.md's knowledge gaps and design.md's risk mitigations are handled, every task is specific and executable, dependencies follow the agent-identified order, and every acceptance criterion has an outer-test step (one under a "manual" decision has a Manual Verification line instead) whose test file follows the project's test file grouping, so criteria may share a file, and every "add harness" decision has a harness task before the first outer test at that boundary; "manual" and "lower proxy" decisions add no harness task.
 
-Earlier plans' outer tests stay committed as `red(AC-n)`, and no worker may change one, so a design that renames or retires an identifier one of them cites halts the run mid-task. Find each such test and ask about it with the other gaps, as "Earlier Outer Tests the Design Renames" in [implement/reference.md](../implement/reference.md) says; a re-baseline answer becomes a planned rewrite task there, and the run does not ask again.
+Earlier plans' outer tests stay committed as `red(AC-n)`, and no worker may change one, so a design that renames or retires an identifier one of them cites halts the run mid-task. Find each such test and ask about it with the other gaps, as "Earlier Outer Tests the Design Renames" in [implement/outer-tests.md](../implement/outer-tests.md) says; a re-baseline answer becomes a planned rewrite task there, and the run does not ask again.
 
 ### Step 5: Create Beads Issues
 
