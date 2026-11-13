@@ -60,7 +60,7 @@ const contextPackage = {
         id: "AC-n",
         title: "criterion title (for the red commit message)",
         testFile: "the test file named in its outer test step in tasks.md",
-        redCommit: "<sha of the latest red(AC-n) commit for its outer test; a sanctioned rewrite's replaces the original>"
+        redCommit: "<sha of the latest red(AC-n) commit for its outer test; a rewrite's replaces the original>"
       }
     ],
 
@@ -91,6 +91,6 @@ const contextPackage = {
 
 A plan that predates 5.0.0 cites no criteria. Then `taskTestContext` holds only `startingCommit` and `conventions`, and no outer tests, outer reports, or red commits exist. The rule that workers never edit tests still applies, and the verifier still checks test integrity against the starting commit, because both protect the tests regardless of how the plan was written.
 
-## Worker Model Selection (Step 5)
+## Worker Model Selection (Step 4)
 
-Model choice is coordinator judgment. The tier rule lives in one place, SKILL.md Step 5 item 4 ("Determine model"), and is passed as a per-spawn model override on the `task-worker` agent.
+Model choice is coordinator judgment. The tier rule lives in one place, SKILL.md Step 4 item 3, and is passed as a per-spawn model override on the `task-worker` agent.
