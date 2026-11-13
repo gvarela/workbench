@@ -1,139 +1,132 @@
 # implement — Sub-Agent Prompts
 
-Verbatim prompt templates for the agents this skill spawns. Read the relevant section in full before each spawn; do not paraphrase or abbreviate these prompts.
+The prompt for every agent this skill spawns. Fill in the values and use the text as written; each agent's definition carries its process, so a prompt gives only what that agent cannot find out for itself. Every agent reads its task from beads and its criteria from the plan: never paste task text or criteria into a prompt.
 
-## Worker Prompt Template (Step 5)
+## Test-Writer Prompts (Step 4)
 
-```markdown
-function buildWorkerPrompt(task, contextPackage) {
-  return `You are a focused implementation worker for a single task.
+Spawn with `subagent_type: "wb:test-writer"`. One template, four modes:
 
-## Your Task
-**ID**: ${task.id}
-**Plan directory**: ${contextPackage.planDir}  (its research.md, design.md, and tasks.md)
-
-Read the task and the criteria it cites first, as your agent definition's Inputs says; this prompt does not repeat them.
-
-## Context You Need
-
-**Why this phase exists**: ${contextPackage.why}
-**Constraints**: ${contextPackage.design.constraints}
-
-### Patterns to Follow
-${formatPatterns(contextPackage.patterns)}
-
-### Relevant File References
-${formatFileReferences(contextPackage.relevantFiles, task)}
-
-### Test Commands
-${formatTestCommands(contextPackage.testCommands)}
-
-### Commits
-**Starting commit**: ${contextPackage.taskTestContext.startingCommit}
-**Red commits**: ${formatRedCommits(contextPackage.taskTestContext.criteria)}  (criterion id, sha, and test file of each committed outer test)
-${task.sanctionedRewrite ? `
-### Sanctioned Outer-Test Rewrite
-This task rewrites the outer test ${task.sanctionedRewrite.testFile} from its red commit ${task.sanctionedRewrite.redCommit}, which a person sanctioned by name, or within a delegation they granted (your task's description carries the Sanctioned rewrite: line, or the Sanctioned rewrite (additive): line, under which the rewrite only adds lines). Ask wb:test-writer for the rewrite in inner mode and pass on this requirement: plant one defect for each case the red-commit version catches, which the test-quality skill's Part 3 defines (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion, on shapes present in the repository or named in the criterion's examples; every other alternative goes on a written Not claimed list in the test and the report), and one for the gap the review found; run both versions against each; the rewrite must fail on all of them; list each defect with both results in the report. The review's suggested fix is a starting point: where it would stop catching something the red-commit version catches, keep that case and add the gap.
-` : ""}
-
-## Your Process
-
-Follow your agent definition: it carries the TDD process, the constraints, and the report format. The coordinator commits after verification, so leave the commit to it and make \`bd close ${task.id}\` your last act.
-`;
-}
-```
-
-## Outer Test Prompt (Step 5)
-
-Spawn with `subagent_type: "wb:test-writer"` once per task, naming every criterion the task cites that has no outer test yet, before the worker is spawned. One spawn per task rather than per criterion saves the coordinator a spawn and a return per criterion, while each criterion still gets its own report and its own red commit. The exception is criteria that share a target test file: name at most one of them per spawn and spawn again after its red commit, because `wb:test-writer` does not commit and a commit takes the whole file, so a second test written beside the first would land in the first criterion's red commit. The caller is the coordinator, so `wb:test-writer` works in outer mode.
-
-```markdown
-function buildOuterTestPrompt(task, criteria, planDir) {
-  return `Write the outer acceptance test for each criterion below, one test and one report per criterion.
-
-## Inputs
-
-**Caller**: the coordinator (outer mode)
-**Task ID**: ${task.id}
-**Plan directory**: ${planDir}  (its research.md, design.md, and tasks.md)
-**Earlier test-writer reports for this task**: in the task's comments
-
-${criteria.map(c => `- ${c.id}: target test file ${c.testFile}`).join("\n")}
-
-Read each criterion from the plan first, as your agent definition's Inputs says; this prompt does not repeat them.
-
-Report as your agent definition specifies, posting each report on task ${task.id} and returning one block per criterion. Do not commit: the coordinator commits each test as red(<criterion id>) once its block shows an assertion failure.
-`;
-}
-```
-
-## Verification Agent Prompt (Step 6)
-
-Spawn with `subagent_type: "wb:task-verifier"` and no `model` parameter (its definition sets the model; see SKILL.md Step 6).
+- **outer**: before the worker, for criteria the task cites that have no `red(AC-n)` commit. Criteria that share a target test file go one per spawn, with the next spawn after the first one's red commit, because a commit takes the whole file.
+- **task**: before the worker, once per task, for the task's own tests.
+- **request**: when a worker returns `needs test:`.
+- **rewrite**: for a rewrite task ("Changing an Outer Test" in [outer-tests.md](outer-tests.md)); no worker runs.
 
 ```
-Use the task-verifier agent to verify task completion.
+Write tests for this task. Mode: ${outer | task | request | rewrite}
 
-Provide the agent with:
 - Task ID: ${taskId}
-- Plan Directory: ${planDir}  (its design.md and tasks.md hold the criteria the task cites)
-- Test Command: ${workerOutput.testCommand}
-- Files Changed: ${workerOutput.filesChanged}
-- Tests Modified: ${workerOutput.testsModified}  (the worker block's Tests line)
-- Starting Commit: ${taskTestContext.startingCommit}
-- Red Commits: ${redCommits}  (each taskTestContext.criteria[].redCommit with its criterion id and testFile)
+- Plan directory: ${planDir}  (its research.md, design.md, and tasks.md)
+- Test command: ${testCommand}
+- Earlier test-writer reports for this task: in the task's comments
+${outer:   "- Criteria: " + each criterion id with its target test file}
+${request: "- The worker's request, verbatim:\n" + the worker's needs test: block}
+${rewrite: "- Outer test: " + testFile + ", red commit " + redCommit + "\n- Why: " + the reason from the task's Outer test rewrite: line + "\n- Suggested fix (a starting point, not the specification): " + suggestedFix}
 
-The agent reads the task from beads and the cited criteria from the plan, and the worker report, the test-writer reports, and on a harness or setup task the support or setup files from the task's comments, so none of them is pasted here.
-
-The agent will run tests, check scope adherence, post its full report and
-its Test Integrity section on the task, and return a short block with
-Status: PASS or FAIL.
+Read the task and its criteria yourself, as your agent definition's Inputs says. Post each report on task ${taskId} and return one block per report. Do not commit.
 ```
 
-## Fix Worker Prompt (Step 6, on verification FAIL)
+## Worker Prompt (Step 4)
 
-**Retry 1:**
+Spawn with `subagent_type: "wb:task-worker"` and the chosen `model`.
 
 ```
-Verification failed. Spawn a fix worker using the task-worker agent with a fable model override (use opus if fable is unavailable in this session).
+Implement one task.
 
-Provide:
 - Task ID: ${taskId}
-- Plan Directory: ${planDir}
-- Context: the Worker Prompt Template's "Context You Need" section as the first worker got it (why, constraints, patterns, file references, test commands, and its Sanctioned Outer-Test Rewrite block when the task has one, since task-worker changes an outer test only when its prompt names the rewrite)
-- Starting Commit and Red Commits: as in the Verification Agent Prompt
-- Verification Report: the latest `verification report:` comment on the task; read it yourself with `bd comments ${taskId} --json`, along with the earlier worker and test-writer reports there
-- Earlier Test-writer Reports: in the task's comments; give `wb:test-writer` the task id and say the earlier reports are there
-- Instructions: Read the task and its cited criteria as your agent definition's Inputs says, then fix the specific issues the verification report names. Where it names a class of failure, such as the cases a rewrite of an outer test stopped catching, fix the whole class, not only the instances it lists: the re-verification checks the class again, and a second automatic attempt comes only for a test gap on correct code. Close beads issue when done.
+- Plan directory: ${contextPackage.planDir}  (its research.md, design.md, and tasks.md)
+- Why this phase exists: ${contextPackage.why}
+- Constraints: ${contextPackage.design.constraints}
+- Patterns to follow: ${contextPackage.patterns}
+- Relevant files: ${contextPackage.relevantFiles, the ones this task touches or must not break}
+- Test commands: ${contextPackage.testCommands}
+- Starting commit: ${startingCommit}
+- Red commits: ${each cited criterion's id, sha, and test file}
+- Tests already written for this task: in the task's comments (the test-writer's reports)
+
+Read the task and the criteria it cites yourself, as your agent definition's Inputs says. You write no test: when you need one you do not have, stop and return a needs test: block. The coordinator commits after verification, so make `bd close ${taskId}` your last act.
 ```
 
-**Re-verify** using the task-verifier agent with the same context plus one line, `Re-verification: yes; the earlier verification report: comment holds the FAIL, and the defect ledger: comment its Defect ledger`, again with no `model` parameter. It runs every integrity check, re-plants the defects behind the FAIL and the rest of their class, and always every ledger line whose target or test blob the fix changed, and carries the rest of the ledger over, since the suite run covers the unchanged code; a survivor outside the class comes back as a follow-up, not a FAIL. Add nothing to the prompt that asks it to skip the blob-changed lines, whatever the cost or churn. It reads the test-writer reports and, on a harness or setup task, the support or setup files from the task's comments, which now include the fix worker's and its test-writer's, so the fix's test changes match a report rather than failing as undeclared.
+## Verifier Prompt (Step 4)
 
-**If re-verification fails**: check the "Bounded auto-continue" in [failures.md](failures.md) first. Only when all four of its conditions hold in the returned block, and the task has had fewer than three verifications, post the `auto-continue:` record and spawn one more fix worker from this prompt, then re-verify as above. Otherwise, or when that re-verification fails too, halt the phase with the "Failed Re-verification Halt" in failures.md, and spawn no further fix worker until the person's reply asks for one.
+Spawn with `subagent_type: "wb:task-verifier"` and no `model` parameter: its definition pins Opus at `high`, and a per-spawn model would run the gate on the worker's cheaper model.
 
-## Phase Verifier Prompt (Step 8)
+```
+Verify this task.
 
-Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn, so the two run in parallel. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Phase Verification" in [checkpoint.md](checkpoint.md) says where each value comes from.
+- Task ID: ${taskId}
+- Plan directory: ${planDir}
+- Test command: ${testCommand}
+- Files changed: ${the worker block's Files changed line; for a rewrite task, the test file}
+- Starting commit: ${startingCommit}
+- Red commits: ${each cited criterion's id, sha, and test file}
+${one added line when it applies:}
+${"Re-verification: yes; the earlier verification report record holds the FAIL, and the defect ledger record its ledger"}
+${"Targeted re-check: " + the finding, as the judge named it}
+
+Read the task, its criteria, and the reports and records in the task's comments yourself. Post your records on the task and return your block.
+```
+
+A re-verification runs every integrity check and plants defects only for the FAIL's class, plus every ledger line whose target or test blob the fix changed. Add nothing that asks it to skip those lines.
+
+## Fix Worker Prompt (after a verification FAIL)
+
+Spawn with `subagent_type: "wb:task-worker"` and `model: "fable"` (`opus` when Fable is unavailable in this session).
+
+```
+Fix a task that failed verification.
+
+- Task ID: ${taskId}
+- Plan directory: ${planDir}
+- The Worker Prompt's context lines, as the first worker got them
+- Starting commit and red commits: as in the Verifier Prompt
+- The verification report: the latest verification report record on the task; read it and the earlier worker and test-writer reports from the task's comments
+${"Guidance: " + the judge's guidance, or "Guidance from the user: " + the person's, when there is one}
+
+Fix what the report names. Where it names a class of failure, fix the whole class, not only the instances it lists. You write no test: for a test change, return a needs test: block. Close the beads issue when done.
+```
+
+When the fix is to a test only (the report says the production code is correct), spawn `wb:test-writer` in request mode with the verifier's class fix as the request, in place of a fix worker.
+
+## Test Reviewer Prompt (Step 5)
+
+Spawn with `subagent_type: "wb:test-reviewer"` and no `model` parameter.
+
+```
+Review the tests Phase ${phase} changed.
+
+- Plan directory: ${planDir}
+- Mode: ${"implement" | "inline"}
+- Phase starting commit: ${phaseStartingCommit}; plan starting commit: ${planStartingCommit}
+- Criteria: ${the phase's criterion ids}  (read each with its examples, observed-at boundary, and seam)
+- Red commits: ${the latest red(AC-n) commit of each, with its test file}
+- Phase tasks: ${phaseTaskIds}  (read each verifier's Test Integrity and Defect ledger records from them)
+- Conventions: ${conventionsSource}; test paths: ${testPaths}; test command: ${testCommand}
+${for a settling review: "Candidates: " + each candidate's location, rubric item, and proposed verdict}
+```
+
+## Phase Verifier Prompt (Step 5)
+
+Spawn with `subagent_type: "wb:phase-verifier"` and no `model` parameter. "The Three Agents" in [checkpoint.md](checkpoint.md) says where each value comes from.
 
 ```
 Verify Phase ${phase} of the plan against its tasks.
 
 - Plan directory: ${planDir}  (its README.md, design.md, and tasks.md)
 - Milestone: ${phaseMilestoneId}  (post your report here)
-- Phase: ${phase}; final phase: ${isFinalPhase ? "yes" : "no"}; mode: ${"implement" from /wb:implement, "inline" from /wb:implement_inline and /wb:validate_phase of an inline phase}
+- Phase: ${phase}; final phase: ${"yes" | "no"}; mode: ${"implement" | "inline"}
 - Range: ${phaseStartingCommit}..${endCommit}  (end: HEAD, or "working tree" when the phase's changes are not all committed)
 - Plan starting commit: ${planStartingCommit}
-- Tasks: ${phaseTaskIds}  (the phase's beads task ids from the tasks.md frontmatter, outer test steps included, plus each issue filed during the phase whose id a commit in the range names)
-- Red commits: ${redCommits}  (the latest red(AC-n) commit of each criterion delivered so far, with its test file)
+- Tasks: ${phaseTaskIds}
+- Red commits: ${redCommits}
 - Automated verification: ${each checkpoint command and whether it passed}
 - Conventions: ${conventionsSource}; test paths: ${testPaths}; test command: ${testCommand}
 
-Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself, as your agent definition's Inputs says; this prompt does not repeat them. Post your report on the milestone and return it, as your definition specifies; you edit nothing else.
+Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself. Post your report on the milestone and return it; you edit nothing else.
 ```
 
-## Prover Prompt (Step 8)
+## Prover Prompt (Step 5)
 
-Spawn with `subagent_type: "wb:prover"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn and the phase verifier. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Proof" in [checkpoint.md](checkpoint.md) says where each value comes from.
+Spawn with `subagent_type: "wb:prover"` and no `model` parameter.
 
 ```
 Prove Phase ${phase} of the plan.
@@ -142,9 +135,24 @@ Prove Phase ${phase} of the plan.
 - Milestone: ${phaseMilestoneId}  (post your report here)
 - Phase: ${phase}
 - Criteria: ${criterionIds}  (this phase's; on the final phase, every criterion the plan delivered; "none" for a plan without acceptance criteria)
-- Red commits: ${redCommits}  (each listed criterion's latest red(AC-n) commit, with its test file)
+- Red commits: ${redCommits}
 - Test command: ${testCommand}
 - Profile: ${".claude/wb/testing.md" when it exists, otherwise "none"}
 
-Read each criterion and the phase's manual checks yourself, as your agent definition's Inputs says. Run the product; edit nothing; post your report on the milestone and return it.
+Read each criterion and the phase's manual checks yourself. Run the product; edit nothing; post your report on the milestone and return it.
+```
+
+## Judge Prompt (before any stop but a checkpoint's go-ahead)
+
+Spawn with `subagent_type: "wb:judge"` and no `model` parameter (its definition pins Fable at `high`). Give ids and the kind of stop. Copy the finding verbatim, and say what you would ask in one sentence without arguing for an answer: the judge reads the evidence itself.
+
+```
+Judge this stop.
+
+- Plan directory: ${planDir}
+- Stop: ${failed re-verification | unfinished worker | missing plan context | plan defect | rewrite not proven | checkpoint item | design approval}
+- Task or milestone: ${id}
+- Finding or item: ${the verifier's, reviewer's, prover's, or worker's line, verbatim; for several checkpoint items, each on its own line with its number}
+- What the coordinator would ask: ${one sentence}
+- Verifications so far: ${n}
 ```
