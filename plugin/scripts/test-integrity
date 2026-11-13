@@ -63,7 +63,7 @@ Usage: test-integrity --start <commit> [options]
                             directory. No --start needed.
   --include-ignored <dir>   With --fingerprint: also cover ignored files under
                             this repository-relative directory (repeatable;
-                            capped at 20000 files and 500 MiB).
+                            over 20000 files or 500 MiB, by size and mtime).
   --sha256 <part>...        Print {"sha256": "<hex>", "bytes": n} for the exact
                             concatenation of the parts (no separators; every
                             remaining argument is a part, even one starting
@@ -381,6 +381,28 @@ lower_cap() {
 }
 MAX_TREE_FILES="$(lower_cap 100000 "${TEST_INTEGRITY_FP_MAX_FILES:-}")"
 MAX_TREE_KB="$(lower_cap 2097152 "${TEST_INTEGRITY_FP_MAX_KB:-}")"
+# An ignored directory over its cap (a large dependency directory) is not an
+# error: it is fingerprinted by each file's path, size, and modification
+# time instead of its content, and named in "metadata_dirs". That catches a
+# file added, removed, resized, or rewritten, which is what a test run or a
+# package manager does to it; it does not catch a same-size rewrite that
+# restores the old modification time.
+MAX_IGNORED_FILES="$(lower_cap "$MAX_IGNORED_FILES" "${TEST_INTEGRITY_FP_MAX_IGNORED_FILES:-}")"
+MAX_IGNORED_KB="$(lower_cap "$MAX_IGNORED_KB" "${TEST_INTEGRITY_FP_MAX_IGNORED_KB:-}")"
+
+# fp_meta <NUL list file> <records file>: one "path<TAB>size<TAB>mtime" line
+# per file, from stat (the BSD or the GNU form, whichever this system has).
+fp_meta() {
+    local list="$1" rec="$2" n
+    n="$(tr -cd '\0' < "$list" | wc -c | tr -d ' ')"
+    [ "$n" -gt 0 ] || return 0
+    if stat -f '%z' / >/dev/null 2>&1; then
+        xargs -0 stat -f '%N%t%z%t%m' < "$list" >> "$rec" 2>/dev/null
+    else
+        xargs -0 stat --printf='%n\t%s\t%Y\n' < "$list" >> "$rec" 2>/dev/null
+    fi
+    FP_N=$((FP_N + n))
+}
 
 # fp_paths <tag> <NUL list file> <records file>: one record per path.
 FP_N=0
@@ -420,7 +442,7 @@ fp_paths() {
 }
 
 fingerprint_mode() {
-    local rec="$TMP_INDEX.fpr" list="$TMP_INDEX.fpl" ent meta path dir count kb err=""
+    local rec="$TMP_INDEX.fpr" list="$TMP_INDEX.fpl" ent meta path dir count kb err="" meta_dirs=""
     : > "$rec"
     # Index entries, as git stores them.
     while IFS= read -r -d '' ent; do
@@ -458,22 +480,25 @@ fingerprint_mode() {
         [ -d "$dir" ] || continue
         g ls-files -z --others --ignored --exclude-standard -- "$dir" > "$list"
         count="$(tr -cd '\0' < "$list" | wc -c | tr -d ' ')"
-        if [ "$count" -gt "$MAX_IGNORED_FILES" ]; then
-            err="ignored files under $dir: $count is over the $MAX_IGNORED_FILES-file cap"; break
-        fi
         kb=0
-        [ "$count" -gt 0 ] && kb="$(xargs -0 du -skP < "$list" 2>/dev/null | awk '{ t += $1 } END { print t + 0 }')"
-        if [ "$kb" -gt "$MAX_IGNORED_KB" ]; then
-            err="ignored files under $dir: ${kb} KiB is over the $MAX_IGNORED_KB KiB cap"; break
+        if [ "$count" -gt 0 ] && [ "$count" -le "$MAX_IGNORED_FILES" ]; then
+            kb="$(xargs -0 du -skP < "$list" 2>/dev/null | awk '{ t += $1 } END { print t + 0 }')"
+        fi
+        if [ "$count" -gt "$MAX_IGNORED_FILES" ] || [ "$kb" -gt "$MAX_IGNORED_KB" ]; then
+            printf 'ignored-dir-metadata\0%s\0\0' "$dir" >> "$rec"
+            FP_N=$((FP_N + 1))
+            fp_meta "$list" "$rec"
+            meta_dirs="$meta_dirs${meta_dirs:+,}$(json_str "$dir")"
+            continue
         fi
         printf 'ignored-dir\0%s\0\0' "$dir" >> "$rec"
         FP_N=$((FP_N + 1))
         fp_paths ignored "$list" "$rec"
     done
     if [ -n "$err" ]; then
-        printf '{"fingerprint":null,"records":0,"errors":[%s]}\n' "$(json_str "$err")"
+        printf '{"fingerprint":null,"records":0,"metadata_dirs":[],"errors":[%s]}\n' "$(json_str "$err")"
     else
-        printf '{"fingerprint":"%s","records":%s,"errors":[]}\n' "$(sha256_stdin < "$rec")" "$FP_N"
+        printf '{"fingerprint":"%s","records":%s,"metadata_dirs":[%s],"errors":[]}\n' "$(sha256_stdin < "$rec")" "$FP_N" "$meta_dirs"
     fi
     rm -f "$rec" "$list" "$TMP_INDEX.fpp" "$TMP_INDEX.fph"
 }

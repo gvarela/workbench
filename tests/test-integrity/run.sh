@@ -599,6 +599,21 @@ run --fingerprint --include-ignored ../outside >/dev/null 2>&1
 check "$(TEST_INTEGRITY_FP_MAX_FILES=2 run --fingerprint)" 'd["fingerprint"] is None and [e for e in d["errors"] if "files" in e and "cap" in e]' "fingerprint: over the tracked+untracked file cap it fails closed (null and an error)"
 check "$(TEST_INTEGRITY_FP_MAX_KB=0 run --fingerprint)" 'd["fingerprint"] is None and [e for e in d["errors"] if "KiB" in e and "cap" in e]' "fingerprint: over the tracked+untracked size cap it fails closed"
 check "$(TEST_INTEGRITY_FP_MAX_FILES=999999999 run --fingerprint)" 'isinstance(d["fingerprint"], str)' "fingerprint: the caps can only be lowered, not raised"
+# An ignored directory over its cap (a large dependency directory) is
+# fingerprinted by each file's size and modification time, not refused.
+check "$(fp)" 'd["metadata_dirs"]==[]' "fingerprint: under the caps, no directory is fingerprinted by metadata"
+fpm() { TEST_INTEGRITY_FP_MAX_IGNORED_FILES=0 run --fingerprint --include-ignored build "$@"; }
+M1="$(fpm)"
+check "$M1" 'isinstance(d["fingerprint"], str) and len(d["fingerprint"])==64 and d["metadata_dirs"]==["build"] and d["errors"]==[]' "fingerprint: an ignored directory over the file cap is fingerprinted by size and mtime, and named"
+[ "$(fpv "$M1")" = "$(fpv "$(fpm)")" ] && ok "fingerprint: by metadata, the same tree gives the same fingerprint" || fail "fingerprint: by metadata, the same tree gives the same fingerprint"
+[ "$(fpv "$M1")" != "$(fpv "$(fp)")" ] && ok "fingerprint: a metadata fingerprint differs from a content one, so the two are never compared as equal" || fail "fingerprint: a metadata fingerprint differs from a content one, so the two are never compared as equal"
+printf 'built and more\n' > build/out.js
+[ "$(fpv "$(fpm)")" != "$(fpv "$M1")" ] && ok "fingerprint: by metadata, a file that changed size changes it" || fail "fingerprint: by metadata, a file that changed size changes it"
+printf 'built\n' > build/out.js
+printf 'new\n' > build/extra.js
+[ "$(fpv "$(fpm)")" != "$(fpv "$M1")" ] && ok "fingerprint: by metadata, an added file changes it" || fail "fingerprint: by metadata, an added file changes it"
+rm -f build/extra.js
+check "$(TEST_INTEGRITY_FP_MAX_IGNORED_KB=0 run --fingerprint --include-ignored build)" 'isinstance(d["fingerprint"], str) and d["metadata_dirs"]==["build"]' "fingerprint: an ignored directory over the size cap is fingerprinted by metadata too"
 
 # ------------------------------------------------- sha256 of arguments
 # --sha256 <part>...: the digest of the exact concatenation, no git needed.
