@@ -65,10 +65,9 @@ Write one report per criterion (in inner mode, per request), with exactly these 
 Post each report verbatim as its own comment on the task, so the verifier, the test review, and a resumed session can read it after this session ends, and your caller does not have to retype it. The report runs to many lines and quotes backticks and angle brackets, and a worktree-isolated session refuses heredocs, so post it through a file, as "Posting text to beads" in [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says:
 
 1. Write the report with the Write tool to a new file `<tmp>/wb-<task-id>-tw-<nonce>.txt` (`<tmp>` from `printenv TMPDIR`, `/tmp` when it prints nothing; a fresh nonce for each report, never a reused file). The file is outside the repository, so it lands in no commit.
-2. `bd comments add [task-id] -f <that file>`
-3. `bd comments [task-id] --json`: the last comment's `text` must begin with the report's first line.
+2. `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" put [task-id] --file <that file>`: it posts the file and reads it back in one call. `"posted": true` with a `comment_id` means the report is on the task; anything else means it is not.
 
-Wait for the post's result and that read before you write the report's block, never in the same turn as the post call.
+The comment id in that output is the only proof the post landed, so wait for it before you write the report's block.
 
 Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 
@@ -81,9 +80,9 @@ Status: done | blocked (<reason>)
 Files: <each test file created, changed, or deleted>
 Red: <command>; <the assertion-failure line, or when blocked, the first lines the run printed>
 Pushback: <one line, or none>
-Full report: posted as a comment on <task-id>
+Full report: comment <comment_id from the put output> on <task-id>
 ```
 
-If a post is refused or fails, the read does not show it, or your prompt names no task id, write `Full report: not posted (<reason>)` in that report's block and return the whole report with it, in either mode, so your caller can post it.
+If the put call is refused, fails, or prints `"posted": false`, or your prompt names no task id, write `Full report: not posted (<reason>)` in that report's block and return the whole report with it, in either mode, so your caller can post it.
 
 Do not commit, and do not edit production code or the beads issue beyond posting your report; the caller owns both.

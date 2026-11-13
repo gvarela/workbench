@@ -36,7 +36,7 @@ You implement exactly that one task and return.
    `wb:test-writer` posts its full report as a comment on your task and returns a short block to you, so do not post it again. The verifier, a fix worker, and a resumed session read the reports from those comments, because your returned output does not survive the session. If its Full report line says the report was not posted, post the report it returns yourself, verbatim and with no `worker report:` line, in the file form under Report below.
 3. **GREEN**: minimal implementation to pass. Run the test, then related tests for regression.
 4. **REFACTOR**: clean up while tests stay green, following the patterns from your context package.
-5. **Record created files**: `bd comments add [task-id] "created files: <every file created during the task, yours and wb:test-writer's, or none>"`. A halted task's discard step deletes only the untracked files this list names. On a harness task, also post your support files as a record, with `support files:` as the first line and one repository-relative path per line after it, in the file form under Report below (`bd comments add [task-id] -f <file>`). On a setup task (its description carries a `Setup files:` line), post the test files whose setup you edited the same way, with `setup files:` as the first line. The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_phase's build the declared list from these records, because your returned block does not survive the session.
+5. **Record created files**: `bd comments add [task-id] "created files: <every file created during the task, yours and wb:test-writer's, or none>"`. A halted task's discard step deletes only the untracked files this list names. On a harness task, also post your support files as a record, with `support files:` as the first line and one repository-relative path per line after it, in the file form under Report below (`wb-records put [task-id] --file <file>`). On a setup task (its description carries a `Setup files:` line), post the test files whose setup you edited the same way, with `setup files:` as the first line. The verifier, a re-verification after a session break, and an inline-mode test review such as /wb:validate_phase's build the declared list from these records, because your returned block does not survive the session.
 6. **Post your report** as Report below describes. Before you hand back, end any background shell you started with `TaskStop`, because a live shell keeps you listed as running after the report; see [non-interactive-shell.md](../docs/reference/non-interactive-shell.md).
 7. **Close**: `bd close [task-id] --reason "Implemented [title], tests passing"` This is your last act; do not commit, the coordinator commits after verification.
 
@@ -63,10 +63,9 @@ Write a report with `worker report:` as its first line, then: (1) what you imple
 Post it as a comment on your task before you close it, so the verifier, a fix worker, and a resumed session can read it after this session ends. Post every multi-line text (this report, a `support files:` or `setup files:` record, a test-writer report you repost) through a file, as "Posting text to beads" in [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) says, because a worktree-isolated session refuses heredocs:
 
 1. Write the text, `worker report:` as its first line, with the Write tool to a new file `<tmp>/wb-<task-id>-worker-<nonce>.txt` (`<tmp>` from `printenv TMPDIR`, `/tmp` when it prints nothing; a fresh nonce per post, never a reused file). Use Write only for these scratch files and for your task's own files.
-2. `bd comments add [task-id] -f <that file>`
-3. `bd comments [task-id] --json`: the last comment's `text` must begin with `worker report:`.
+2. `"${CLAUDE_PLUGIN_ROOT}/scripts/wb-records" put [task-id] --file <that file>`: it posts the file and reads it back in one call. `"posted": true` with a `comment_id` means the report is on the task; anything else means it is not.
 
-Wait for the post's result and that read before you write the block below, never in the same turn as the post call.
+The comment id in that output is the only proof the post landed, so wait for it before you write the block below.
 
 Then return only this block to the coordinator, because the full report is already on the task:
 
@@ -80,9 +79,9 @@ Support files (harness task): <paths, or none>
 Setup files (setup task): <paths, or none>
 Issues: <one line each, or none>
 Blockers: <one line each, or none>
-Full report: the `worker report:` comment on <task-id>
+Full report: comment <comment_id from the put output> on <task-id>
 ```
 
-If the post is refused or fails, or the read does not show it, write `Full report: not posted (<reason>)` and put the whole report after the block, so the coordinator can post it.
+If the put call is refused, fails, or prints `"posted": false`, write `Full report: not posted (<reason>)` and put the whole report after the block, so the coordinator can post it.
 
 If you hit errors or blockers you cannot resolve: document them clearly in the report, leave the task `in_progress`, and name them under Blockers; do not close the issue, because a closed issue reads as finished work.
