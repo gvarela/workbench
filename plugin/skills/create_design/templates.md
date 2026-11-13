@@ -80,14 +80,17 @@ One criterion per changed behavior, each checkable at a boundary a test can obse
   - Example (edge): [a boundary case, when one exists]
   - Observed at: [where the result is visible: HTTP response, rendered page, CLI output, stored record]
   - Seam: [only when the boundary is external or an LLM: what is stubbed, and what stays real]
+  - Proven by: [how to show this in the running product: the command, request, or page to use and what to look for; or `manual: <why only a person can check it>`]
   - Refines: [Success Metric id, for example M1]
   - Guards against: [the harm or wrong behavior this criterion exists to stop, in the user's terms]
   - Strength: [hard | aim, from the metric it refines, as wb's rules-and-intents reference (Strength) defines them; hardness attaches to the Guards against purpose, never to the mechanism a narrowing picks, so write `hard (purpose) / aim (mechanism)` when they differ]
   - Narrows: [only when it is stricter than its metric: how (only or never, a fixed placement, a word list, an exact layout); listed under "Choices I made that tighten your intent"]
 
+Proven by is how `wb:prover` will try to show the criterion holding at each phase checkpoint, by running the product; the test is separate. Writing it now tells the person, before anything is built, which criteria they will have to check by hand.
+
 A criterion checks its statement; it does not replace it. When the check is a proxy (a word list, a region, a selector), Guards against is what the proxy stands for, so the test-writer can name it and a reader can tell a proxy's false hit from a real break.
 
-Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Refines: M1; Guards against: an expired link still letting someone set a password; Strength: hard (safety).
+Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Proven by: open a link issued more than 2 hours ago on a local server and read the page; Refines: M1; Guards against: an expired link still letting someone set a password; Strength: hard (safety).
 
 ### Harness Decisions
 

@@ -155,7 +155,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - [ ] Lint, type check, and build commands from research pass
 
 #### Manual Verification
-(From design.md success criteria, plus each acceptance criterion under a "manual" harness decision)
+(From design.md success criteria, plus each acceptance criterion under a "manual" harness decision or whose Proven by line is `manual:`. At the checkpoint `wb:prover` attempts every item here by running the product and leaves the person only what it could not prove, so word each as something that can be run and observed.)
 - [ ] [Specific user action] works correctly
 - [ ] Performance meets target: [metric]
 - [ ] Error messages are clear and helpful

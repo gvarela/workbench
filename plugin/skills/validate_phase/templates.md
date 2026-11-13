@@ -93,7 +93,7 @@ Each item: what it is, what it puts at risk, whether it blocks the release, and 
 
 ## Manual Testing Checklist
 
-From design.md's manual checks for the phases checked; for `all`, include each metric a phase verifier marked "awaiting the manual check", since its verdict waits on your answer.
+Only what `wb:prover` could not prove, with its reason and steps: the criteria and the manual checks from the phases checked. Each manual check it proved is one line with the command and output. For `all`, include each metric a phase verifier marked "awaiting the manual check", since its verdict waits on your answer.
 
 - [ ] [Manual check, in plain words] ([metric or criterion id])
 

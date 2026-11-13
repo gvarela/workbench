@@ -51,6 +51,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 **Needs your decision:**
 
 - [each blocking item not already closed under a delegation, numbered T1, T2, ... so a reply can name it (a deterministic failure in a test this phase changed), in the decision form of [writing-for-the-user.md](../../docs/reference/writing-for-the-user.md): first what you would see go wrong in the product if it is left, as one concrete example; then its two choices, close (what will be done: the outer-test strengthening, the missing test, or the revert, with its cost) and accept (what stays unguarded); the recommendation; and the criterion and file in parentheses after. When closing it is an outer-test rewrite, the item carries that rewrite and gets no separate R number]
+- [each criterion or manual check the prover disproved, numbered P1, P2, ..., as what it saw the product do against what the criterion says, with its two choices and a paste-ready reply (`fix: P1` or `accept: P1`; "Proof" in [implement/reference.md](../implement/reference.md))]
 - [each unexplained deviation from the phase verifier, numbered D1, D2, ..., with its options and a paste-ready reply ("Phase Verification" in [implement/reference.md](../implement/reference.md))]
 - [on the final phase: each FAIL Intent verdict on a statement the plan did not defer, with what failed, its options, and a paste-ready reply (`accept fail:`, `fix:`, or `plan defect:` and the statement; "Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md))]
 - [each proposed outer-test Rewrite no blocking item carries and no delegation covers, numbered R1, R2, ..., put as what the stronger check would catch in the product that today's misses, with a recommendation]
@@ -62,15 +63,15 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 - [each `judged:` record posted this phase (the rule, the purpose, what was done) and each step taken under a delegation you granted, one line each with the reply that reverses it, as [rules-and-intents.md](../../docs/reference/rules-and-intents.md) says; or "none"]
 
-**What this phase delivered** (by acceptance criterion):
+**What this phase delivered** (by acceptance criterion, with the prover's result from running the product):
 
-- [behavior the user can now rely on] (AC-n, task [id])
+- [behavior the user can now rely on] (AC-n, task [id]): [the prover's state, copied from its report: "proven: `<command>` showed <output>"; "disproven, see P1"; or "could not prove, see Left for you to check"]
 - Intent progress: [one line per README Intent statement, with its status from the phase verifier (deferred, at risk, not started, awaiting the manual check, met, or met so far); on the final phase, its Intent verdict instead (PASS, FAIL, DEFERRED, or awaiting your manual check, with its evidence in one clause), as "Final phase: the Intent verdicts" in [implement/reference.md](../implement/reference.md) says]
 
-**Manual checks** (from design.md):
+**Left for you to check** (only what the prover could not prove):
 
-1. [Manual verification item 1]
-2. [Manual verification item 2]
+1. [each criterion and manual check the prover reported as could not prove, with its reason and its steps for you, copied from its report]
+2. [each manual check it proved, as one line with the command and output; or "Nothing: every criterion and manual check was proven by running the product"]
 
 **Test integrity** (proposals; no test was edited):
 
@@ -87,7 +88,7 @@ The sections and each item follow [writing-for-the-user.md](../../docs/reference
 
 **Beads state:** all Phase [N] tasks closed; the Phase [N] milestone ([phase-milestone-id]) is ready to close.
 
-Reply when manual verification is complete, answering each blocking item above by its number (close: T1 to fix it as described, accept: T2 to leave the gap, or a set: accept: T1-T3), if any, answering each deviation by its number (accept: D1, fix: D2, plan defect: D3, or a set: accept: D1-D4) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction (sanction: R1), and I'll close the phase milestone. A set covers only ids listed above and still pending; one with a gap, an answered or unlisted id, or mixed kinds is not acted on.
+Reply when you have done the checks left for you, answering each blocking item above by its number (close: T1 to fix it as described, accept: T2 to leave the gap, or a set: accept: T1-T3), if any, answering each disproven criterion by its number (fix: P1 or accept: P1), answering each deviation by its number (accept: D1, fix: D2, plan defect: D3, or a set: accept: D1-D4) and, on the final phase, each FAIL Intent verdict, and naming any outer-test Rewrite you sanction (sanction: R1), and I'll close the phase milestone. A set covers only ids listed above and still pending; one with a gap, an answered or unlisted id, or mixed kinds is not acted on.
 
 ```
 

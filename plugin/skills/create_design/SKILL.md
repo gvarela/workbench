@@ -20,7 +20,7 @@ design.md records architectural decisions and the reasoning behind them: what to
 
 ## Initial Response
 
-This stage needs from you: approval of the approach, the refined metrics, the acceptance criteria with their harness decisions, and each listed choice that tightens your intent; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question.
+This stage needs from you: approval of the approach, the refined metrics, the acceptance criteria with how each will be proven and their harness decisions, and each listed choice that tightens your intent; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question.
 
 When invoked, check for arguments:
 

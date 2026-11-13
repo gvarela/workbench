@@ -315,7 +315,7 @@ bd ready
 
 **Phase Checkpoints**:
 
-After completing all phase tasks, `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
+After completing all phase tasks, `wb:prover` runs the product at each acceptance criterion's boundary and reports each criterion and manual check as proven, disproven, or could not prove; a disproven one holds the checkpoint, and you check by hand only what it could not prove. `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
 
 ```bash
 # Check phase milestone
@@ -348,7 +348,8 @@ Every implement checkpoint already runs `wb:phase-verifier` and `wb:test-reviewe
 1. Runs automated verification once (suite, lint, typecheck, build)
 2. Spawns `wb:phase-verifier` for the phase, or one per phase for `all`
 3. Spawns `wb:test-reviewer` over the phase's range, or the whole plan's for `all`
-4. For `all`: a verdict per Intent statement from the phases' evidence, written beside each README statement after your reply, and the deferred design questions still open
+4. Spawns `wb:prover` for the phase, or one per phase for `all`, to run the product at each criterion's boundary
+5. For `all`: a verdict per Intent statement from the phases' evidence, written beside each README statement after your reply, and the deferred design questions still open
 
 **Checks**:
 

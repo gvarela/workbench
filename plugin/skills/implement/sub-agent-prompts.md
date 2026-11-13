@@ -130,3 +130,21 @@ Verify Phase ${phase} of the plan against its tasks.
 
 Read the planned changes, the Design Coverage rows, the Intent statements, and the task records yourself, as your agent definition's Inputs says; this prompt does not repeat them. Post your report on the milestone and return it, as your definition specifies; you edit nothing else.
 ```
+
+## Prover Prompt (Step 8)
+
+Spawn with `subagent_type: "wb:prover"` and no `model` parameter (its definition pins Opus at `high`), in the same message as the first `wb:test-reviewer` spawn and the phase verifier. `/wb:implement_inline` uses this prompt too, at its Step 5, and `/wb:validate_phase` once per phase it checks. "Proof" in [reference.md](reference.md) says where each value comes from.
+
+```
+Prove Phase ${phase} of the plan.
+
+- Plan directory: ${planDir}  (its design.md and tasks.md)
+- Milestone: ${phaseMilestoneId}  (post your report here)
+- Phase: ${phase}
+- Criteria: ${criterionIds}  (this phase's; on the final phase, every criterion the plan delivered; "none" for a plan without acceptance criteria)
+- Red commits: ${redCommits}  (each listed criterion's latest red(AC-n) commit, with its test file)
+- Test command: ${testCommand}
+- Profile: ${".claude/wb/testing.md" when it exists, otherwise "none"}
+
+Read each criterion and the phase's manual checks yourself, as your agent definition's Inputs says. Run the product; edit nothing; post your report on the milestone and return it.
+```
