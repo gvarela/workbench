@@ -147,3 +147,16 @@ The person's trials on two projects decide whether proof at the checkpoint works
 
 - 2026-11-13: plan created from the review of the alpha. The person gave the go-ahead to proceed with these concepts and asked for the prover first, to test in their two projects.
 - Plan-doc commits are separate from plugin commits.
+- The trial harness (`validation/`) is local only and ignored by git, as the repository's rule for validation harnesses and run data requires. Its results are summarized here.
+- **2026-11-13, prover trials** (three headless runs of `wb:prover` on the fixture: one criterion wired correctly, one whose entry point bypasses the fix while its outer test passes, one that needs a credential):
+  - All three runs passed all 14 checks: proven with the product's own command and the example's output; disproven with the observed output, the file and line, and what a test would need to assert; could not prove with a reason and steps; working tree unchanged; no process left; the `proof` record read back `ok`; the Proven by line used where present and the route derived from Observed at where absent; the runnable manual check proven and the live-account one left for the person.
+  - For the credential criterion each run showed the behavior up to the stubbed seam on a throwaway copy and reported the live call as could not prove. The first version of the check wrongly failed that; the check was corrected, not the agent.
+  - Cost and size: 31, 36, and 39 tool calls; 126 to 158 seconds; about $0.91 to $1.05 per run, for three criteria and two manual checks.
+  - One friction: scratch files under the temporary directory did not always survive between calls. The definition now says to make, use, and remove a copy in one command.
+- **2026-11-13, one full `/wb:implement` phase** on the earlier plan's three-task fixture (headless, Opus coordinator):
+  - The coordinator spawned `wb:prover` with the test review and the phase verifier. The checkpoint report carried each criterion's result with what the product showed, and "Left for you to check" said nothing was required, listing both manual checks as proven. One was marked as resting on markup only, because no browser tool was available headless.
+  - Not exercised end to end: a disproven criterion as a P item. This fixture's criteria all held. The agent trials cover the disproven state; the P-item wording in a real checkpoint is for the person's trials.
+  - Volume: prover 30 tool calls; test reviewer 49; phase verifier 27; three task verifiers 28 to 33; coordinator 66; the whole run about $9.
+  - The same checkpoint raised one test decision whose own text says "Is this a real choice? Mostly no … A rule still requires your sanction by name". That is the case Phase 3 (proof in place of sanction) removes.
+- **Status fields** in this file's frontmatter are stale until `/wb:update_status` runs; seven of eight Phase 1 tasks are closed in beads, and the milestone stays open for the person's trials.
+- **Size**: Phase 1 adds 19,399 characters of instruction text to the alpha's 926,134 (2%). `agents/prover.md` is 9,244. Later phases have to remove more than this for M4.
