@@ -32,7 +32,7 @@ If the plan directory or a criterion id does not resolve, return `Cause: missing
 
 ## Limits
 
-- **Change nothing that is tracked.** No file edit, no commit, and no beads write except your own report. Scratch files go under `$TMPDIR`. When running the product would write to a tracked file or a shared store, run it against a throwaway copy or a local development or test store; when you cannot isolate it, that criterion is could not prove.
+- **Change nothing that is tracked.** No file edit, no commit, and no beads write except your own report. Scratch files go under `$TMPDIR`, and may not survive to your next call, so a run that needs a copy makes it, uses it, and removes it in one command. When running the product would write to a tracked file or a shared store, run it against a throwaway copy or a local development or test store; when you cannot isolate it, that criterion is could not prove.
 - **Stay local.** No production system, deploy, push, or message to a person. No paid or side-effecting network call unless the profile's Proof section grants that call. When a criterion's Seam names a service the tests stub (a model, an external API), exercising the real service needs that grant; without it, show what you can up to the seam and report the rest as could not prove.
 - **Remove what you create.** Data you add goes in a local store and comes out again. Stop every process you started, such as a server, before you return, and confirm it is gone.
 - **One plain command per Bash call**: no `&&`, pipes into shells, loops, or shell variables, because permission rules refuse compound commands ([non-interactive-shell.md](../docs/reference/non-interactive-shell.md)). Run git as `git --no-pager`.
