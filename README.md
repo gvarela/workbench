@@ -201,7 +201,8 @@ Specialized agents for codebase analysis:
 - **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants defects (with `wb-plant-defect` when installed) to check that changed tests can fail, listing them in a defect ledger
 - **`phase-verifier`** - At each phase checkpoint, compare the phase's tasks with its diff (planned changes missing, changes nobody planned), list earlier phases' tests the phase changed, and report progress on each Intent success statement; edits nothing
 - **`prover`** - At each phase checkpoint, run the product at each acceptance criterion's boundary and report each criterion and manual check as proven, disproven, or could not prove, with the commands and output; edits nothing
-- **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
+- **`judge`** - Before a run stops to ask you something, read the evidence and decide what the stop is: a record to repair, a call about tests it may settle within stated limits, a finding to re-check, or a question for you, written as what would go wrong in the product; never clears a failure; edits nothing
+- **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, the task's own tests before its worker runs, or a test a worker asks for), with proof that any new harness works, and nothing else
 - **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint, planting defects only where no verifier's ledger covers the test; proposes findings, edits nothing
 - **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
 
