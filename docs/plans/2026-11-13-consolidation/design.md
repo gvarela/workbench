@@ -98,7 +98,39 @@ Three principles, applied in order of evidence per unit of effort.
 - **D6. Bookkeeping tool.** A `wb` command files tasks with their links, writes records, and posts with confirmation, so the bad state cannot be created; verifiers stop failing tasks for record slips. The fingerprint cap is fixed.
 - **D7. Proof in place of sanction.** An outer test may change when `wb:test-writer` makes the change, the criterion text is unchanged, and a differential run shows every original case still caught. Lost coverage and a change in a criterion's meaning stay the person's. The delegations collapse into this rule.
 - **D8. Judge.** A Fable agent receives a script-built packet for every would-be stop and returns repaired, settled, halted, or a question for the person. It can order a re-check; it never clears a FAIL, waives integrity, or changes what a criterion means. Tested offline on the session stops before live use (the trial plan in `prompts-qhoh.7`).
-- **D9. Graph and prompts.** Tests written before the worker, with no nested spawns. Rewrite cases split out of the task verifier. A generated task brief. Character budgets. One coordinator session per phase.
+- **D9. Graph and prompts.** The agent graph and the instruction text, changed together because each mechanism above deletes prose.
+  - **Graph**:
+    - Tests before the worker, with no nested spawns: the coordinator has `wb:test-writer` write a task's tests, then spawns the worker; a worker that needs another test returns "needs test" and the coordinator brokers it (`prompts-gdkf`). Nested spawns launch asynchronously whatever the worker asks, and a killed worker lost its unposted reports.
+    - A narrower task verifier: the sanctioned-rewrite cases move to their own agent or playbook, since most tasks never reach them. Whether planted defects move from per task to per phase is decided by measuring which checks caught the production defects (research.md, Open Questions).
+    - One coordinator session per phase, resumed from beads and the plan, so context does not reach 900K tokens and a session never runs a mixed plugin version.
+  - **Context**:
+    - A generated task brief: a script assembles each task's criterion text, seam, commands, and files into one record. Each agent reads the brief and its own role definition; no agent reads whole plan documents.
+    - Rare branches become playbooks loaded when their trigger fires, not paragraphs every run carries.
+  - **Prompts**:
+    - Budgets in characters, checked by `validation/size.sh`: about 8,000 per agent definition and 15,000 for the coordinator core.
+    - The coordinator's loop and checkpoint essentials come first in SKILL.md, because only a skill's first 5,000 tokens are restored after compaction.
+    - The record types collapse to the few the tool writes.
+
+### Where each review finding lands
+
+| Finding (research.md) | Phase | Status |
+| --- | --- | --- |
+| Nothing runs the product; manual checks return to the system | 1 (D1 to D3) | Built |
+| Record slips halt runs (missing link, missing field, a post that did not land) | 2 (D6) | Outlined |
+| The tree fingerprint errors on a large dependency directory | 2 (D6) | Outlined |
+| At a verification cap the run halts and waits; in attended mode it could park the task and continue independent work | 2 (D6) | Outlined here |
+| Outer tests must stay byte-identical, so upkeep takes a third or more of worker runs | 3 (D7) | Outlined |
+| Stops ask the person about test internals | 3 (D7) and 4 (D8) | Outlined |
+| Criteria recorded as aims are still enforced literally by verifiers | 3 (D7) and 4 (D8) | Outlined here: the verifier reads a criterion's strength, and a literal-wording dispute on an aim goes to the judge |
+| Design approval passes on silence; the hard-or-aim question goes unanswered | 4 (D8) | Outlined here: the judge runs once at design approval to list narrowings and unanswered questions |
+| The judge needs a labeled replay set before live use | 4 (D8) | Outlined; the session stops and replies are the labels |
+| Nested test-writer spawns are asynchronous; workers poll | 5 (D9) | Outlined |
+| The task verifier is 53 to 60 percent of subagent tokens | 5 (D9) | Outlined; needs the measurement above |
+| Instruction text is 2.4 times 4.0.0; steps are skipped; a skill is cut after compaction | 5 (D9) | Outlined |
+| About 26 record types | 2 (D6) and 5 (D9) | Outlined |
+| A session can run a mixed plugin version after a reload | Practice now, 5 (D9) | Each trial starts a fresh session; recorded in beads memory `wb-skill-loading-and-compaction` |
+| No step reviews production code quality; no simplify step after green | Deferred (`prompts-qhoh.7`) | Not in this plan: each adds a mechanism |
+| The Nov 12 checkpoint wording has not run in a fresh session | The person's trials | Open question in research.md |
 
 ## Scope
 
