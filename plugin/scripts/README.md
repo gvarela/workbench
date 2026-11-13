@@ -131,7 +131,17 @@ wb-records post <issue-id> --escaped '<text>'     # default: one line, \n newlin
 wb-records post <issue-id> <base64>               # alternative: strict RFC 4648 base64, with padding
 wb-records manifest <issue-id> <record-name> <sha256> [<sha256>...]
 wb-records read <issue-id> <record-name>
+wb-records put <issue-id> --file <path>           # any text as one comment, confirmed in the same call
+wb-records put <issue-id> --escaped '<text>'
+wb-records have <issue-id> <comment-id>...        # which comment ids exist on the issue
+wb-records file --from <issue-id> --title '<title>' --file <path>   # a new issue that carries its discovered-from link
+wb-records link <issue-id> <from-issue-id>        # make sure the link exists
 ```
+
+- `put`: for agents that have the Write tool, and for one-line records. It posts the text with `bd comments add -f`, reads the comments back, and prints `{"posted": true|false, "comment_id": ...}`, so an agent names the comment id in what it returns and "posted" is never a guess. No record prefix is required.
+- `have`: prints `{"present": [...], "missing": [...]}` for the comment ids given, so a caller can check that a report an agent said it posted is there.
+- `file`: runs `bd create` with `--deps discovered-from:<from>` and the description from a file, confirms the link with `bd dep list`, and adds it once with `bd dep add` when it is missing. Output: `{"id", "from", "linked", "repaired", "error"}`. Options: `--type` (default `task`), `--priority` (default 2), `--parent`. The link records where an issue came from and blocks nothing.
+- `link`: the same confirmation and repair for an issue that already exists: `{"linked", "added", "error"}`.
 
 Record names: `verification report`, `defect ledger`, `test integrity`, `phase verification`, `proof`.
 
