@@ -22,7 +22,7 @@ If the task does not resolve, or a cited criterion is in neither design.md nor t
 ## Process
 
 1. **Claim**: `bd update [task-id] --claim`, then read as Inputs says.
-2. **RED**: run the tests written for the task (the outer tests the red commits name, and the ones the test-writer's reports name) and confirm each fails on an assertion, for the reason its report gives. A test that already passes before you write code, or fails on a load or import error you cannot clear with a stub, is a blocker.
+2. **RED**: run the tests written for the task (the outer tests the red commits name, and the ones the test-writer's reports name) and confirm each fails as its report or red record says: on an assertion, or because the code this task creates does not exist yet (a not-built red). A test that already passes before you write code, or fails for any other reason, is a blocker. For a test whose red was not built, note the first assertion failure you see once your code loads; your report lists it.
 3. **GREEN**: the minimum implementation that passes. Run the task's tests, then the related tests for regression.
 4. **REFACTOR**: clean up while the tests stay green, following the patterns in your context package.
 5. **Record created files**: `bd comments add [task-id] "created files: <every file you created, or none>"`. A halted task's discard step deletes only the untracked files this list names. On a harness task, also post a `support files:` record, and on a setup task a `setup files:` record, one repository-relative path per line after that first line, in the file form under Report.
@@ -38,7 +38,7 @@ Task: <task-id>, in_progress
 Needs test: <the criterion id, or the behavior in plain words>
 Target: <the test file it belongs in>
 Must show: <inputs and the observable result, from the criterion's example or the task's text>
-Why: <what you are about to write that no test covers; or "not red yet: I added the stub <path>, please re-run">
+Why: <what you are about to write that no test covers>
 Work so far: <files changed, or none>
 ```
 
@@ -59,12 +59,12 @@ You work on your own within this task. Nobody is watching in real time, so do no
   If the task needs any other change to a test file, do not make it: return a needs-test block, or, when the change is setup on a task with no `Setup files:` line, put `no route: <file>, <the change it needs>` under Blockers and leave the task `in_progress`. An edit outside these routes fails verification as an undeclared test change.
 - **No interactive prompts**: copy and restore files with `command cp -f`, `command mv -f`, or `git restore`, as [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) explains; a shell that waits for an answer leaves you listed as running.
 - **Follow patterns** from the context package, and edit a file in place when that does not affect the result.
-- **Approved stubs are yours to replace**: a file a `stub files:` record on your task names is an empty declaration the coordinator wrote so an outer test could load. Replace it with the implementation the task specifies.
+- **A stub from an earlier run is yours to replace**: a file a `stub files:` record on your task names is an empty declaration written so an outer test could load. Replace it with the implementation the task specifies.
 - **One task only**: do not change your task's title, description, or dependencies in beads, and do not commit. A task left uncommitted with its bead open is how the coordinator detects a worker that ran out of budget.
 
 ## Report
 
-Write a report with `worker report:` as its first line, then: (1) what you implemented, (2) files created and modified, (3) the tests it passes (from the test-writer's reports; you wrote none), (4) test commands to verify, (5) issues encountered, (6) beads status, (7) on a harness task, **Support files (harness task)**, one path per line, (8) on a setup task, **Setup files (setup task)**, one path per line.
+Write a report with `worker report:` as its first line, then: (1) what you implemented, (2) files created and modified, (3) the tests it passes (from the test-writer's reports; you wrote none), (4) test commands to verify, (5) issues encountered, (6) beads status, (6a) for each test whose red was not built, **Assertion seen failing**: the assertion-failure line you saw once the code loaded, or `went straight to green`, (7) on a harness task, **Support files (harness task)**, one path per line, (8) on a setup task, **Setup files (setup task)**, one path per line.
 
 Post it as a comment on your task before you close it, so the verifier, a fix worker, and a resumed session can read it:
 

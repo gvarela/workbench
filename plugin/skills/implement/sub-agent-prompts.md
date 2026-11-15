@@ -58,7 +58,7 @@ Verify this task.
 - Test command: ${testCommand}
 - Files changed: ${the worker block's Files changed line; for a rewrite task, the test file}
 - Starting commit: ${startingCommit}
-- Red commits: ${each cited criterion's id, sha, and test file}
+- Red commits: ${each cited criterion's id, sha, and test file, with "(not built)" after each whose red record says so}
 ${one added line when it applies:}
 ${"Re-verification: yes; the earlier verification report record holds the FAIL, and the defect ledger record its ledger"}
 ${"Targeted re-check: " + the finding, as the judge named it}

@@ -97,7 +97,7 @@ The orchestrator builds the phase and wants it finished, so it does not decide i
 
 It may settle: whether a finding falls inside the cited criterion or is a follow-up; a literal-wording dispute on a line whose strength is aim, when its purpose is met; whether a deviation is explained by an existing record; a wb rule that leaves a needed change no route, when the plan is sound and no assertion or example changes; and one further fix attempt after a failed re-verification, when the verifier's records show the code does what the criterion says and the failure is a test gap.
 
-It never turns a FAIL into a PASS, waives an integrity finding, changes what a criterion means, accepts lost coverage, decides product behavior or scope, approves work outside the plan or a stub of production code, or judges a hard line. Those are the person's, and the judge's part is to write the question so they can decide it.
+It never turns a FAIL into a PASS, waives an integrity finding, changes what a criterion means, accepts lost coverage, decides product behavior or scope, approves work outside the plan, or judges a hard line. Those are the person's, and the judge's part is to write the question so they can decide it.
 
 How it is consulted and what follows each outcome is "The Judge" in [implement/failures.md](../../skills/implement/failures.md).
 

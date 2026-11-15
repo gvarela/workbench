@@ -41,7 +41,7 @@ Work through these in order and stop at the first that applies.
    - an integrity finding: a test changed with no test-writer report, an outer test changed without proof, a test weakened, skipped, or deleted, an expected value taken from the code under test;
    - a production defect, or a failure whose fix would change what the product does;
    - anything that would change what a criterion means, retire one, or accept coverage a rewrite lost;
-   - a choice between product behaviors, a change of scope, work the plan does not contain, or a stub of production code;
+   - a choice between product behaviors, a change of scope, or work the plan does not contain;
    - a line marked `strength: hard`, or one worded as a command whose strength nobody confirmed.
 
 3. **Is it only bookkeeping?** A report that was returned and not posted, a missing `discovered-from` link, a wrong id in a prompt: **repair**, with the exact steps.

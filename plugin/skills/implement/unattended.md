@@ -19,14 +19,14 @@ Long runs often go on while nobody is watching. Without a defined mode, a coordi
 - amend a decision in design.md or tasks.md;
 - skip a verifier: a task verifier, the test review, or the phase verifier;
 - run tasks in parallel;
-- write production stubs, the Stub Files Route included;
+- write production code to get a red (a not-built red needs none);
 - run migrations or other changes to shared resources (databases, queues, cloud state) the plan does not name;
 - deploy, push, or force-push; rewrite history (rebase, amend, reset of commits); delete branches or tags;
 - delete data;
 - start paid runs (paid APIs, cloud jobs, or other spending the plan does not name), or make any other network call with side effects;
 - change CI/CD configuration; `.claude/` settings, hooks, permissions, or agents; `.claude/wb/testing.md`; git hooks or git config; or enable plugins or MCP servers;
 - install or update packages, or change lockfiles, outside a planned task;
-- take a decision that is the person's: answer a disproven criterion, a deviation, or a FAIL verdict; accept lost coverage; declare a `Setup files:` line; approve a stub; or act on anything the judge returned as `person`.
+- take a decision that is the person's: answer a disproven criterion, a deviation, or a FAIL verdict; accept lost coverage; declare a `Setup files:` line; or act on anything the judge returned as `person`.
 
 The judge works as in attended mode ("The Judge" in [failures.md](failures.md)): what it repairs, settles, or sends for a re-check proceeds, and so does an outer-test rewrite or a test gap closed on proof, since none of those is the person's decision. A `person` outcome is never acted on: it goes on the `deferred:` ledger and parks its task.
 

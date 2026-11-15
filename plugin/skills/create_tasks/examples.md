@@ -51,7 +51,7 @@ bd create "Add request-test harness for the HTTP boundary" \
 bd create "Outer test for AC-1: expired link shows the expired page" \
   --type=task \
   --priority=2 \
-  -d "Phase 1 outer-test. Serves AC-1. Run through wb:test-writer; commit as red(AC-1). Observed at: page HTML. Examples: opened before expiry shows the form, opened after shows 'expired'. Done when the test fails on an assertion about the page."
+  -d "Phase 1 outer-test. Serves AC-1. Run through wb:test-writer; commit as red(AC-1). Observed at: page HTML. Examples: opened before expiry shows the form, opened after shows 'expired'. Done when the test fails on an assertion about the page, or because the page's code does not exist yet."
 # → Created prompts-pqr (save as TASK3_ID)
 
 # Integration task example

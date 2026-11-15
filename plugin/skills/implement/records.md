@@ -6,9 +6,9 @@ What evidence is kept in beads, who posts it, and how it is read. Part of the im
 
 git and the verifier decide whether a test is red or green. Beads keeps the evidence behind that decision, because a fresh session, a resumed phase, and `/wb:validate_phase` cannot read what lived only in this session.
 
-- **Red record**: after committing `red(AC-n)`, close the criterion's outer test step with that commit's short sha and the one assertion-failure line from your own re-run (the line naming the failed assertion, not the whole output):
+- **Red record**: after committing `red(AC-n)`, close the criterion's outer test step with that commit's short sha and the one failure line from your own re-run (the line naming the failed assertion, or for a not-built red `not built: <name>` and the error line; not the whole output):
 
-  Write the reason, `red <sha>: <assertion line>`, with the Write tool to a new scratch file `<tmp>/wb-<outer-step-id>-coordinator-<nonce>.txt` (named as "Posting text to beads" in [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says), then close the step from it and confirm `close_reason` with `bd show [outer-step-id] --json`:
+  Write the reason, `red <sha>: <assertion line>` or `red <sha>: not built: <name> (<error line>)`, with the Write tool to a new scratch file `<tmp>/wb-<outer-step-id>-coordinator-<nonce>.txt` (named as "Posting text to beads" in [non-interactive-shell.md](../../docs/reference/non-interactive-shell.md) says), then close the step from it and confirm `close_reason` with `bd show [outer-step-id] --json`:
 
   ```bash
   bd close [outer-step-id] --reason-file <tmp>/wb-<outer-step-id>-coordinator-<nonce>.txt

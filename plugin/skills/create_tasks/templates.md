@@ -125,7 +125,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - AC-[n]: [criterion title], observed at [boundary] → `[beads:phase1_outer_1]`
   - Examples: [the criterion's Example lines]
   - Test file: `[path/to/outer/test]`
-  - Done when: the test fails on an assertion about the observable, and the `red(AC-n)` commit exists
+  - Done when: the test fails on an assertion about the observable, or because the code this plan creates does not exist yet, and the `red(AC-n)` commit exists
 
 #### Implementation Tasks
 (Each cites the criterion ids it serves and depends on their outer-test steps.)

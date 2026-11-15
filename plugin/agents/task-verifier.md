@@ -29,7 +29,7 @@ Run one plain command per Bash call: no loops, `cd … &&`, or shell variables, 
 ## Step 1: Tests, Scope, and Sanity
 
 - **Run the task's tests** with the test command, then the related tests for regression. All must pass. An earlier plan's outer test that fails only because this task renames an identifier it uses is expected when a `rewrite: planned` record on this task names that test and identifier; report it under Issues Found, citing the record. Any other failure counts.
-- **Scope**: `git status --short` and `git diff --stat` (the task is not committed yet). Every changed file is one the task requires; nothing is committed by the worker; no feature, refactor, or abstraction the task does not name. A file a `stub files:` record names is planned production code: check the worker replaced the stub with the implementation.
+- **Scope**: `git status --short` and `git diff --stat` (the task is not committed yet). Every changed file is one the task requires; nothing is committed by the worker; no feature, refactor, or abstraction the task does not name. A file a `stub files:` record names (an earlier run's approved stub) is planned production code: check the worker replaced the stub with the implementation.
 - **Sanity**: the build or check command from the conventions, if any; leftover debug statements and TODO or FIXME markers in the changed files.
 
 ## Step 2: Test Integrity
@@ -78,6 +78,7 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
   - The break violates the criterion, and the test claims no guarding of it: a follow-up.
   - The break is outside the criterion's statement and examples (a future refactor, adjacent behavior): a follow-up, with what it lets through. This gate checks that the tests protect what was approved, not every behavior the code has.
   - The survivor shows a mirrored oracle: FAIL either way.
+- **A not-built red**: an outer test your prompt marks `(not built)` was committed before its code and stopped on the missing code, so nobody has seen its assertion fail. The defect you plant for its criterion is that evidence, and it is not optional for such a test: plant one in the code the task wrote, on the criterion's statement or an example. Caught: shown. When no defect check could run, the worker's **Assertion seen failing** line is the weaker evidence; with neither, or with `went straight to green`, write `assertion not shown to fail: <criterion> (<test file>)` under Follow-ups, so the checkpoint lists it.
 - **Not run**: each check that could not run goes in the Criterion Check with its reason, and you judge protection by reading the test against the criterion's example, labelled judgment-only.
 - **The ledger**: every defect and every control is one line in the Defect ledger, in the "Ledger line" format of that file, so the phase test review can skip what you already checked on unchanged code.
 
