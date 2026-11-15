@@ -83,6 +83,7 @@ import {
   stageStates,
   statusLine,
   topGap,
+  logSince,
   worktreeName,
 } from './model.mjs'
 import { createReadingLog, paneRows, recordReading } from './readinglog.mjs'
@@ -726,8 +727,8 @@ async function bdListOrEmpty($, root, filters) {
 }
 
 async function gitLog($, root, fm) {
-  const since = fm.created_timestamp ?? fm.created
-  const range = typeof since === 'string' && since !== '' ? [`--since=${since}`] : []
+  const since = logSince(fm.created_timestamp ?? fm.created)
+  const range = since === null ? [] : [`--since=${since}`]
   const { exitCode, stdout } = await $.process.run(
     ['git', '--no-optional-locks', 'log', '--format=%h %s', '-n', '1000', ...range],
     { cwd: root, timeoutMs: 15000 },

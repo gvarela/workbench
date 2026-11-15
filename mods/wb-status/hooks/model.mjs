@@ -136,6 +136,28 @@ export function closeReasonVerdict(reason) {
   return match ? match[1] : null
 }
 
+/**
+ * A comment's first line as its record name reads: lower case, with the part
+ * marker of a record posted in parts removed (`verification report (1/2):`
+ * reads `verification report:`). A `<name> manifest:` line stays as it is,
+ * so it is never taken for the record.
+ */
+function recordHead(text) {
+  return firstLine(text).toLowerCase().replace(/^([a-z][a-z -]*?) \(\d+\/\d+\):/, '$1:')
+}
+
+/**
+ * The `--since` value for the plan's commits, or null for no window. Git
+ * reads a date with no time as that day at the current time of day, which
+ * drops the commits made earlier on the plan's first day, so a date-only
+ * value starts at midnight.
+ */
+export function logSince(created) {
+  const value = typeof created === 'string' ? created.trim() : ''
+  if (value === '') return null
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value
+}
+
 const RESUMES = ['verification report:', 'test integrity:', 'resolved:', 'resumed:', 'unhalted:']
 
 /** What a task's comments say: its latest verifier verdict, integrity findings, and an open halt. */
@@ -148,7 +170,7 @@ export function readComments(comments) {
   for (const comment of comments ?? []) {
     const text = String(comment.text ?? '')
     const at = String(comment.created_at ?? '')
-    const head = firstLine(text).toLowerCase()
+    const head = recordHead(text)
     if (RESUMES.some(prefix => head.startsWith(prefix))) resumes.push(at)
     if (head.startsWith('verification report:')) {
       const status = /###\s*Status:\s*(PASS|FAIL)\b/.exec(text)
