@@ -294,10 +294,11 @@ function verdictOf(issue, notes) {
  * fm (tasks.md frontmatter), criteria, issues (bd list for the plan's ids and
  * the epic's children), openIssues (bd list of every unclosed issue),
  * commits (git log lines), comments ({ [id]: bd comments JSON }), intent
- * (readIntent of the README) and dir (the plan directory, as the validate
- * command names it).
+ * (readIntent of the README), dir (the plan directory, as the validate
+ * command names it) and otherPlans (the names of the repository's other plan
+ * directories, whose questions are not this plan's).
  */
-export function buildModel({ fm, criteria, issues, openIssues, commits, comments, intent = null, dir = null }) {
+export function buildModel({ fm, criteria, issues, openIssues, commits, comments, intent = null, dir = null, otherPlans = [] }) {
   const state = planState({ fm, issues, openIssues })
   if (state === null) return null
   const notesOf = new Map()
@@ -357,7 +358,7 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
   }
   // On a finished plan an open question was handed off on purpose: it is a
   // follow-up, not something the plan waits on.
-  const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''))
+  const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''), { dir, others: otherPlans })
   if (!state.isDone) blocking.push(...asks)
   const handedOff = state.isDone ? asks : []
 
@@ -402,19 +403,45 @@ export function validationOf(intent) {
 
 /**
  * The open `Q:` and `Decide:` issues that need the person for this plan.
- * They carry no link to a plan, so one counts when it is linked to the plan
- * anyway (`members`) or was opened since the plan was created (`since`).
+ * Beads is one database across plans and worktrees, and these issues carry
+ * no link to a plan. One counts when it is linked to the plan anyway
+ * (`members`) or its text names the plan's directory (`plan.dir`). Failing
+ * both, one opened since the plan was created (`since`) counts, unless its
+ * text names another plan's directory (`plan.others`): that one is asked of
+ * the other plan.
  */
-export function asksFor(openIssues, members, since) {
+export function asksFor(openIssues, members, since, plan = {}) {
+  const own = planDirName(plan.dir)
+  const others = (plan.others ?? []).map(planDirName).filter(name => name !== '' && name !== own)
   const out = []
   for (const issue of openIssues ?? []) {
     const match = /^(Q|Decide):/.exec(String(issue.title ?? ''))
     if (!match || !UNCLOSED.has(String(issue.status ?? 'open'))) continue
+    const text = `${issue.title ?? ''}\n${issue.description ?? ''}\n${issue.notes ?? ''}`
     const isLinked = members.has(issue.id) || linksTo(issue, members)
+    const isNamed = namesPlan(text, own)
+    const isElsewhere = !isNamed && others.some(name => namesPlan(text, name))
     const isRecent = since !== '' && String(issue.created_at ?? '') >= since
-    if (isLinked || isRecent) out.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
+    if (isLinked || isNamed || (isRecent && !isElsewhere)) out.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
   }
   return out
+}
+
+/** A plan directory's own name: the last segment of `docs/plans/<name>`. */
+function planDirName(dir) {
+  return String(dir ?? '').replace(/\/+$/, '').split('/').pop() ?? ''
+}
+
+/** Whether a text names a plan directory as a whole name: `2026-01-01-demo-two` does not name `2026-01-01-demo`. */
+function namesPlan(text, name) {
+  if (name === '') return false
+  const at = text.indexOf(name)
+  if (at === -1) return false
+  const isPart = char => char !== undefined && /[A-Za-z0-9-]/.test(char)
+  for (let from = at; from !== -1; from = text.indexOf(name, from + 1)) {
+    if (!isPart(text[from - 1]) && !isPart(text[from + name.length])) return true
+  }
+  return false
 }
 
 /** A bar of `width` cells, filled in proportion. */
@@ -1278,11 +1305,11 @@ export function nextCommand(stages, isDesignWaiting) {
  * current stage's signals, and what needs the person (a stage waiting on
  * their approval first, then open Q: and Decide: issues).
  */
-export function buildPlanningModel({ planName, intent = null, research = null, design = null, tasks = null, explore = null, openIssues = [], since = '', epic = null, last = null }) {
+export function buildPlanningModel({ planName, intent = null, research = null, design = null, tasks = null, explore = null, openIssues = [], since = '', epic = null, last = null, dir = null, otherPlans = [] }) {
   const stages = stageStates({ intent, research, design, tasks, explore, isImplemented: false, last })
   const current = stages.find(stage => stage.state === 'current') ?? null
   const members = new Set(typeof epic === 'string' && epic !== '' ? [epic] : [])
-  const asks = asksFor(openIssues, members, since ?? '')
+  const asks = asksFor(openIssues, members, since ?? '', { dir, others: otherPlans })
   const blocking = []
   const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && !DESIGN_DONE.has(String(design.status).toLowerCase())
   if (current?.key === 'design' && isDesignWaiting) {

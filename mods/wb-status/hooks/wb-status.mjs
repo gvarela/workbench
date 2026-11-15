@@ -354,6 +354,9 @@ async function read($) {
     worktree: worktreeName(plan.root, mainRoot),
   }
   const last = await currentStage($, plan.selection)
+  // Beads is one database across worktrees: the other plans' names tell
+  // their questions and decisions from this plan's.
+  const otherPlans = (await planNames($, root, worktrees)).filter(name => name !== plan.name)
 
   if (hasBeadsTasks(plan.fm)) {
     const ids = planIds(plan.fm)
@@ -367,7 +370,7 @@ async function read($) {
     const state = planState({ fm: plan.fm, issues, openIssues })
     const comments = state === null ? {} : await readComments($, where, state)
 
-    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments, intent: docs.read.intent, dir: selection.dir })
+    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments, intent: docs.read.intent, dir: selection.dir, otherPlans })
     if (built !== null) {
       // The planning stages are all behind it; the explore record is not
       // looked up in beads here, since a later stage being done settles it.
@@ -401,6 +404,8 @@ async function read($) {
     since: createdOf(plan.fm, docs),
     epic: plan.fm?.beads_epic ?? null,
     last,
+    dir: selection.dir,
+    otherPlans,
   })
   const asked = openIssues.filter(issue => /^(Q|Decide):/.test(String(issue.title ?? '')))
   return { ...built, inputs: { bd: statuses([...asked, ...closedDecides]), docs: docStatuses(docs) }, selection: { ...selection, planName } }
@@ -473,6 +478,19 @@ async function knownPlanNames($) {
     }
   } catch {
     // Nothing listed: every folder found later counts as new.
+  }
+  return [...names]
+}
+
+/** Every plan folder name in the session's directory, its root and each worktree. */
+async function planNames($, root, worktrees) {
+  const names = new Set()
+  try {
+    for (const base of await bases($, root, worktrees)) {
+      for (const name of await planDirNames($, base)) names.add(name)
+    }
+  } catch {
+    // Nothing listed: no question is told apart by another plan's name.
   }
   return [...names]
 }

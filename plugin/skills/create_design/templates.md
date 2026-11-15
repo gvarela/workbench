@@ -147,7 +147,9 @@ Design decisions that need stakeholder input - track in beads. A decision the us
 ```bash
 # Create beads issues for pending decisions:
 bd create "Decide: [brief decision]" --type=task --priority=1 \
-  -d "Options: [A, B, C]. Trade-offs: [summary]. Blocks: [what]"
+  -d "Options: [A, B, C]. Trade-offs: [summary]. Blocks: [what]. Plan: [plan-dir-name]"
+# [plan-dir-name] is the plan directory's name (for example 2025-01-08-my-project): beads is one database
+# across plans and worktrees, and the name is what ties the decision to this plan
 ```
 
 Note: Decisions blocking execution should be resolved before `/create_tasks`.

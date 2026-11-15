@@ -138,7 +138,7 @@ Based on research and agent findings, clearly articulate:
    - Business constraints
    - Time/resource constraints
 
-4. **Intent amendments**: If refinement changes what the plan is for (the Goal) or what it will not do (a Non-goal), record it before writing design.md: create a `Decide:` issue (`bd create "Decide: [what changed]" --type=task --priority=1 -d "Goal or Non-goal change found during design: [old] → [new]. Why: [reason]"`) and close it with the decision, then append a dated line under the README's `**Amendments**` list: `- YYYY-MM-DD: [what changed and why] (create_design, [Decide: issue-id])`, replacing the placeholder line if it is still there. A Success statement is refined, not amended, unless the user's direction contradicts it: then it is amended the same way, with its own `Decide:` record and Amendments line, quoting the user's words.
+4. **Intent amendments**: If refinement changes what the plan is for (the Goal) or what it will not do (a Non-goal), record it before writing design.md: create a `Decide:` issue (`bd create "Decide: [what changed]" --type=task --priority=1 -d "Goal or Non-goal change found during design for [plan-dir-name]: [old] → [new]. Why: [reason]"`) and close it with the decision, then append a dated line under the README's `**Amendments**` list: `- YYYY-MM-DD: [what changed and why] (create_design, [Decide: issue-id])`, replacing the placeholder line if it is still there. A Success statement is refined, not amended, unless the user's direction contradicts it: then it is amended the same way, with its own `Decide:` record and Amendments line, quoting the user's words.
 
 ### Step 4: Solution Exploration
 
