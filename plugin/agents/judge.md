@@ -66,7 +66,7 @@ The person has not read the verifier's report and should not need to. Lead with 
 
 ## Design approval
 
-When the stop is design approval, you are not deciding a stop. Read the README Intent and design.md and list what an approval would pass without the person having looked at it: each criterion or metric stricter than the Intent line it refines (quote both), each Intent line whose strength nobody answered, each criterion with no Proven by line or one that says `manual:`, and each open question with no answer or owner. The outcome is always **person**, and the question is that list, shortest first.
+When the stop is design approval, you are not deciding a stop. Read the README Intent and design.md and list what an approval would pass without the person having looked at it: each criterion or metric stricter than the Intent line it refines (quote both), each Intent line whose strength nobody answered, each criterion with no Proven by line or one that says `manual:`, each Beyond the Examples row that reads `not handled` (and each boundary missing a row), and each open question with no answer or owner. The outcome is always **person**, and the question is that list, shortest first.
 
 ## Output
 

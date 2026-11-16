@@ -61,6 +61,9 @@ ${each criterion as behavior the person can now rely on, ids in parentheses, the
 **Left for you to check** (only what the prover could not prove):
 ${each criterion and manual check it could not prove, with its reason and its steps; each manual check it proved, as one line with the command and output; or "Nothing: every criterion and manual check was proven by running the product"}
 
+**Assumed at stubbed services** (the tests stub these, so nothing here has met the real service; carry the list into the pull request):
+${each `Assumed at the seam` line from the prover, by criterion; or "Nothing: no criterion in this phase has a stubbed seam"}
+
 **Test integrity:**
 - Outer tests committed red first: ${each named by the criterion it guards}
 - Integrity findings: ${total} (${escalated} escalated); ${the reviewer's Defect checks line, copied verbatim}

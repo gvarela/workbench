@@ -20,7 +20,7 @@ design.md records architectural decisions and the reasoning behind them: what to
 
 ## Initial Response
 
-This stage needs from you: approval of the approach, the refined metrics, the acceptance criteria with how each will be proven and their harness decisions, and each listed choice that tightens your intent; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question.
+This stage needs from you: approval of the approach, the refined metrics, the acceptance criteria with how each will be proven and their harness decisions, each listed choice that tightens your intent, and each case the design leaves unhandled; for each of this plan's open questions, an answer, an owner to defer it to, or a ruling that it is not this plan's question.
 
 When invoked, check for arguments:
 
@@ -200,11 +200,19 @@ should be revisited.
 
 Update or create design.md using the structure in [templates.md](templates.md) → **design.md Template**.
 
+**Beyond the examples.** Criteria written from the intended behavior leave out what nobody thought to state, and everything after design (the tests, the planted defects, the prover) checks only what a criterion names. So before you write the criteria, ask three questions of each boundary in Harness Decisions and record every answer as a row of design.md's Beyond the Examples table:
+
+1. **Unshown input**: who supplies what arrives here, and what can they send that no example shows? Free text that carries the format's own delimiters, an empty or missing value, a wrong type, a record deleted since something referred to it.
+2. **Partial failure**: when this does several things in sequence, or calls something that can fail, what state is left after a failure partway, and what does the caller see?
+3. **Other callers**: what existing code calls or reads what this changes (take the callers from research.md and the Step 2 agents' reports), and is the new behavior right for each of them?
+
+Answer from research where it settles the case, and ask the person only what it cannot. Each row ends one of three ways: a criterion, written with its example like any other; `not handled: <reason>`, a case that can happen and that this plan leaves alone, which is a risk the person accepts by approving; or `cannot happen: <what prevents it, with file:line>`. A question is not a reason to add a criterion: `not handled` with a reason is a complete answer, and each extra criterion costs a test, its defect checks, and a proof at every checkpoint. List every `not handled` row in Step 6.
+
 The template includes `bd create` command snippets for tracking assumptions and pending decisions — use them as written. An open question still awaiting the user's reply is written as its row with Owner `awaiting your reply` (templates.md → **Open Question Message**).
 
 **⛔ BARRIER 3**: Verify no placeholder values before writing (Owner `awaiting your reply` is the one value allowed, until Step 6's replies replace it)
 
-**⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; every acceptance criterion names the Success Metric it refines and carries its Guards against and Strength; every narrowing is marked `narrows:` and listed for Step 6; any Goal, Non-goal, or Success statement change has its `Decide:` record and README amendment line already in place.
+**⛔ BARRIER 4**: Every Intent success statement appears in Success Metrics either as `(refines: ...)` on a metric or in the deferred list; every acceptance criterion names the Success Metric it refines and carries its Guards against and Strength; every boundary in Harness Decisions has its three Beyond the Examples rows, each ending in a criterion id, `not handled`, or `cannot happen`; every narrowing is marked `narrows:` and listed for Step 6; any Goal, Non-goal, or Success statement change has its `Decide:` record and README amendment line already in place.
 
 ### Step 6: Review and Iterate
 
@@ -227,6 +235,9 @@ Before presenting, spawn `wb:judge` with no `model` parameter and this prompt: `
 
    Choices I made that tighten your intent (your approval covers only these):
    - [each narrowing in all five lines of the templates.md → **Narrowings** form, its quoted text the Then line (or metric) copied verbatim from design.md, never paraphrased; or "None: every metric and criterion checks its statement as written"]
+
+   Cases this design leaves unhandled (your approval accepts these):
+   - [each Beyond the Examples row that reads `not handled`: the boundary, the case in plain words, and the reason; or "None: every case found is a criterion or cannot happen"]
 
    Agent findings incorporated:
    - [Finding 1 from verification agents]

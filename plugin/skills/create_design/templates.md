@@ -100,6 +100,16 @@ One row per boundary the criteria are observed at. Take "Harness present?" from 
 |----------|------------------|----------|
 | [HTTP, UI, CLI, database, LLM call] | [what exists per research, or "none"] | [Use as is / Add harness / Manual / Lower proxy, with what the proxy cannot check] |
 
+### Beyond the Examples
+
+Three rows per boundary above: what the criteria's examples leave out. A row ends in a criterion, in `not handled` with the reason (a risk approval accepts), or in `cannot happen` with what prevents it.
+
+| Boundary | Question | Case | Outcome |
+|----------|----------|------|---------|
+| [boundary] | Unshown input | [who supplies the input, and what they can send that no example shows] | [AC-n / not handled: reason / cannot happen: what prevents it, file:line] |
+| [boundary] | Partial failure | [the state left, and what the caller sees, when a step fails partway] | [as above] |
+| [boundary] | Other callers | [each existing caller or reader of what this changes, and whether the new behavior suits it] | [as above] |
+
 ### Non-Functional Requirements
 - [ ] Performance: [Specific metric]
 - [ ] Reliability: [Specific metric]

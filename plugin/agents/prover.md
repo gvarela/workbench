@@ -51,7 +51,7 @@ If the plan directory or a criterion id does not resolve, return `Cause: missing
    - a job or a tool call: invoke it the way the product does;
    - a function: call the public function from a one-line script, only when Observed at names a function.
 
-   Running the criterion's test is not this step. The test is separate evidence (step 5), and a test can pass while the product's entry point never reaches the code it tests.
+   Running the criterion's test is not this step. The test is separate evidence (step 6), and a test can pass while the product's entry point never reaches the code it tests.
 
 4. **Give each criterion one state.**
    - **proven**: you saw what you expected.
@@ -60,11 +60,13 @@ If the plan directory or a criterion id does not resolve, return `Cause: missing
 
    After a few honest attempts at a route, stop and report could not prove with what you tried. An unprovable criterion is a normal outcome, not a failure of yours.
 
-5. **Test evidence.** Run each criterion's outer test file with the test command, one file per call, and record pass or fail beside its red commit.
+5. **Seam assumptions.** For each criterion whose Seam names a stubbed service, whatever its state: read the code that calls the service and the stub in its outer test, and list what the product sends, or reads back, on the criterion's Examples that only the stub has accepted. Look for a value that can be empty or null, a field's format, a required field left out, and the shape or status the stub returns that the code relies on. Keep to what the Examples exercise, at most five lines a criterion, each with its file:line. This is not a finding against the code: it is what the person, or a granted live call, would need to confirm with the real service. When the profile's Proof section grants the real call and you made it, the list is what that call did not cover.
 
-6. **Attempt each manual check** the same way, with the same three states. A check that needs the person's judgment, eyes, or account is could not prove, with its steps.
+6. **Test evidence.** Run each criterion's outer test file with the test command, one file per call, and record pass or fail beside its red commit.
 
-7. **Clean up and compare**: stop your processes, remove your scratch files and data, and run `git --no-pager status --porcelain` again. Report any difference from step 1 instead of hiding it.
+7. **Attempt each manual check** the same way, with the same three states. A check that needs the person's judgment, eyes, or account is could not prove, with its steps.
+
+8. **Clean up and compare**: stop your processes, remove your scratch files and data, and run `git --no-pager status --porcelain` again. Report any difference from step 1 instead of hiding it.
 
 ## Output
 
@@ -87,6 +89,7 @@ Commit: ${short sha}; working tree: unchanged by this run (or: ${what differs})
   - Test evidence: red ${sha}; `${outer test file}` passes now (or: fails now)
   - Where: `${file}:${line}`; a test would need to assert: ${what} (disproven only)
   - Reason: ${why}; steps for you: ${numbered steps and what to look for} (could not prove only)
+  - Assumed at the seam: ${each thing sent to or read from the stubbed service that only the stub accepted, with file:line; or "nothing beyond the stub's own example"} (only when the criterion has a Seam)
 
 ### Manual Checks
 
