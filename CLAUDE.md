@@ -12,11 +12,12 @@ This is a Claude Code plugin (`wb`) providing structured software development wo
 - `plugin/` - The shipped runtime: everything below is what installers receive
 - `plugin/skills/` - All skills (`skills/<name>/SKILL.md`): workflow commands (`/wb:*`, invocable by the user or by the model from a prose request — descriptions are written as trigger text) and auto-activated background capabilities (`user-invocable: false`, e.g. `doc-adherence`)
 - `plugin/agents/` - Specialized subagent definitions: research (`codebase-locator`, `codebase-analyzer`, `pattern-finder`, `research-validator`), execution (`task-worker`, `task-verifier`, `phase-verifier`, `prover`, `judge`), and testing (`test-writer`, `test-reviewer`, `test-auditor`)
+- `plugin/workflows/` - Dynamic workflow scripts (`/wb:<meta.name>`): `review_diff.js`, the cold review of a branch before its pull request. A script decides who runs and when; it has no file or shell access, so agents do the reading
 - `plugin/hooks/` - Event handlers: `wb-prime.sh` (SessionStart on every trigger: orientation on a fresh start, recovery text on compact; also registered on PreCompact, whose output the model never sees; `.claude/wb/PRIME.md` overrides the orientation, `--export` prints the default), `beads-drift-check.sh` (SessionEnd: reminds to `bd dolt push` only when a Dolt remote is configured), `lint-hook` (PostToolUse)
 - `plugin/scripts/` - Utility scripts (lint, lint-hook, test-integrity, which `task-verifier`, `test-reviewer`, and `phase-verifier` run for deterministic test-change evidence)
 - `plugin/docs/reference/` - Runtime-referenced shared docs (skills link to these)
 - `docs/` - Maintainer documentation, guides, and project plans (never shipped to installs)
-- `tests/` - Tests for the shipped scripts (`tests/test-integrity/run.sh`; never shipped to installs)
+- `tests/` - Tests for the shipped scripts and workflows (`tests/test-integrity/run.sh`, `node tests/review-diff/run.mjs`; never shipped to installs)
 - `wb-defects/` - Opt-in companion plugin in the same marketplace: `bin/wb-plant-defect`, the planted-defect runner, on the Bash tool's PATH while enabled (tests at `wb-defects/tests/run.sh`). wb never requires it: the defect-check routes in `plugin/docs/reference/non-interactive-shell.md` fall back to the repository's recognized mutation tool, then Not Run
 - `.claude/` - Local development configuration
 
@@ -101,7 +102,7 @@ For multi-session work:
 
 Each command builds upon the previous one's output, creating structured documentation in timestamped directories under `docs/plans/`.
 
-`/wb:test-audit` (audit an existing suite cold, with no plan), `/wb:testing-profile` (draft `.claude/wb/testing.md`), and `/wb:validate_project` (a repair tool for plan documents that look inconsistent) sit outside the stage chain.
+`/wb:test-audit` (audit an existing suite cold, with no plan), `/wb:review_diff` (a workflow: review a branch cold before its pull request), `/wb:testing-profile` (draft `.claude/wb/testing.md`), and `/wb:validate_project` (a repair tool for plan documents that look inconsistent) sit outside the stage chain.
 
 ## Workflow Philosophy
 

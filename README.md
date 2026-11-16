@@ -186,6 +186,7 @@ Slash commands for project documentation and task management:
 - **`/wb:resume_handoff`** - Resume from handoff document
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
 - **`/wb:test-audit`** - Audit an existing test suite cold, with no plan, and report proposed Remove, Rewrite, and Consolidate verdicts (outside the stage chain)
+- **`/wb:review_diff`** - Review a branch cold before its pull request, for what no acceptance criterion names; a dynamic workflow of about nine agents that edits nothing (outside the stage chain)
 - **`/wb:testing-profile`** - Draft `.claude/wb/testing.md`, the repository's testing conventions and team choices, after you confirm (outside the stage chain)
 - **`/wb:help`** - Quick reference for all commands
 
@@ -205,6 +206,7 @@ Specialized agents for codebase analysis:
 - **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, the task's own tests before its worker runs, or a test a worker asks for), with proof that any new harness works, and nothing else
 - **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint, planting defects only where no verifier's ledger covers the test; proposes findings, edits nothing
 - **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
+- **`diff-reviewer`** - Read a branch's change without its plan, to find one kind of defect or to try to refute a claimed one, for `/wb:review_diff`; edits nothing
 
 ### Skills (auto-activated)
 

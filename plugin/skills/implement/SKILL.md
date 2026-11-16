@@ -102,7 +102,8 @@ Plan-doc edits (tasks.md notes) are their own commits, made only between tasks, 
 1. Run `/wb:update_status [project-directory]`; it is the only writer of the frontmatter's status, phase, and counts.
 2. Add the "Implementation Notes Entry" from [templates.md](templates.md): worker insights and the phase's integrity-finding counts.
 3. Record what the next session would otherwise rediscover, a convention, a tool quirk, a constraint the plan did not state: `bd remember --key <project>-<slug> "<source marker>: <the person's words quoted, or the fact>; <why it matters>"` ([Memories](../../docs/reference/rules-and-intents.md#memories)). Search first with `bd memories <keyword>`.
-4. Persist beads when a remote or backup is configured ([beads-mode.md](../../docs/reference/beads-mode.md)): `bd dolt push` when `bd config get sync.remote` names one; `bd backup sync` when `backup.enabled` is true.
+4. After the plan's last phase, tell the person that `/wb:review_diff plan=[project-directory]` reviews the whole branch cold before a pull request, for what no criterion names. It is a workflow of about nine agents, so it runs when they ask for it, not on your own.
+5. Persist beads when a remote or backup is configured ([beads-mode.md](../../docs/reference/beads-mode.md)): `bd dolt push` when `bd config get sync.remote` names one; `bd backup sync` when `backup.enabled` is true.
 
 ## Plans Without Acceptance Criteria
 

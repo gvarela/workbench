@@ -475,6 +475,22 @@ It never edits or deletes tests and leaves the audited repository unchanged. Hol
 
 ---
 
+### `/wb:review_diff` - Review a Branch Cold
+
+```
+/wb:review_diff [base=<ref>] [head=<ref>] [plan=<docs/plans/dir>] [verify=<n>]
+```
+
+A dynamic workflow, not a skill (`plugin/workflows/review_diff.js`). Every other wb check compares the work to its plan, so a case no criterion names is checked by nothing; this one reads the change the way an outside reviewer would.
+
+1. **Find**: four `wb:diff-reviewer` agents, none given the plan, one lens each: input nobody showed, a failure partway, other callers of what changed, and values and lists that no longer agree.
+2. **Merge**: findings that describe one root cause become one, most serious first.
+3. **Verify**: a skeptic, on the stronger model, checks each of the first `verify` findings (4 by default): confirmed when the repository shows the trigger reaching the failure; not a defect when something stops it or the trigger cannot occur; and "depends" when the code fails as claimed but the trigger lives outside the repository (production data or permissions, a third party), with the condition named for you to judge. With `plan=`, it then names the criterion the finding breaks, or that the design's Beyond the Examples table left the case unhandled.
+
+It returns a report: confirmed, depends on an outside condition, real but accepted in the design, not verified, and raised but not confirmed. It edits nothing. A reviewer that could not read the change (a refused git command, for example) is reported as a lens not covered, never as a clean result; in a headless session, allow read-only git and pre-approve the workflow (`--allowedTools "Workflow(wb:review_diff)" "Bash(git:*)"`). Without `base=`, the base is the merge base with the default branch. About nine agents with the defaults; Claude Code asks you to confirm the launch.
+
+---
+
 ### `/wb:testing-profile` - Draft the Testing Profile
 
 Drafts `.claude/wb/testing.md`: the stack's testing conventions plus the team's Choices and a Mutation level (`off` or `advisory`). Research cites the file as a baseline, and `test-quality` and `/wb:test-audit` read it.
