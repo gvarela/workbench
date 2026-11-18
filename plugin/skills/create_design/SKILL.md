@@ -101,7 +101,9 @@ const designFile = `${projectDir}/design.md`;
    - This record changes the technical pass (Step 5): you will formalize the recorded decision instead of generating options
    - **If you amend the record** (correction found during design): NEVER `bd update --notes` without carrying the existing notes forward verbatim — `--notes` replaces wholesale and silently destroys prior amendments; prefer `bd comments add` where available
 
-6. **Extract key design inputs**:
+6. **Read `.claude/wb/profile.md`** when it exists: the repository's guidelines for conflicting guidance ([Conflicting guidance](../../docs/reference/rules-and-intents.md#conflicting-guidance)).
+
+7. **Extract key design inputs**:
    - What exists that we must work with
    - What patterns should we follow
    - What constraints limit our options
@@ -266,7 +268,7 @@ This pass writes Design Approach, Technical Decisions, Beyond the Examples, Risk
 
 2. **Where each criterion is observed**: its Observed at, Seam, and Proven by lines, and the Harness Decisions table.
 
-3. **Patterns to follow**: for each new part, the existing pattern it follows, with the file:line research gives. Where research shows two patterns for the same thing, or none, ask the person which.
+3. **Patterns to follow**: for each new part, the existing pattern it follows, with the file:line research gives. Where research shows competing patterns or a stated rule the code breaks, apply the order in [Conflicting guidance](../../docs/reference/rules-and-intents.md#conflicting-guidance): a stated rule wins for new code without asking, and a profile guideline is followed as it says. Ask the person only what that leaves open (two patterns and no rule, two rules that disagree, new code landing in an area the old pattern dominates, or a guideline that says `ask each time`), showing both sides with an example of each. When they answer, offer to record it: show the exact line for `.claude/wb/profile.md`, including `ask each time` when that is their answer, and write it only on their yes.
 
 File layout, the order of the work, and the code itself stay in tasks.md.
 

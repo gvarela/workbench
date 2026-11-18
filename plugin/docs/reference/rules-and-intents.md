@@ -101,6 +101,30 @@ It never turns a FAIL into a PASS, waives an integrity finding, changes what a c
 
 How it is consulted and what follows each outcome is "The Judge" in [implement/failures.md](../../skills/implement/failures.md).
 
+## Conflicting guidance
+
+Guidance conflicts in three ways: a stated rule against what the code does (a rule says not to use a construct, and existing code uses it); two patterns in the code for the same thing, with no rule; and two stated rules that disagree. This happens anywhere: tests, naming, error handling, how parts are structured.
+
+One order of authority settles which to follow:
+
+1. what the person decided for this plan, recorded in design.md's Patterns to Follow;
+2. a standing rule: the repository's own instructions, a linter's configuration, the testing profile, or a guideline in `.claude/wb/profile.md`;
+3. the prevailing pattern in the area being changed;
+4. patterns elsewhere in the repository.
+
+- **A stated rule wins for new code**, without asking. Existing code that breaks it is left as it is: it is a follow-up at most, and never fixed in passing.
+- **Two patterns and no rule, two rules that disagree, or new code landing in an area the old pattern dominates** are the person's to decide, unless a profile guideline already does.
+- **Where it is settled**: research records the conflict as a fact, both sides, for the areas the plan touches. The design's program pass applies this order and asks what it leaves open. From then on the task carries the decision, so a worker or a test-writer finds it there.
+- **Reviewing**: new code that follows the decision is not a finding, whatever the surrounding code does. An agent that meets a conflict the design did not settle follows this order and says so in its report.
+
+`.claude/wb/profile.md` holds a repository's guidelines for these cases, one line each, written only when the person says yes:
+
+```markdown
+- **[what it is about]**: [the guideline]. [follow | ask each time | follow, except [case]: [what to do]] (why: [reason]; decided by [who], [date])
+```
+
+`ask each time` is a guideline too: it says the choice depends on the case and is put to the person at design, once per plan. A rule that should hold in every session and for every tool belongs in the repository's own instructions or a linter; the profile says how to apply guidance when it meets code that disagrees.
+
 ## Memories
 
 A memory (`bd remember`) is read in later sessions by agents that never saw where it came from, so it carries its source:

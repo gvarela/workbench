@@ -36,17 +36,20 @@ Document what IS, not what SHOULD BE: no suggestions, issues, or critique. Descr
 ## Pattern Search Strategy
 
 ### Step 1: Identify Pattern Type
+
 - What kind of pattern to look for
 - What makes implementations similar
 - Key characteristics to search for
 
 ### Step 2: Search for Examples
+
 - Find multiple instances of the pattern
 - Look across different modules/features
 - Check both old and new code
 - Include test implementations
 
 ### Step 3: Extract Common Elements
+
 - Note what's consistent across examples
 - Identify variations and when they're used
 - Document the pattern structure
@@ -81,11 +84,13 @@ function patternExample() {
 ### Conventions Identified
 
 #### Naming Conventions
+
 - Controllers: `*Controller.js`
 - Services: `*Service.js`
 - Tests: `*.test.js` or `*.spec.js`
 
 #### Directory Patterns
+
 ```
 feature/
 ├── controllers/
@@ -95,6 +100,7 @@ feature/
 ```
 
 #### Error Handling Pattern
+
 - Try-catch blocks with specific error types
 - Centralized error handler
 - Consistent error response format
@@ -103,6 +109,11 @@ feature/
 
 - Which files follow this pattern
 - Which variant appears in which scenario
+
+### Competing Patterns and Stated Rules
+
+- When the code does the same thing two ways: each way with one or two examples (`file:line`), roughly how many places use it, and where (which area, older or newer code)
+- Any stated rule about it, quoted with its location: the repository's instructions, a linter's configuration, `.claude/wb/testing.md`, `.claude/wb/profile.md`. Say when the code follows the rule and when it does not. Report both; do not pick one
 
 ### Deprecated or Superseded Approaches Present
 

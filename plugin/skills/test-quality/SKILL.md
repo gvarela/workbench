@@ -14,7 +14,7 @@ This is the single rubric for writers and reviewers. Writers read each item as a
 
 When the repository has its own testing conventions, follow them. A convention, or an exception documented in the conventions source or in a comment at the test, also sets aside a pattern rule (Part 3) when it states its rationale. Common ones are code generators, serializers, and migrations, where the emitted text is the behavior, so an assertion on that text checks it; and interaction contracts at an external boundary, where the call made is the observable behavior. Name the exception and its rationale in your report. Neither excuses a test that cannot fail or does not protect what it guards, because no rationale makes such a test check anything. Take conventions from the first of these that exists:
 
-1. The Testing Conventions section of the plan's research. When `.claude/wb/testing.md` exists, it cites that file and records where the code has drifted from it. Where it records drift, follow the code as research describes it and mention the drift in your report, so a person can decide which one is right.
+1. The Testing Conventions section of the plan's research. When `.claude/wb/testing.md` exists, it cites that file and records where the code has drifted from it. Where it records drift between a stated rule and the tests, [Conflicting guidance](../../docs/reference/rules-and-intents.md#conflicting-guidance) decides: what the plan's design settled, and failing that the stated rule for a new test. Mention the drift in your report.
 2. `.claude/wb/testing.md`, when there is no plan or its research has no Testing Conventions section.
 3. The existing tests, when there is neither. Say in your report that you inferred the conventions.
 
