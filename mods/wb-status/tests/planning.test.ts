@@ -285,6 +285,27 @@ describe('stage chain and signals, per planning stage', () => {
     expect(lines.tests).toBe('Explore: ⚠ exploration has no recorded decision yet · 1 thoughts doc · no decision recorded')
   })
 
+  test('design: with a layer still open, the band shows the layers and names the next pass, not an approval', () => {
+    const layered = designMd('draft').replace('status: draft\n', 'status: draft\ndesign_layers:\n  product: closed\n  technical: open\n  program: open\n')
+    const model = planning({ ...RESEARCHED, design: layered })
+    const lines = bandLines(model).text
+    expect(lines.tests).toBe('Design: ✓ nothing needs you · layers: product ✓ technical ● program ○ · 2 criteria, 1 with examples · harness 1/2 decided · 2/3 metrics cite Intent · 0 open decisions')
+    expect(model.blocking).toEqual([])
+    expect(model.next).toEqual({ before: 'technical pass: ', command: '/wb:create_design' })
+  })
+
+  test('design: with every layer closed or skipped, a draft waits for your approval and a skip is shown', () => {
+    const layered = designMd('draft').replace('status: draft\n', 'status: draft\ndesign_layers:\n  product: closed\n  technical: skipped\n  program: closed\n')
+    const model = planning({ ...RESEARCHED, design: layered })
+    const lines = bandLines(model).text
+    expect(lines.tests).toBe('Design: ⚠ design.md waiting for your approval · layers: product ✓ technical skipped program ✓ · 2 criteria, 1 with examples · harness 1/2 decided · 2/3 metrics cite Intent · 0 open decisions')
+    expect(model.next).toEqual({ before: 'approve design.md, then ', command: '/wb:create_tasks' })
+  })
+
+  test('design: a design.md with no layers recorded reads as before', () => {
+    expect(readDesign(designMd('draft'))?.layers).toBe(null)
+  })
+
   test('design: a written draft waits for your approval, then shows criteria, harness, metrics and decisions', () => {
     const model = planning(DESIGNED)
     const lines = bandLines(model).text

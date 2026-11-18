@@ -6,6 +6,35 @@
 const FINISHED = new Set(['complete', 'completed', 'done', 'archived', 'cancelled'])
 const UNCLOSED = new Set(['open', 'in_progress', 'blocked'])
 
+const LAYERS = ['product', 'technical', 'program']
+
+/**
+ * The design passes a design.md records in its `design_layers` frontmatter:
+ * each layer open, closed, or skipped, in pass order. Null when the document
+ * records none (a design written before the passes).
+ */
+export function designLayers(text) {
+  const recorded = parseFrontmatter(text)?.design_layers
+  if (recorded === null || typeof recorded !== 'object') return null
+  const layers = LAYERS.filter(key => key in recorded).map(key => {
+    const value = String(recorded[key] ?? '').trim().toLowerCase()
+    return { key, state: value.startsWith('closed') ? 'closed' : value.startsWith('skipped') ? 'skipped' : 'open' }
+  })
+  return layers.length === 0 ? null : layers
+}
+
+/** The first layer still open, or null when every recorded layer is closed or skipped. */
+function openLayer(design) {
+  return design?.layers?.find(layer => layer.state === 'open') ?? null
+}
+
+/** `layers: product ✓ technical ● program ○`: closed, the pass in progress, and those after it. */
+function layerWords(layers) {
+  const next = layers.find(layer => layer.state === 'open')?.key ?? null
+  const mark = layer => (layer.state === 'closed' ? '✓' : layer.state === 'skipped' ? 'skipped' : layer.key === next ? '●' : '○')
+  return `layers: ${layers.map(layer => `${layer.key} ${mark(layer)}`).join(' ')}`
+}
+
 /** A YAML-ish frontmatter parser: top-level scalars and one level of maps. */
 export function parseFrontmatter(text) {
   const lines = String(text).split(/\r?\n/)
@@ -1174,6 +1203,7 @@ export function readDesign(text) {
   return {
     status: docStatus(text),
     isTemplate: criteria === 0 && /\[to be defined\]/i.test(text),
+    layers: designLayers(text),
     criteria,
     withExample,
     harness: { rows: rows.length, decided },
@@ -1288,6 +1318,7 @@ export function stageSignals({ intent, research, design, tasks, explore, openAsk
     out.design = ['design.md not written yet']
   } else {
     out.design = [
+      ...(design.layers ? [layerWords(design.layers)] : []),
       `${plural(design.criteria, 'criterion', 'criteria')}, ${design.withExample} with examples`,
       design.harness.rows === 0 ? 'no harness decisions' : `harness ${design.harness.decided}/${design.harness.rows} decided`,
       design.metrics.count === 0 ? 'no success metrics' : `${design.metrics.citing}/${design.metrics.count} metrics cite Intent`,
@@ -1314,8 +1345,10 @@ export function stageSignals({ intent, research, design, tasks, explore, openAsk
 }
 
 /** The next command, from help's chain: the current stage's own while it is unfinished, else the first unfinished stage. */
-export function nextCommand(stages, isDesignWaiting) {
+export function nextCommand(stages, isDesignWaiting, design = null) {
   const current = stages.find(stage => stage.state === 'current') ?? null
+  const pass = openLayer(design)
+  if (pass !== null && current?.key === 'design') return { before: `${pass.key} pass: `, command: '/wb:create_design' }
   if (isDesignWaiting && current?.key === 'design') return { before: 'approve design.md, then ', command: '/wb:create_tasks' }
   if (current !== null && !current.isDone) return { before: '', command: current.command }
   const firstOpen = stages.find(stage => !stage.isDone && !stage.isOptional) ?? null
@@ -1333,7 +1366,8 @@ export function buildPlanningModel({ planName, intent = null, research = null, d
   const members = new Set(typeof epic === 'string' && epic !== '' ? [epic] : [])
   const asks = asksFor(openIssues, members, since ?? '', { dir, others: otherPlans })
   const blocking = []
-  const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && !DESIGN_DONE.has(String(design.status).toLowerCase())
+  // A design with a pass still open is being written, not waiting for approval.
+  const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && openLayer(design) === null && !DESIGN_DONE.has(String(design.status).toLowerCase())
   if (current?.key === 'design' && isDesignWaiting) {
     blocking.push({ kind: 'approval', id: null, title: 'design.md', why: 'design.md waiting for your approval' })
   }
@@ -1348,7 +1382,7 @@ export function buildPlanningModel({ planName, intent = null, research = null, d
     current: current?.key ?? null,
     blocking,
     signals: stageSignals({ intent, research, design, tasks, explore, openAsks: asks }),
-    next: nextCommand(stages, isDesignWaiting),
+    next: nextCommand(stages, isDesignWaiting, design),
   }
 }
 
