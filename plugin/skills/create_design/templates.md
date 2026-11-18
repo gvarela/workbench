@@ -13,9 +13,21 @@ status: draft
 last_updated: [YYYY-MM-DD]
 depends_on: research.md
 design_approach: [selected option name]
+design_layers:
+  product: [open | closed]
+  technical: [open | closed | skipped]
+  program: [open | closed | skipped]
 ---
 
 # Design: [Feature/Task Name]
+
+## Design Layers
+
+| Layer | State | Note |
+|-------|-------|------|
+| Product | [open / closed [date]] | [what is still open, or ""] |
+| Technical | [open / closed [date] / skipped] | [for a skip: the reason, and "confirmed by [who] on [date]"] |
+| Program | [open / closed [date] / skipped] | [as above] |
 
 ## Problem Statement
 
@@ -25,6 +37,17 @@ design_approach: [selected option name]
 - [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement][; narrows: how it is stricter than the statement])
 - [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement])
 - Deferred: "[Intent success statement]" — [reason], or "none"
+
+## Experience
+
+("Not applicable: [why]" when nothing a person sees or reads changes.)
+
+- **What a person sees and does**: [from start to finish, in their terms]
+- **When it goes wrong**: [what they are told, for each failure they would notice]
+
+### How the UI Works
+
+- [screen]: [layout, components, wording, and states: empty, loading, error]; design: [the mockup or design file, or "none"]
 
 ## Design Approach
 
@@ -53,6 +76,16 @@ design_approach: [selected option name]
 - [How this integrates with existing systems]
 - [API contracts or interfaces]
 - [Dependencies on other components]
+
+### Contracts
+
+(Program pass. One line for each new thing that one task or phase builds and another calls.)
+
+- `[name]`: called as [how, with what]; returns [what]; fails by [raising / returning what]
+
+### Patterns to Follow
+
+- [new part]: follows [existing pattern] (`[file:line]` from research)[; chosen by [who] on [date] over [the other pattern], when research showed two]
 
 ## Scope Definition
 
@@ -115,6 +148,13 @@ Three rows per boundary above: what the criteria's examples leave out. A row end
 - [ ] Reliability: [Specific metric]
 - [ ] Security: [Specific requirement]
 
+#### Operation
+
+- **Who may use it**: [roles, and what a refused person sees]
+- **When it fails**: [each failure this design names and who or what is told: an error tracker, a message to a person, a status a person sees. "Nobody is told" is an answer the person approves, not a default]
+- **Rollout**: [how it goes live: order of steps, data changes, anything that runs once; or "a normal deploy"]
+- **Undo**: [how it comes back out, and what a rollback leaves behind; or "revert the change"]
+
 ## Risk Analysis
 
 ### Technical Risks
@@ -124,7 +164,7 @@ Three rows per boundary above: what the criteria's examples leave out. A row end
 
 ### Assumptions
 
-Based on knowledge gaps from research - track in beads to ensure validation. A `Q:` question the user deferred is a row here under its own id with the owner they named, and gets no `Validate:` issue:
+Two kinds. Knowledge gaps from research, tracked in beads to ensure validation. And what the design assumes about things the repository cannot show (production data and permissions, what an outside service accepts and returns, a real-world value): each row says how it will be checked, or `accepted unchecked` with what breaks if it is wrong. A `Q:` question the user deferred is a row here under its own id with the owner they named, and gets no `Validate:` issue:
 
 | Assumption | Beads ID | Owner | Validated? |
 |------------|----------|-------|------------|
@@ -188,7 +228,7 @@ This is the decision form for each of this plan's open questions and each Pendin
   - Paste-ready reply: [the one reply that takes the recommended option: `[id]: answer: <answer>`, `[id]: defer to <owner>`, or `[id]: not this plan`]
 ```
 
-Step 5 writes design.md before the replies arrive, so a question still awaiting one is written as a row under its own id (Assumptions for a `Q:`, Pending Decisions for a `Decide:`) with Owner `awaiting your reply`, the one placeholder BARRIER 3 allows before Step 6. A deferred `Q:` stays a row under the `Q:` issue's own id; do not create a `Validate:` issue for it.
+A pass writes design.md before the replies arrive, so a question still awaiting one is written as a row under its own id (Assumptions for a `Q:`, Pending Decisions for a `Decide:`) with Owner `awaiting your reply`, the one placeholder BARRIER 3 allows before Step 6. A deferred `Q:` stays a row under the `Q:` issue's own id; do not create a `Validate:` issue for it.
 
 Apply each reply to design.md and to beads:
 

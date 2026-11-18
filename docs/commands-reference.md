@@ -285,10 +285,13 @@ Creates architectural design decisions based on validated research. Focuses on W
 **Interactive Process**:
 
 1. **Reads research** and spawns verification agents
-2. **Analyzes patterns** and integration points
-3. **Presents design options** with trade-offs
-4. **Discusses decisions** interactively
-5. **Documents approved design** with rationale
+2. **Proposes the layers**: which of the three passes apply, from the Intent and the research; you confirm, and a skipped pass is recorded with its reason
+3. **Product pass**: the problem, success metrics, what a person sees and does, how the UI works, what it must do (each criterion's statement and examples), and scope
+4. **Technical pass**: the approach (options with trade-offs, or the decision `explore_design` recorded), the architecture, what the examples leave out, what it relies on outside the repository, and how it runs in production
+5. **Program pass**: the contract of anything one task builds and another calls, where each criterion is observed and proven, and which existing patterns to follow
+6. **Review**: a judge lists what an approval would pass in silence, then you approve
+
+Each pass is an interview that asks only what the documents leave open, and closes when every question of it has an answer or a reasoned "not applicable". design.md's `design_layers` frontmatter records each layer as open, closed, or skipped, so a re-run, in a fresh session if you prefer, resumes at the first open one.
 
 **Design Structure**:
 
