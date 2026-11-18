@@ -268,31 +268,7 @@ Before presenting, spawn `wb:judge` with no `model` parameter and this prompt: `
    Once you've replied to each item under Needs your decision and are satisfied with the design, including the choices listed as tightening your intent, please confirm approval; then run `/create_tasks` to build the implementation plan.
    ```
 
-## Important Guidelines
-
-### Design Principles
-
-1. **Separate WHAT from HOW**:
-   - Design says WHAT to build and WHY
-   - Execution plan says HOW to build it
-   - Don't include implementation sequences
-
-2. **Make Decisions Explicit**:
-   - Document every significant choice
-   - Include rationale and trade-offs
-   - Note what was rejected and why
-
-3. **Respect Research Findings**:
-   - Build on patterns found in research
-   - Respect constraints discovered
-   - Don't contradict factual findings
-
-4. **Keep It Disposable**:
-   - Design should be complete but changeable
-   - If approach is wrong, should be able to start over
-   - Research remains valid even if design changes
-
-### What Belongs in Design vs Execution
+## What Belongs in Design vs Execution
 
 **Design (THIS document - WHAT and WHY only)**:
 
@@ -311,36 +287,3 @@ Before presenting, spawn `wb:judge` with no `model` parameter and this prompt: `
 - ❌ Test writing and sequencing (acceptance criteria and their observation boundaries are WHAT; how tests are written and sequenced belongs in tasks.md)
 - ❌ File modification lists (HOW to change code)
 - ❌ Command sequences (HOW to execute changes)
-
-### Handling Knowledge Gaps
-
-When research has knowledge gaps:
-
-1. **Document assumptions**:
-   - State what you're assuming
-   - Note risk if assumption is wrong
-   - Plan for discovery during implementation
-
-2. **Design for flexibility**:
-   - Don't over-commit to uncertain areas
-   - Build in abstraction where needed
-   - Plan for multiple scenarios
-
-3. **Flag for implementation**: mark decisions that depend on unknowns; an open question goes to the user (Open Questions for This Plan), never deferred by you alone
-
-### Leveraging Agent Findings
-
-Use agent findings to strengthen design:
-
-1. **Pattern matching**: Reference similar implementations found by agents
-2. **Integration validation**: Use agent findings to validate integration approach
-3. **Risk assessment**: Incorporate historical findings from agents
-4. **Consistency**: Ensure design follows patterns identified by agents
-
-## Synchronization Points
-
-1. **⛔ BARRIER 1**: After reading research - ensure full understanding
-2. **⛔ BARRIER 2**: After agent spawning - wait for every agent's completion notification
-3. **⛔ DECISION POINT**: After presenting options - get approach approval (with a closed `Decide:` record: confirmation of the recorded decision instead)
-4. **⛔ BARRIER 3**: Before writing - verify no placeholders
-5. **⛔ APPROVAL GATE**: After writing design - get explicit approval, with a reply to each item under Needs your decision
