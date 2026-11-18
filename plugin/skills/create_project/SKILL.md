@@ -13,7 +13,7 @@ Supporting file: [templates.md](templates.md) — the four initial file template
 
 ## Initial Response
 
-This stage needs from you: the goal, what success looks like, and what is out of scope, and which of those are hard limits rather than aims. Project name, base directory, and ticket are the mechanics.
+This stage needs from you: the goal, what success looks like, and what is out of scope, which of those are hard limits rather than aims, and where any existing design or other material for the work is. Project name, base directory, and ticket are the mechanics.
 
 When invoked, check for arguments:
 
@@ -60,9 +60,10 @@ I read the intent as:
 - Success looks like: [two to four statements, each with its why]
 - Non-goals: [list, or "none stated"]
 Which of these are hard limits rather than aims? Correct anything that should change.
+Is anything already designed or decided for this (a design, mockups, a spec, a ticket), and where is it? "Nothing" is an answer.
 ```
 
-If the request carries none of it, ask for the three parts in one message before proceeding, with the same question. A reply changes only the lines it addresses: those get `reviewed: yes`, the user's new words as their source, and the strength they gave. Every line the reply skips keeps its source, so the user's earlier words stay theirs, and keeps `reviewed: no` and strength `aim`, unless it protects safety, data integrity, or honesty of evidence. Ask the strength question once; do not ask again about the lines the reply skipped. Do not create the directory or any file while any part is empty; the Intent section is written from the reply, and the amendment list starts empty.
+If the request carries none of it, ask for the three parts in one message before proceeding, with the same two questions. Whatever the person names as already designed or decided goes in the README's Existing Material list, with where it is; later stages read that list, so they do not have to guess where a design lives. A reply changes only the lines it addresses: those get `reviewed: yes`, the user's new words as their source, and the strength they gave. Every line the reply skips keeps its source, so the user's earlier words stay theirs, and keeps `reviewed: no` and strength `aim`, unless it protects safety, data integrity, or honesty of evidence. Ask the strength question once; do not ask again about the lines the reply skipped. Do not create the directory or any file while any part is empty; the Intent section is written from the reply, and the amendment list starts empty.
 
 ## Process Steps
 

@@ -47,7 +47,16 @@ design_layers:
 
 ### How the UI Works
 
-- [screen]: [layout, components, wording, and states: empty, loading, error]; design: [the mockup or design file, or "none"]
+- [screen]: [layout, components, wording, and states: empty, loading, error]
+
+### Design Scope
+
+The screen is the unit: a touched screen is built to the whole of its design unless an item is listed as left out. Approved by [who] on [date].
+
+- **Built to the design**: [screen] → [`mockups/[version]/[file]`, `designs/[file]`, or a link][; a worker cannot open it: copy at [where]]
+- **On a touched screen, left out**: [item] ([reason]); or "nothing"
+- **Touched, not designed**: [screen, state, or message] → [follows [existing pattern, `file:line`] / to be mocked up with `/wb:create_mockup` / back to the designer: [who] / built plainly and flagged]; or "nothing"
+- **How it is checked**: what is built is compared with its design at the phase checkpoint; a difference in layout, components, or wording is reported like a failed check.
 
 ## Design Approach
 
@@ -112,6 +121,7 @@ One criterion per changed behavior, each checkable at a boundary a test can obse
   - Example: [real input values → real expected output]
   - Example (edge): [a boundary case, when one exists]
   - Observed at: [where the result is visible: HTTP response, rendered page, CLI output, stored record]
+  - Design: [only when what is observed has one: its line in Design Scope]
   - Seam: [only when the boundary is external or an LLM: what is stubbed, and what stays real]
   - Proven by: [how to show this in the running product: the command, request, or page to use and what to look for; or `manual: <why only a person can check it>`]
   - Refines: [Success Metric id, for example M1]

@@ -83,7 +83,13 @@ const designFile = `${projectDir}/design.md`;
 
 3. **Read README.md FULLY** and record the `## Intent` section: Goal, the "Success looks like" statements, Non-goals, and any Amendments lines, each with its why, source, review status, and strength; read a line with no strength as [Strength](../../docs/reference/rules-and-intents.md#strength) says, and put each provisionally hard line to the user with the open questions. Also read research.md's `## Intent Coverage` section: statements the research never touched need a metric or an explicit deferral. Plans without an Intent section: note "no Intent section (plan predates 3.0.0)"; the product pass then originates metrics as before.
 
-4. **Check for a recorded decision** (from `/wb:explore_design`):
+4. **Read the plan's existing material.** design.md is the only document the later stages carry forward (tasks are derived from it, and a worker reads its task and nothing else), so a design this document does not name is never built to, however much of a session went into it. The README's Existing Material list is the index; bring it up to date before you rely on it:
+   - Read each item it lists.
+   - Look for what it does not list, whatever tool produced it: in the plan folder, a `mockups/` folder from `/wb:create_mockup` (read `mockups/mockup-log.md` in full and open the latest version of each series), a `designs/` folder, images, PDFs, exported screens, `thoughts/` docs, and other notes; and links or paths in README.md, research.md, and the ticket. Show the person what you found that the list lacks, and add each to the README on their yes.
+   - For each item note what it settles, whether its record shows it approved or still open, and whether a worker can open it. A link that needs a login, or a path git ignores (`git check-ignore -q <path>`), is not there in a worktree or on another machine. For each such item ask the person which they want: an export saved in the plan folder, a description written into design.md, or a stated place where a copy is kept.
+   - A plan with no README list predates it: search the same places, and ask once whether a design exists when the plan changes something a person sees.
+
+5. **Check for a recorded decision** (from `/wb:explore_design`):
 
    ```bash
    bd list -n 0 --status=closed | grep "Decide:"   # Find recorded decisions
@@ -95,7 +101,7 @@ const designFile = `${projectDir}/design.md`;
    - This record changes the technical pass (Step 5): you will formalize the recorded decision instead of generating options
    - **If you amend the record** (correction found during design): NEVER `bd update --notes` without carrying the existing notes forward verbatim — `--notes` replaces wholesale and silently destroys prior amendments; prefer `bd comments add` where available
 
-5. **Extract key design inputs**:
+6. **Extract key design inputs**:
    - What exists that we must work with
    - What patterns should we follow
    - What constraints limit our options
@@ -171,7 +177,12 @@ Confirm, or tell me which to change.
 
 5. **The expected experience**: what a person sees and does, from start to finish, and what they are told when it goes wrong. `not applicable` only when nothing a person sees or reads changes.
 
-6. **How the UI works**, when there is one: its layout, components, wording, and states (empty, loading, error). Where a mockup or a design exists for a screen, name the file: the screen is built to it.
+6. **How the UI works**, when there is one: its layout, components, wording, and states (empty, loading, error). The screen is the unit. A screen, message, or report is touched when a criterion is observed there or the work changes it, and for a touched screen the whole of its design is in scope until the person says otherwise. Draft the Design Scope list from the existing material and put it to the person in this pass; nothing in it is settled until they reply:
+   - **Built to the design**: each touched screen and the design file or link it follows.
+   - **On a touched screen, left out**: anything its design shows that this plan would not build, with the reason.
+   - **Touched, not designed**: a screen, state, or message the plan needs that no design covers, such as an error state a partial comp leaves out. For each, the person chooses: follow an existing pattern in the product (name it), mock it up with `/wb:create_mockup`, go back to the designer, or build it plainly and flag it.
+
+   A design that shows something a Non-goal rules out, or that the Goal does not cover, is an Intent question (item 4), not a scope default.
 
 7. **What it must do**: draft each acceptance criterion's statement, one per changed behavior: Given, When, Then, its examples, the metric it refines, what it guards against, its strength, and any narrowing. Where each is observed and how it is proven wait for the program pass.
 
@@ -288,6 +299,9 @@ Before presenting, spawn `wb:judge` with no `model` parameter and this prompt: `
 
    Choices I made that tighten your intent (your approval covers only these):
    - [each narrowing in all five lines of the templates.md → **Narrowings** form, its quoted text the Then line (or metric) copied verbatim from design.md, never paraphrased; or "None: every metric and criterion checks its statement as written"]
+
+   Design scope (as you approved it in the product pass):
+   - [built to the design: each screen and its file; left out: each item and why; not designed: each gap and how it will be handled; any design a worker cannot open and where its copy is; or "No screen, message, or report is touched"]
 
    Cases this design leaves unhandled (your approval accepts these):
    - [each Beyond the Examples row that reads `not handled`: the boundary, the case in plain words, and the reason; or "None: every case found is a criterion or cannot happen"]
