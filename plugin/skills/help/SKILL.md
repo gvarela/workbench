@@ -212,7 +212,7 @@ Researches the codebase from the product perspective: features, user flows, user
 
 ### `/wb:explore_design [directory]`
 
-(optional) Facilitated architecture discussion between research and design. Invoke when research surfaced multiple viable approaches, the change is cross-cutting or introduces a new subsystem, or the choice is hard to reverse. Skip for small well-scoped fixes, single-approach research, or when create_design's built-in option step is proportionate. Records the decision as a closed `Decide:` issue plus a thoughts/ doc; create_design detects and formalizes it.
+(optional) Facilitated architecture discussion between research and design. Invoke when research surfaced multiple viable approaches, the change is cross-cutting or introduces a new subsystem, or the choice is hard to reverse. Skip for small well-scoped fixes, single-approach research, or when create_design's built-in option step is proportionate. It says which design layer each decision belongs to (product, technical, program) and records what it settled for each, so each of create_design's passes opens with what is already answered and asks only the rest. Records the decision as a closed `Decide:` issue plus a thoughts/ doc; create_design detects and formalizes it.
 
 ### `/wb:create_design [directory]`
 

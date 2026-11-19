@@ -98,7 +98,7 @@ const designFile = `${projectDir}/design.md`;
    The grep is a substring match — a record is an issue whose **title begins with** `Decide:`; ignore mid-title mentions. Identify the record for THIS project — its close reason references thoughts doc(s) under `[project-dir]/thoughts/`. If one exists:
    - Run `bd show [id]` and read the close reason fully (chosen direction + rationale) AND its notes — amendments may live there
    - Read FULLY every thoughts doc the close reason references
-   - This record changes the technical pass (Step 5): you will formalize the recorded decision instead of generating options
+   - This record feeds every pass. Take the Synthesis's "Settled, by design layer" list (and the close reason's `Settled by layer` line): each pass opens by stating what exploration settled for it, cited, and asks only the rest. When the record settles the approach, the technical pass (Step 5) formalizes it instead of generating options. A record with no per-layer list predates it: sort what it settled into the three layers yourself, say that you did, and let the person correct the sorting
    - **If you amend the record** (correction found during design): NEVER `bd update --notes` without carrying the existing notes forward verbatim — `--notes` replaces wholesale and silently destroys prior amendments; prefer `bd comments add` where available
 
 6. **Read `.claude/wb/profile.md`** when it exists: the repository's guidelines for conflicting guidance ([Conflicting guidance](../../docs/reference/rules-and-intents.md#conflicting-guidance)).
@@ -196,7 +196,7 @@ This pass writes Problem Statement, Success Metrics, Experience, Scope Definitio
 
 **The approach.** It is settled in one of two modes, set by the BARRIER 1 decision-record check:
 
-**If a closed `Decide:` record exists for this project** — the architectural decision was already made in `/wb:explore_design`. Do NOT generate options. Present the recorded decision for confirmation:
+**If a closed `Decide:` record exists for this project and it settles the approach** (its technical layer is not "nothing") — the architectural decision was already made in `/wb:explore_design`. Do NOT generate options. Present the recorded decision for confirmation. An exploration that settled only product or program questions leaves the approach open: generate options as below.
 
 ```
 Research and exploration already converged on a recorded decision:
