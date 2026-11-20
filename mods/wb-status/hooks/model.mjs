@@ -907,6 +907,58 @@ export function parseWorktrees(stdout) {
     .filter(one => one.startsWith('/'))
 }
 
+/**
+ * The branch checked out in each worktree, by root, from
+ * `git worktree list --porcelain`; null for a detached HEAD.
+ */
+export function worktreeBranches(stdout) {
+  const out = {}
+  let tree = null
+  for (const line of String(stdout ?? '').split('\n')) {
+    if (line.startsWith('worktree ')) {
+      tree = line.slice('worktree '.length).trim()
+      out[tree] = null
+    } else if (tree !== null && line.startsWith('branch ')) {
+      out[tree] = line.slice('branch '.length).trim().replace(/^refs\/heads\//, '')
+    }
+  }
+  return out
+}
+
+/** A plan directory's name without its date: `2026-01-01-reset-flow` is `reset-flow`. */
+function planSlug(name) {
+  return String(name ?? '').replace(/^\d{4}-\d{2}-\d{2}-/, '').toLowerCase()
+}
+
+/** Whether a text names a slug as a whole word: `auth` is not named by `authoring`. */
+function namesSlug(text, slug) {
+  if (slug.length < 3) return false
+  const hay = String(text ?? '').toLowerCase()
+  const isWord = char => char !== undefined && /[a-z0-9]/.test(char)
+  for (let at = hay.indexOf(slug); at !== -1; at = hay.indexOf(slug, at + 1)) {
+    if (!isWord(hay[at - 1]) && !isWord(hay[at + slug.length])) return true
+  }
+  return false
+}
+
+/**
+ * What ties a plan to the session, so that an unpinned plan is this session's
+ * work and not just some unfinished plan in the repository: `branch` when the
+ * session's branch is the one the plan records or names the plan, `worktree`
+ * when the session's worktree is named for it, else null.
+ */
+export function planTie(candidate, session) {
+  const branch = String(session?.branch ?? '')
+  const slug = planSlug(candidate?.name)
+  if (branch !== '') {
+    const recorded = String(candidate?.fm?.git_branch ?? '').trim()
+    if (recorded !== '' && recorded === branch) return 'branch'
+    if (namesSlug(branch, slug)) return 'branch'
+  }
+  if (session?.worktree && namesSlug(session.worktree, slug)) return 'worktree'
+  return null
+}
+
 /** The worktree's name when a root is a linked worktree, else null. */
 export function worktreeName(root, mainRoot) {
   const text = String(root ?? '')

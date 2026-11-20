@@ -84,6 +84,8 @@ import {
   statusLine,
   topGap,
   logSince,
+  planTie,
+  worktreeBranches,
   worktreeName,
 } from './model.mjs'
 import { createReadingLog, paneRows, recordReading } from './readinglog.mjs'
@@ -108,6 +110,8 @@ const DOCS = ['README.md', 'research.md', 'product-research.md', 'design.md', 't
 
 // The last reading, or null when there is nothing to show.
 let model = null
+// When no plan is shown though unfinished ones exist: why, for the pane.
+let untied = null
 // Comments per task id, kept until the task's comment count or update time moves.
 const commentCache = new Map()
 // Plan documents per path, kept until the file's size or modification time moves.
@@ -225,7 +229,9 @@ export function register(on, options) {
     if (model === null) {
       const none = Text({
         dimColor: true,
-        children: ['No active wb plan: no unfinished docs/plans/<dir> with beads tasks, no plan file changed in the last 30 days, in any worktree, or beads is not available here. /wb-status <plan dir> pins one.'],
+        children: [untied !== null
+          ? `No wb plan is tied to this session: none is pinned, and ${untied.branch ? `the branch ${untied.branch}` : 'its checkout (no branch)'} names none of the unfinished plans (${untied.names.join(', ')}). /wb-status <plan dir> pins one.`
+          : 'No active wb plan: no unfinished docs/plans/<dir> with beads tasks, no plan file changed in the last 30 days, in any worktree, or beads is not available here. /wb-status <plan dir> pins one.'],
       })
       if (logRows.length === 0) return none
       return Box({ flexDirection: 'column', children: [none, Text({ children: [' '] }), Text({ weight: 'semibold', children: ['Reading log'] }), ...logRows.map(row => Text({ wrap: 'truncate-end', children: [row] }))] })
@@ -341,10 +347,14 @@ async function showStatus($) {
 async function read($) {
   await restorePin($)
   const root = await $.session.root()
-  const worktrees = await listWorktrees($, root)
+  const git = await readWorktrees($, root)
+  const worktrees = git.trees
   const mainRoot = worktrees[0] ?? root
+  // Outside git there is no branch to go by, so any unfinished plan may be guessed.
+  const session = git.isGit ? { branch: git.branches[root] ?? null, worktree: worktreeName(root, mainRoot) } : null
   await pinCreatedPlan($, root, worktrees)
-  const plan = await choosePlan($, root, worktrees)
+  untied = null
+  const plan = await choosePlan($, root, worktrees, session)
   if (plan === null) return null
   const where = plan.root
   const docs = plan.docs
@@ -512,7 +522,7 @@ async function planDirNames($, base) {
  * beads activity or the planning plan whose file changed last; else the
  * newest beads plan by directory name.
  */
-async function choosePlan($, root, worktrees) {
+async function choosePlan($, root, worktrees, session = null) {
   let missing
   const held = await $.state.get(PIN)
   const pin = held.value ?? null
@@ -525,8 +535,18 @@ async function choosePlan($, root, worktrees) {
     missing = pin.path
   }
 
-  const { beads, planning } = await discoverPlans($, worktrees.length > 0 ? worktrees : [root])
-  if (beads.length === 0 && planning.length === 0) return null
+  const found = await discoverPlans($, worktrees.length > 0 ? worktrees : [root])
+  if (found.beads.length === 0 && found.planning.length === 0) return null
+  // A guess is a claim about this session's work, so it needs something that
+  // ties the plan to the session: its branch or its worktree.
+  const isTied = one => session === null || planTie(one, session) !== null
+  const beads = found.beads.filter(isTied)
+  const planning = found.planning.filter(isTied)
+  if (beads.length === 0 && planning.length === 0) {
+    const names = [...new Set([...found.beads, ...found.planning].map(one => one.name))].sort().reverse()
+    untied = { branch: session?.branch ?? null, names }
+    return null
+  }
   let openIssues
   let named = []
   if (beads.length > 0) {
@@ -662,16 +682,21 @@ async function planRoot($, dir) {
 
 /** Every worktree of the session's repository, the main checkout first; the root alone outside git. */
 async function listWorktrees($, root) {
+  return (await readWorktrees($, root)).trees
+}
+
+/** The repository's worktrees with the branch checked out in each; `isGit` false when git lists none. */
+async function readWorktrees($, root) {
   try {
     const { exitCode, stdout } = await $.process.run(
       ['git', '--no-optional-locks', 'worktree', 'list', '--porcelain'],
       { cwd: root, timeoutMs: 5000 },
     )
     const trees = exitCode === 0 ? parseWorktrees(stdout) : []
-    if (trees.length === 0) return [root]
-    return trees.includes(root) ? trees : [...trees, root]
+    if (trees.length === 0) return { trees: [root], branches: {}, isGit: false }
+    return { trees: trees.includes(root) ? trees : [...trees, root], branches: worktreeBranches(stdout), isGit: true }
   } catch {
-    return [root]
+    return { trees: [root], branches: {}, isGit: false }
   }
 }
 

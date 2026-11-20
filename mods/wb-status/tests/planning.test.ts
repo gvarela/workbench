@@ -486,7 +486,8 @@ function stage(on: any, world: World) {
   on('process.run', ($: unknown, e: { argv: readonly string[] }) => {
     const argv = e.argv.filter(arg => arg !== '--no-optional-locks')
     const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '' } })
-    if (argv[0] === 'git' && argv[1] === 'worktree') return ok(`worktree ${ROOT}\nHEAD abc\nbranch refs/heads/main\n`)
+    // The session's branch names the older plan, so an unpinned reading may guess it.
+    if (argv[0] === 'git' && argv[1] === 'worktree') return ok(`worktree ${ROOT}\nHEAD abc\nbranch refs/heads/feature/older\n`)
     if (argv[0] === 'git' && argv[1] === 'rev-parse') return ok(`${ROOT}\n`)
     if (argv[0] === 'git') return ok('')
     if (argv[0] === 'bd' && argv[1] === 'list') {
