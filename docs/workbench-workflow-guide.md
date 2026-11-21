@@ -27,6 +27,8 @@ bd init --stealth   # any repository with collaborators who do not use beads (wr
 bd init             # only a repository you own outright; .beads/ is still excluded, never committed
 ```
 
+Coming from wb 4? Read [Upgrading from wb 4 to wb 5](upgrading-to-5.md) first.
+
 ### Basic Workflow
 
 ```bash
@@ -65,7 +67,7 @@ The stage skills run in whatever session model you start; agents they spawn pick
 | create_project, create_handoff, help | Sonnet | Interviews and doc writing |
 | create_research / create_product_research | Sonnet (high effort); Opus for large or high-stakes research | Synthesis of subagent reports; Opus 5.5 is less likely to state a claim the sources don't support |
 | explore_design | **Fable** (Opus fallback) | Divergent, judgment-dense discussion — the skill self-checks and warns on lighter models |
-| create_design | Opus; Sonnet is fine when formalizing a recorded decision | Decision-making vs. documentation |
+| create_design | Opus; Sonnet is fine when formalizing a recorded decision | Decision-making vs. documentation. It runs as three passes and records each in design.md, so a long design can be one pass per session |
 | create_tasks | **Fable** (high effort; Opus fallback) | Decomposition quality sets the ceiling for cheap workers; the skill self-checks |
 | implement (default) | Opus | Coordinator judges tiers and parses reports; workers do the coding; escalation workers: Fable at high |
 | implement_inline | Sonnet (Claude Code's default `medium`; `high` for harder phases); Fable for cross-cutting phases (multi-file refactors, migrations) | The session does the coding itself |
@@ -90,6 +92,11 @@ docs/plans/2025-01-15-TICKET-123-feature-name/
 ├── design.md      # Design decisions (status: draft)
 └── tasks.md       # Execution plan (status: not-started)
 ```
+
+**Asks for**:
+
+- The Intent: a Goal, two to four "Success looks like" statements, and Non-goals. Each line records why it exists, whose words it is, whether you reviewed it, and whether it is a hard limit or an aim, so a later stage cannot quietly turn an aim into a rule.
+- Anything already designed or decided for the work (a design, mockups, a spec, a ticket) and where it is. That starts the README's Existing Material list, which later stages read.
 
 **Captures**:
 
@@ -116,7 +123,7 @@ Documents codebase objectively using parallel research agents.
 
 **Critical Rule**: "Document what IS, not what SHOULD BE"
 
-**Output**: research.md with file:line references, patterns, architecture documentation, and a Testing Conventions section (frameworks and commands, the harness that exists per boundary, seams, skip markers, installed test-quality tooling), which the testing agents read first
+**Output**: research.md with file:line references, patterns, architecture documentation, and a Testing Conventions section (frameworks and commands, the harness that exists per boundary, seams, skip markers, installed test-quality tooling), which the testing agents read first. Where the code does one thing two ways, research records both patterns with examples, and any stated rule about them, without choosing
 
 ### Stage 3: UI Mockup (Optional)
 
@@ -200,6 +207,8 @@ Facilitated architecture discussion between research and design — explores dir
 4. Converges only on explicit approval (⛔ CHECKPOINT)
 5. Records: thoughts/ doc + closed `Decide:` issue (chosen direction and rationale in the close reason)
 
+Each decision is marked product, technical, or program, the three layers `/wb:create_design` works through, and the record lists what was settled for each. A technical decision that rests on an unanswered product question is flagged. The thoughts doc, and any mockup made along the way, is added to the README's Existing Material list.
+
 ### Stage 5: Design
 
 **Command**: `/wb:create_design`
@@ -208,23 +217,35 @@ Creates architectural design decisions (WHAT and WHY).
 
 **Process**:
 
-1. Reads research, mockup decisions, and any recorded `Decide:` decision
+1. Reads research, the README's Intent and Existing Material list, any recorded `Decide:` decision, and `.claude/wb/profile.md` when the repository has one. It looks for designs the list lacks (a `mockups/` folder, files, a link) and adds them on your yes.
 2. Spawns verification agents
-3. Presents design options with trade-offs (or confirms the recorded decision when explore_design ran)
-4. Interactive discussion
-5. Documents approved design
+3. Proposes which of three passes apply, citing your Intent and the research, and waits for you to confirm. A skipped pass is recorded with its reason.
+4. **Product pass**: the problem, success metrics, what a person sees and does, how the UI works, what it must do (each acceptance criterion's statement and examples), and scope
+5. **Technical pass**: the approach (options with trade-offs, or the decision `explore_design` recorded), the architecture, what the examples leave out, what it relies on outside the repository, and how it runs in production
+6. **Program pass**: how anything one task builds and another calls is called, where each criterion is observed and proven, and which existing patterns to follow
+7. A judge agent lists what your approval would otherwise pass in silence; then you approve
+
+Each pass is an interview: it takes what the documents already settle and asks only the rest. design.md records each layer as open, closed, or skipped, so you can stop after a pass and run the command again later, in a fresh session if you like.
 
 **Structure**:
 
-- Problem statement
+- Design Layers: which passes are open, closed, or skipped
+- Problem statement and success metrics
+- Experience, How the UI Works, and Design Scope: for each screen the plan touches, what is built to its design, what is left out and why, and what has no design yet
 - Design approach with rationale
-- Technical decisions
+- Technical decisions, including Contracts (how new parts are called) and Patterns to Follow
 - Scope (in/out)
-- Success criteria
-- Acceptance Criteria: Given/When/Then with real examples, where each result is observed, and the success metric it refines
+- Acceptance Criteria: Given/When/Then with real examples, where each result is observed, how it is proven in the running product, what it guards against, and its strength
 - Harness Decisions: per boundary, whether to use an existing harness, add one, verify manually, or test at a lower proxy
-- Risk analysis
+- Beyond the Examples: per boundary, input nobody showed, a failure partway, and other callers; each ends in a criterion, a case left unhandled, or one that cannot happen
+- Operation: who may use it, who is told when it fails, rollout, and undo
+- Risk analysis, with what the design assumes about things the repository cannot show
 - Rejected alternatives
+
+**Designs and conflicting guidance**:
+
+- A mockup or a design handed over from anywhere is the specification for the screens the plan touches. You approve the Design Scope list; nothing in it is settled by default.
+- When a written rule and existing code disagree, the rule wins for new code and the old code is left alone. What that does not settle is put to you once, and your answer can be saved in `.claude/wb/profile.md` as a guideline to follow, to ask each time, or to follow with an exception.
 
 **Critical**: WHAT and WHY only - never HOW
 
@@ -242,6 +263,7 @@ Transforms design into detailed phased execution plan.
    - Test coverage planning
    - Rollback procedures
 3. Generates phased plan with embedded tasks: an outer-test step per acceptance criterion, a harness task wherever design chose to add a harness, and implementation tasks that cite the criteria they serve
+4. Maps every design item to a task or a stated deferral in a Design Coverage table before any beads issue exists; you decide each one no task delivers. A design that Design Scope names is mapped to the task that builds its screen, which names the design file
 
 **Beads Integration**:
 
@@ -307,17 +329,20 @@ bd ready
 
 **Tests**:
 
-- The outer test for each cited criterion is written by `wb:test-writer`, confirmed failing on an assertion, and committed as `red(AC-n)` before the task's code.
+- The outer test for each cited criterion is written by `wb:test-writer`, confirmed failing, and committed as `red(AC-n)` before the task's code. Failing on an assertion is red; so is stopping because the code the plan creates does not exist yet. No stub is written for that, and the verifier later shows the assertion can fail.
 - `wb:test-writer` also writes the task's own tests before the worker starts; a worker that needs another test returns a `needs test:` block and the coordinator has it written.
 - Before the run stops for anything but a checkpoint, `wb:judge` decides what the stop is: a record to repair, a call about tests it may settle, a finding to re-check, or a question for you.
 - `task-worker` never edits test cases; on a harness task it writes the support code (fakes, fixtures, factories, harness modules) and declares those files. `task-verifier` fails any test change that neither a test-writer report nor a harness task's declared support files nor a setup task's declared setup files cover, after running `plugin/scripts/test-integrity` and planting a defect in a disposable copy.
 - The test-writer reports, the verifier's test-integrity result, and a harness task's support-file list are kept as comments on the task in beads.
 - `/wb:implement_inline` follows the same rules for writing tests: the session codes (and writes a harness task's support code), `wb:test-writer` writes every test. It has no per-task verifier, so the checkpoint test review checks test integrity across the phase.
 - A plan whose design has no acceptance criteria predates 5.0.0; outer tests are skipped and the output says why.
+- An outer test changes after its red commit only through a rewrite task, and the change lands when the verifier shows nothing the original caught is lost.
+
+**Unattended runs**: say `run unattended` in your own message. The run continues through checkpoints that have nothing to decide and parks whatever needs you; your next message ends it. One phase per session is recommended either way.
 
 **Phase Checkpoints**:
 
-After completing all phase tasks, `wb:prover` runs the product at each acceptance criterion's boundary and reports each criterion and manual check as proven, disproven, or could not prove; a disproven one holds the checkpoint, and you check by hand only what it could not prove. `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
+After completing all phase tasks, `wb:prover` runs the product at each acceptance criterion's boundary and reports each criterion and manual check as proven, disproven, or could not prove; a disproven one holds the checkpoint, and you check by hand only what it could not prove. `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. The report also lists "Decisions I made for you", each with how to reverse it, and, where tests stub an outside service, what that service was assumed to accept. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
 
 ```bash
 # Check phase milestone
@@ -384,10 +409,11 @@ tasks.md: not-started → in-progress → complete
 
 ### Testing Outside the Chain
 
-Two commands need no plan:
+Three commands sit outside the stage chain:
 
 - `/wb:test-audit [scope] [N | full]` audits an existing suite cold. It triages tests by suspicion, states the scope, planned `wb:test-auditor` spawns, and a cost class (confirming first on a large repository), then writes a report of proposed Remove, Rewrite, and Consolidate verdicts with evidence. It never edits tests.
 - `/wb:testing-profile` drafts `.claude/wb/testing.md` (conventions, team Choices, Mutation level), recommends gaps against the tooling the testing agents rely on, and writes only after you confirm. Research cites the file as a baseline.
+- `/wb:review_diff [base=<ref>] [plan=<dir>]` reviews a branch cold before its pull request, for what no acceptance criterion names: input nobody showed, a failure partway, other callers of what changed, values and lists that no longer agree. It is a dynamic workflow of about nine agents: four reviewers who are not given the plan, a merge of findings with one root cause, and a skeptic for each. It edits nothing and returns confirmed findings, ones that depend on something outside the repository, and ones raised but not confirmed.
 
 ### Handoff (Multi-Session)
 
@@ -664,6 +690,8 @@ mockups/v002/
 
 ### Finalization
 
+`/wb:create_design` finds mockups through the README's Existing Material list and the plan's `mockups/` folder whether or not you finalize, reads the mockup log, and puts the design scope to you. Finalizing is still the way to close open UI questions and compile the decisions first.
+
 Before finalizing to design.md:
 
 ```bash
@@ -807,6 +835,8 @@ Tasks come ONLY from plans.
 ### Planning Phase
 
 - Discuss before writing
+- Tell `create_project` where any existing design lives, or paste the link into the README's Existing Material list when one turns up
+- Stop between design passes when a session is getting long; the command resumes
 - Define out of scope
 - Make success criteria measurable
 - Phase for incremental value
@@ -819,6 +849,7 @@ Tasks come ONLY from plans.
 - Follow TDD cycle strictly
 - Leave test writing to `wb:test-writer`; workers and the inline session do not edit tests
 - Acknowledge each blocking test finding by name at the checkpoint
+- Before opening a pull request, consider `/wb:review_diff`
 - Close with `bd close`
 - Respect phase boundaries
 - Stop at checkpoints
@@ -909,5 +940,6 @@ bd list   # Find correct ID
 ## Additional Resources
 
 - [Commands Reference](commands-reference.md) - Detailed command documentation
+- [Upgrading from wb 4 to wb 5](upgrading-to-5.md) - What changed at each stage, plans in flight, time and cost
 - [Claude Code documentation](https://code.claude.com/docs/en/skills) - How skills, subagents, hooks, and plugins work; read the live docs rather than a copy, because they change with every release
 - [Plugin hooks](../plugin/hooks/) - `wb-prime.sh` (SessionStart orientation and compaction recovery) and `beads-drift-check.sh` (SessionEnd)

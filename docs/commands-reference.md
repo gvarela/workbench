@@ -111,6 +111,8 @@ docs/plans/2025-10-07-LINEAR-789-my-feature/
 
 **Key Features**:
 
+- Records the Intent (Goal, success statements, Non-goals), each line with why it exists, whose words it is, and whether it is a hard limit or an aim
+- Asks once whether anything is already designed or decided, and starts the README's Existing Material list that later stages read
 - Captures Git metadata (commit, branch, repo)
 - Creates timestamped directories
 - Initializes with rich frontmatter
@@ -293,16 +295,23 @@ Creates architectural design decisions based on validated research. Focuses on W
 
 Each pass is an interview that asks only what the documents leave open, and closes when every question of it has an answer or a reasoned "not applicable". design.md's `design_layers` frontmatter records each layer as open, closed, or skipped, so a re-run, in a fresh session if you prefer, resumes at the first open one.
 
+**Designs and conflicting guidance**: it reads the README's Existing Material list, finds designs the list lacks (wb's `mockups/` folder, files, or a link handed over from elsewhere), and adds them on your yes. For each screen the plan touches you approve one scope list: built to the design, left out with reasons, and touched but not designed. Where a written rule and the existing code disagree, the rule wins for new code; what that does not settle is put to you, and your answer can be saved in `.claude/wb/profile.md` as a guideline to follow, to ask each time, or to follow with an exception. When `/wb:explore_design` ran, each pass opens with what it settled for that layer.
+
 **Design Structure**:
 
+- Design Layers: each pass open, closed, or skipped
 - Problem statement and success metrics
+- Experience, How the UI Works, and Design Scope
 - Design approach with rationale
 - Technical decisions (architecture, data model, integrations)
 - Scope definition (in/out of scope)
 - Success criteria (functional and non-functional)
 - Acceptance Criteria: one per changed behavior, each Given/When/Then with real examples, where the result is observed, and the success metric it refines
 - Harness Decisions: for each boundary the criteria are observed at, whether a harness exists and whether to use it, add one, verify manually, or test at a lower proxy
-- Risk analysis
+- Beyond the Examples: per boundary, input nobody showed, a failure partway, and other callers
+- Contracts (how anything one task builds and another calls is called) and Patterns to Follow
+- Operation: who may use it, who is told when it fails, rollout, and undo
+- Risk analysis, with what the design assumes about things outside the repository
 - Rejected alternatives
 
 **Critical Rules**:
@@ -384,7 +393,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 
 **Tests**:
 
-- Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites, confirms it fails on an assertion, and commits it as `red(AC-n): <criterion title>`.
+- Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites, confirms it fails (on an assertion, or because the code the plan creates does not exist yet; no stub is written for that), and commits it as `red(AC-n): <criterion title>`.
 - Workers never edit test cases and spawn nothing: `wb:test-writer` writes the task's own tests before the worker starts, and a worker that needs another returns a `needs test:` block for the coordinator.
 - Before the run stops for anything but a checkpoint, `wb:judge` reads the evidence itself and returns repair, settle, recheck, or person. It settles calls about tests inside stated limits (recorded as `judged:`) and writes the question, as what would go wrong in the product, when the decision is yours. It never clears a failure, waives an integrity finding, or changes what a criterion means.
 - An outer test changes after its red commit only through a rewrite task that `wb:test-writer` carries out, landing when the verifier shows the criterion text unchanged, nothing lost (mechanical, name only, or a differential), and no added check beyond the criterion (recorded as `rewrite:`).
@@ -395,6 +404,7 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 - Also at each checkpoint, `wb:prover` runs the product at each criterion's boundary (the command, the request, the page) and reports each criterion and each manual check as proven, disproven, or could not prove, with the commands it ran and the output. A disproven criterion holds the checkpoint until you answer it by name (`fix: P1` or `accept: P1`). You are asked to check by hand only what it could not prove. It edits nothing and stays local: no paid or external call unless the testing profile's Proof section grants it
 - In parallel with the review, `wb:phase-verifier` checks the phase against its tasks: planned changes missing from the diff, changes no task covers, earlier phases' tests changed again, and progress toward each README Intent statement. Each unexplained deviation needs your answer by name (accept, fix, or plan defect). On the final phase, the checkpoint writes the Intent verdicts (`→ PASS`, `→ FAIL`, `→ DEFERRED`) beside each README statement.
 - A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
+- `run unattended`, said in your own message, lets the run continue through checkpoints that have nothing to decide and park what needs you; your next message ends it.
 
 **Usage**:
 
