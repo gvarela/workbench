@@ -44,6 +44,8 @@ To release new commands/skills/agents:
 
 Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by version and only `claude plugin update` invalidates it.
 
+Coming from wb 4? Read [Upgrading from wb 4 to wb 5](docs/upgrading-to-5.md): what changes at each stage, what happens to plans in flight, and what to expect in time and cost.
+
 ### Planted-defect checks
 
 `task-verifier`, `test-reviewer`, `test-writer`, and the `/wb:implement_inline` session check that a test can fail by breaking the code in a disposable copy and running only the guarding tests against it. None of them writes your working tree. They take the first route that can run, and report which one ran:
@@ -152,7 +154,7 @@ The images are rendered from the mod's own band and pane code with a demo plan.
 
 ### Which plan, and choosing one
 
-The band follows the plan your latest `/wb:*` command named, including plans that live in a git worktree. Without one, it guesses from recent beads activity and marks the plan `(guessed)`. `/wb-status <plan-dir>` pins a plan by hand, and `/wb-status auto` goes back to guessing.
+The band follows the plan your latest `/wb:*` command named, including plans that live in a git worktree. Without one, it shows a plan only when the session's branch or worktree is named for it (or is the branch the plan records), choosing among those by recent beads activity and marking the plan `(guessed)`; a session doing unplanned work shows no plan. `/wb-status <plan-dir>` pins a plan by hand, and `/wb-status auto` goes back to guessing.
 
 ### Reading log (off by default)
 
