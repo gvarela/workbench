@@ -941,5 +941,6 @@ bd list   # Find correct ID
 
 - [Commands Reference](commands-reference.md) - Detailed command documentation
 - [Upgrading from wb 4 to wb 5](upgrading-to-5.md) - What changed at each stage, plans in flight, time and cost
+- [How testing works](how-testing-works.md) - Who writes tests, what the verifier and the checkpoint check, and what counts as evidence, with diagrams
 - [Claude Code documentation](https://code.claude.com/docs/en/skills) - How skills, subagents, hooks, and plugins work; read the live docs rather than a copy, because they change with every release
 - [Plugin hooks](../plugin/hooks/) - `wb-prime.sh` (SessionStart orientation and compaction recovery) and `beads-drift-check.sh` (SessionEnd)
