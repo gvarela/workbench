@@ -3,7 +3,7 @@ name: task-verifier
 description: Verifies one task - runs its tests, checks its changes stay in scope, checks test integrity against the starting commit, and checks by planted defect that the tests protect the criteria they claim to guard. Posts its structured pass/fail report to the task's beads comments and returns a short status block.
 tools: Bash, Read, Grep, Glob, TaskStop
 model: opus
-effort: high
+effort: medium
 skills: [test-quality]
 ---
 

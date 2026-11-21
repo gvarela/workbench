@@ -48,7 +48,7 @@ Read the task and the criteria it cites yourself, as your agent definition's Inp
 
 ## Verifier Prompt (Step 4)
 
-Spawn with `subagent_type: "wb:task-verifier"` and no `model` parameter: its definition pins Opus at `high`, and a per-spawn model would run the gate on the worker's cheaper model.
+Spawn with `subagent_type: "wb:task-verifier"` and no `model` parameter: its definition pins Opus at `medium` (measured against `high` on seeded defects: the same catches in less time), and a per-spawn model would run the gate on the worker's cheaper model.
 
 ```
 Verify this task.
