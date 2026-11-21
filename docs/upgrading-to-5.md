@@ -2,7 +2,7 @@
 
 wb 5 is a substantial change. The stage chain is the same, and every stage does more: plans say what "done" means before any code is written, a separate agent writes every test, and each phase is checked three ways before you are asked to accept it. This guide says what changes for you, what to do with plans already in flight, and what to expect in time and cost.
 
-The full list of changes, with their reasons and evidence, is the Unreleased section of [CHANGELOG.md](../CHANGELOG.md). The commands are described in [commands-reference.md](commands-reference.md).
+The full list of changes, with their reasons and evidence, is the Unreleased section of [CHANGELOG.md](../CHANGELOG.md). The commands are described in [commands-reference.md](commands-reference.md), and the testing flow, with diagrams, in [how-testing-works.md](how-testing-works.md).
 
 ## What 5 is for
 

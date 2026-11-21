@@ -109,7 +109,7 @@ In `/wb:implement` or `/wb:implement_inline`, naming `run unattended` in your ow
 
 Auto-activation depends on the model electing these skills, which in practice happens rarely inside workflow-command sessions. During coordinated execution the discipline is guaranteed structurally instead: task-workers preload `tdd-discipline` and every task passes through `task-verifier`. The auto-activated skills primarily protect **solo and ad-hoc** changes made outside the workflow commands.
 
-**[Full Commands Reference](docs/commands-reference.md)**
+**[Full Commands Reference](docs/commands-reference.md)** · **[How testing works](docs/how-testing-works.md)**
 
 ## Status Band (optional `wb-status` mod)
 
