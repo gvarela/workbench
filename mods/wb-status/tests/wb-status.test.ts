@@ -13,6 +13,7 @@ import {
   parseFrontmatter,
   parseJsonArray,
   planIds,
+  logSince,
   readComments,
   redCommits,
   separator,
@@ -255,6 +256,26 @@ describe('plan state', () => {
 })
 
 describe('verifier results', () => {
+  test('a report posted in parts is read like a whole one, and its manifest line is not a report', () => {
+    const read = readComments([
+      { text: 'halted: missing context', created_at: 't0' },
+      { text: 'verification report (1/2):\n## Verification Report: x\n\n### Status: PASS\n', created_at: 't1' },
+      { text: 'verification report (2/2):\n### Issues Found\n- none', created_at: 't2' },
+      { text: 'verification report manifest: parts=2 sha256=aa,bb', created_at: 't3' },
+      { text: 'test integrity (1/1):\nFindings: 2 (0 escalated)\n- clean', created_at: 't4' },
+    ])
+    expect(read.verifier).toEqual({ at: 't1', status: 'PASS' })
+    expect(read.integrity).toEqual({ at: 't4', findings: 2, escalated: 0 })
+    expect(read.halt).toBe(null)
+  })
+
+  test('the git log window starts at midnight of a date-only creation day', () => {
+    expect(logSince('2026-01-01')).toBe('2026-01-01T00:00:00')
+    expect(logSince('2026-01-01T09:30:00Z')).toBe('2026-01-01T09:30:00Z')
+    expect(logSince('')).toBe(null)
+    expect(logSince(undefined)).toBe(null)
+  })
+
   test('both comment formats and close reasons carry a verdict', () => {
     expect(readComments([{ text: 'verification report:\n## Verification Report: x\n\n### Status: FAIL\n', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'FAIL' })
     expect(readComments([{ text: 'test integrity:\nFindings: 4 (2 escalated)\n- outer test differs', created_at: 't1' }]).verifier).toEqual({ at: 't1', status: 'FAIL' })

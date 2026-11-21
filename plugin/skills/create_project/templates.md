@@ -30,6 +30,13 @@ Each line ends with its record: (why: [reason]; source: "[the user's words, verb
 
 - (none yet; explore_design and create_design append a dated line here when the Goal or a Non-goal changes, and create_design when a Success statement does)
 
+## Existing Material
+
+What this plan builds on that already exists, and where it is: a design or mockups, a spec, a ticket, a decision made elsewhere. Later stages read this list, so add a line when something turns up.
+
+- [what it is]: [path or link] ([who gave it, and when])
+- (or: None known when the plan was created, [YYYY-MM-DD])
+
 ## Documentation Structure
 
 - **[research.md](research.md)** - Codebase research and findings

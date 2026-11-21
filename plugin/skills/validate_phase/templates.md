@@ -22,9 +22,9 @@ Generated: [YYYY-MM-DD HH:MM]
 
 ## Needs Your Decision
 
-Everything that blocks: each unexplained deviation a phase verifier found, each test-review Blocking item, each failing automated check, and (all) each FAIL verdict on a statement the plan did not defer. Each item carries the four parts of the "Decision and halt messages" section in writing-for-the-user.md, and offers only the options that are real choices for it; a deviation's usual options are those "Phase Verification" in implement/reference.md lists (`accept:`, `fix:`, `plan defect:`), and a FAIL verdict's are shipping it short, closing the gap, or deferring the statement (`accept fail:`, `fix:`, `plan defect:`), each routed as the skill's Step 6 says.
+Everything that blocks: each unexplained deviation a phase verifier found, each test-review Blocking item, each failing automated check, and (all) each FAIL verdict on a statement the plan did not defer. Each item carries the four parts of the "Decision and halt messages" section in writing-for-the-user.md, and offers only the options that are real choices for it; a deviation's usual options are those "Phase Verification" in implement/checkpoint.md lists (`accept:`, `fix:`, `plan defect:`), and a FAIL verdict's are shipping it short, closing the gap, or deferring the statement (`accept fail:`, `fix:`, `plan defect:`), each routed as the skill's Step 6 says.
 
-- [each blocking item: what it is in plain words] ([id], `file:line`): [what breaks or is at risk]. Number each unexplained deviation D1, D2, ... and each test-review Blocking item T1, T2, ... across the report, so a reply can name it: `accept: D1`, `fix: D2`, `plan defect: D3` for a deviation, and `acknowledge: T1` for a Blocking item, the acknowledgement by name a checkpoint asks for.
+- [each blocking item: what it is in plain words] ([id], `file:line`): [what breaks or is at risk]. Number each unexplained deviation D1, D2, ... and each test-review Blocking item T1, T2, ... across the report, so a reply can name it: `accept: D1`, `fix: D2`, `plan defect: D3` for a deviation, and `close: T1` (fix it) or `accept: T1` (leave the gap; `acknowledge: T1` still reads as accept) for a Blocking item, the answer by name a checkpoint asks for. Lead each item with what would go wrong in the product, as one concrete example.
   - Quality question: [the product behavior at risk, in plain words, not test mechanics]
   - Judgment or friction: [a real trade-off that needs you, or the process got stuck; if stuck, what the plugin should have done]
   - Options: [each: what it means here, what it buys for testing or quality, its cost and risk, how hard it is to undo]
@@ -93,7 +93,7 @@ Each item: what it is, what it puts at risk, whether it blocks the release, and 
 
 ## Manual Testing Checklist
 
-From design.md's manual checks for the phases checked; for `all`, include each metric a phase verifier marked "awaiting the manual check", since its verdict waits on your answer.
+Only what `wb:prover` could not prove, with its reason and steps: the criteria and the manual checks from the phases checked. Each manual check it proved is one line with the command and output. For `all`, include each metric a phase verifier marked "awaiting the manual check", since its verdict waits on your answer.
 
 - [ ] [Manual check, in plain words] ([metric or criterion id])
 

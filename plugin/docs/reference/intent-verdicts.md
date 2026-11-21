@@ -28,7 +28,7 @@ The checkpoint report carries one line per statement under "What this phase deli
 
 Write it after the user's reply to the report, so each "awaiting your manual check" verdict is settled by that reply.
 
-- **At the final checkpoint**: if the reply leads to more work (a `fix:` answer, a sanctioned outer-test rewrite), spawn the phase verifier again once that work is committed, and take the verdicts from its new report.
+- **At the final checkpoint**: if the reply leads to more work (a `fix:` answer, an outer-test rewrite), spawn the phase verifier again once that work is committed, and take the verdicts from its new report.
 - **In `validate_phase all`**: the skill changes no code, so write the echo from this report's verdicts, leaving out each statement a `fix:` answer touches; those get their verdict when `/wb:validate_phase <plan-dir> all` runs again after the fix.
 
 For each statement, append `→ PASS (YYYY-MM-DD)`, `→ FAIL (YYYY-MM-DD)`, or `→ DEFERRED (YYYY-MM-DD)` to the end of the statement's line, replacing an earlier `→ ...` suffix if one exists, so the README carries the latest verdict. Write it pass or fail: a FAIL in the README is how the next reader learns the plan fell short. A statement whose manual check the user has still not answered gets no suffix, and the report says so.

@@ -44,6 +44,8 @@ To release new commands/skills/agents:
 
 Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by version and only `claude plugin update` invalidates it.
 
+Coming from wb 4? Read [Upgrading from wb 4 to wb 5](docs/upgrading-to-5.md): what changes at each stage, what happens to plans in flight, and what to expect in time and cost.
+
 ### Planted-defect checks
 
 `task-verifier`, `test-reviewer`, `test-writer`, and the `/wb:implement_inline` session check that a test can fail by breaking the code in a disposable copy and running only the guarding tests against it. None of them writes your working tree. They take the first route that can run, and report which one ran:
@@ -152,7 +154,7 @@ The images are rendered from the mod's own band and pane code with a demo plan.
 
 ### Which plan, and choosing one
 
-The band follows the plan your latest `/wb:*` command named, including plans that live in a git worktree. Without one, it guesses from recent beads activity and marks the plan `(guessed)`. `/wb-status <plan-dir>` pins a plan by hand, and `/wb-status auto` goes back to guessing.
+The band follows the plan your latest `/wb:*` command named, including plans that live in a git worktree. Without one, it shows a plan only when the session's branch or worktree is named for it (or is the branch the plan records), choosing among those by recent beads activity and marking the plan `(guessed)`; a session doing unplanned work shows no plan. `/wb-status <plan-dir>` pins a plan by hand, and `/wb-status auto` goes back to guessing.
 
 ### Reading log (off by default)
 
@@ -186,6 +188,7 @@ Slash commands for project documentation and task management:
 - **`/wb:resume_handoff`** - Resume from handoff document
 - **`/wb:update_status`** - Intelligently sync status across all documentation files
 - **`/wb:test-audit`** - Audit an existing test suite cold, with no plan, and report proposed Remove, Rewrite, and Consolidate verdicts (outside the stage chain)
+- **`/wb:review_diff`** - Review a branch cold before its pull request, for what no acceptance criterion names; a dynamic workflow of about nine agents that edits nothing (outside the stage chain)
 - **`/wb:testing-profile`** - Draft `.claude/wb/testing.md`, the repository's testing conventions and team choices, after you confirm (outside the stage chain)
 - **`/wb:help`** - Quick reference for all commands
 
@@ -200,9 +203,12 @@ Specialized agents for codebase analysis:
 - **`task-worker`** - Implement exactly one beads task with TDD under `/wb:implement`; never edits tests, apart from the support code a harness task delivers
 - **`task-verifier`** - Verify task completion against requirements; runs `test-integrity` first and plants defects (with `wb-plant-defect` when installed) to check that changed tests can fail, listing them in a defect ledger
 - **`phase-verifier`** - At each phase checkpoint, compare the phase's tasks with its diff (planned changes missing, changes nobody planned), list earlier phases' tests the phase changed, and report progress on each Intent success statement; edits nothing
-- **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, or inner unit tests a worker or the inline session asks for), with proof that any new harness works, and nothing else
+- **`prover`** - At each phase checkpoint, run the product at each acceptance criterion's boundary and report each criterion and manual check as proven, disproven, or could not prove, with the commands and output; edits nothing
+- **`judge`** - Before a run stops to ask you something, read the evidence and decide what the stop is: a record to repair, a call about tests it may settle within stated limits, a finding to re-check, or a question for you, written as what would go wrong in the product; never clears a failure; edits nothing
+- **`test-writer`** - Write the tests for a task (an outer acceptance test per criterion, the task's own tests before its worker runs, or a test a worker asks for), with proof that any new harness works, and nothing else
 - **`test-reviewer`** - Review a phase's tests against the `test-quality` rubric at each checkpoint, planting defects only where no verifier's ledger covers the test; proposes findings, edits nothing
 - **`test-auditor`** - Audit one area of an existing suite cold, for `/wb:test-audit`; edits nothing
+- **`diff-reviewer`** - Read a branch's change without its plan, to find one kind of defect or to try to refute a claimed one, for `/wb:review_diff`; edits nothing
 
 ### Skills (auto-activated)
 

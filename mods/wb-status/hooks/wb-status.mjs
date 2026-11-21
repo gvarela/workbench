@@ -83,6 +83,9 @@ import {
   stageStates,
   statusLine,
   topGap,
+  logSince,
+  planTie,
+  worktreeBranches,
   worktreeName,
 } from './model.mjs'
 import { createReadingLog, paneRows, recordReading } from './readinglog.mjs'
@@ -107,6 +110,8 @@ const DOCS = ['README.md', 'research.md', 'product-research.md', 'design.md', 't
 
 // The last reading, or null when there is nothing to show.
 let model = null
+// When no plan is shown though unfinished ones exist: why, for the pane.
+let untied = null
 // Comments per task id, kept until the task's comment count or update time moves.
 const commentCache = new Map()
 // Plan documents per path, kept until the file's size or modification time moves.
@@ -224,7 +229,9 @@ export function register(on, options) {
     if (model === null) {
       const none = Text({
         dimColor: true,
-        children: ['No active wb plan: no unfinished docs/plans/<dir> with beads tasks, no plan file changed in the last 30 days, in any worktree, or beads is not available here. /wb-status <plan dir> pins one.'],
+        children: [untied !== null
+          ? `No wb plan is tied to this session: none is pinned, and ${untied.branch ? `the branch ${untied.branch}` : 'its checkout (no branch)'} names none of the unfinished plans (${untied.names.join(', ')}). /wb-status <plan dir> pins one.`
+          : 'No active wb plan: no unfinished docs/plans/<dir> with beads tasks, no plan file changed in the last 30 days, in any worktree, or beads is not available here. /wb-status <plan dir> pins one.'],
       })
       if (logRows.length === 0) return none
       return Box({ flexDirection: 'column', children: [none, Text({ children: [' '] }), Text({ weight: 'semibold', children: ['Reading log'] }), ...logRows.map(row => Text({ wrap: 'truncate-end', children: [row] }))] })
@@ -340,10 +347,14 @@ async function showStatus($) {
 async function read($) {
   await restorePin($)
   const root = await $.session.root()
-  const worktrees = await listWorktrees($, root)
+  const git = await readWorktrees($, root)
+  const worktrees = git.trees
   const mainRoot = worktrees[0] ?? root
+  // Outside git there is no branch to go by, so any unfinished plan may be guessed.
+  const session = git.isGit ? { branch: git.branches[root] ?? null, worktree: worktreeName(root, mainRoot) } : null
   await pinCreatedPlan($, root, worktrees)
-  const plan = await choosePlan($, root, worktrees)
+  untied = null
+  const plan = await choosePlan($, root, worktrees, session)
   if (plan === null) return null
   const where = plan.root
   const docs = plan.docs
@@ -354,6 +365,9 @@ async function read($) {
     worktree: worktreeName(plan.root, mainRoot),
   }
   const last = await currentStage($, plan.selection)
+  // Beads is one database across worktrees: the other plans' names tell
+  // their questions and decisions from this plan's.
+  const otherPlans = (await planNames($, root, worktrees)).filter(name => name !== plan.name)
 
   if (hasBeadsTasks(plan.fm)) {
     const ids = planIds(plan.fm)
@@ -367,7 +381,7 @@ async function read($) {
     const state = planState({ fm: plan.fm, issues, openIssues })
     const comments = state === null ? {} : await readComments($, where, state)
 
-    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments, intent: docs.read.intent, dir: selection.dir })
+    const built = buildModel({ fm: plan.fm, criteria: plan.criteria, issues, openIssues, commits, comments, intent: docs.read.intent, dir: selection.dir, otherPlans })
     if (built !== null) {
       // The planning stages are all behind it; the explore record is not
       // looked up in beads here, since a later stage being done settles it.
@@ -401,6 +415,8 @@ async function read($) {
     since: createdOf(plan.fm, docs),
     epic: plan.fm?.beads_epic ?? null,
     last,
+    dir: selection.dir,
+    otherPlans,
   })
   const asked = openIssues.filter(issue => /^(Q|Decide):/.test(String(issue.title ?? '')))
   return { ...built, inputs: { bd: statuses([...asked, ...closedDecides]), docs: docStatuses(docs) }, selection: { ...selection, planName } }
@@ -477,6 +493,19 @@ async function knownPlanNames($) {
   return [...names]
 }
 
+/** Every plan folder name in the session's directory, its root and each worktree. */
+async function planNames($, root, worktrees) {
+  const names = new Set()
+  try {
+    for (const base of await bases($, root, worktrees)) {
+      for (const name of await planDirNames($, base)) names.add(name)
+    }
+  } catch {
+    // Nothing listed: no question is told apart by another plan's name.
+  }
+  return [...names]
+}
+
 async function planDirNames($, base) {
   try {
     const plans = `${base}/docs/plans`
@@ -493,7 +522,7 @@ async function planDirNames($, base) {
  * beads activity or the planning plan whose file changed last; else the
  * newest beads plan by directory name.
  */
-async function choosePlan($, root, worktrees) {
+async function choosePlan($, root, worktrees, session = null) {
   let missing
   const held = await $.state.get(PIN)
   const pin = held.value ?? null
@@ -506,8 +535,18 @@ async function choosePlan($, root, worktrees) {
     missing = pin.path
   }
 
-  const { beads, planning } = await discoverPlans($, worktrees.length > 0 ? worktrees : [root])
-  if (beads.length === 0 && planning.length === 0) return null
+  const found = await discoverPlans($, worktrees.length > 0 ? worktrees : [root])
+  if (found.beads.length === 0 && found.planning.length === 0) return null
+  // A guess is a claim about this session's work, so it needs something that
+  // ties the plan to the session: its branch or its worktree.
+  const isTied = one => session === null || planTie(one, session) !== null
+  const beads = found.beads.filter(isTied)
+  const planning = found.planning.filter(isTied)
+  if (beads.length === 0 && planning.length === 0) {
+    const names = [...new Set([...found.beads, ...found.planning].map(one => one.name))].sort().reverse()
+    untied = { branch: session?.branch ?? null, names }
+    return null
+  }
   let openIssues
   let named = []
   if (beads.length > 0) {
@@ -643,16 +682,21 @@ async function planRoot($, dir) {
 
 /** Every worktree of the session's repository, the main checkout first; the root alone outside git. */
 async function listWorktrees($, root) {
+  return (await readWorktrees($, root)).trees
+}
+
+/** The repository's worktrees with the branch checked out in each; `isGit` false when git lists none. */
+async function readWorktrees($, root) {
   try {
     const { exitCode, stdout } = await $.process.run(
       ['git', '--no-optional-locks', 'worktree', 'list', '--porcelain'],
       { cwd: root, timeoutMs: 5000 },
     )
     const trees = exitCode === 0 ? parseWorktrees(stdout) : []
-    if (trees.length === 0) return [root]
-    return trees.includes(root) ? trees : [...trees, root]
+    if (trees.length === 0) return { trees: [root], branches: {}, isGit: false }
+    return { trees: trees.includes(root) ? trees : [...trees, root], branches: worktreeBranches(stdout), isGit: true }
   } catch {
-    return [root]
+    return { trees: [root], branches: {}, isGit: false }
   }
 }
 
@@ -708,8 +752,8 @@ async function bdListOrEmpty($, root, filters) {
 }
 
 async function gitLog($, root, fm) {
-  const since = fm.created_timestamp ?? fm.created
-  const range = typeof since === 'string' && since !== '' ? [`--since=${since}`] : []
+  const since = logSince(fm.created_timestamp ?? fm.created)
+  const range = since === null ? [] : [`--since=${since}`]
   const { exitCode, stdout } = await $.process.run(
     ['git', '--no-optional-locks', 'log', '--format=%h %s', '-n', '1000', ...range],
     { cwd: root, timeoutMs: 15000 },

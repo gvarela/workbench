@@ -308,6 +308,8 @@ bd ready
 **Tests**:
 
 - The outer test for each cited criterion is written by `wb:test-writer`, confirmed failing on an assertion, and committed as `red(AC-n)` before the task's code.
+- `wb:test-writer` also writes the task's own tests before the worker starts; a worker that needs another test returns a `needs test:` block and the coordinator has it written.
+- Before the run stops for anything but a checkpoint, `wb:judge` decides what the stop is: a record to repair, a call about tests it may settle, a finding to re-check, or a question for you.
 - `task-worker` never edits test cases; on a harness task it writes the support code (fakes, fixtures, factories, harness modules) and declares those files. `task-verifier` fails any test change that neither a test-writer report nor a harness task's declared support files nor a setup task's declared setup files cover, after running `plugin/scripts/test-integrity` and planting a defect in a disposable copy.
 - The test-writer reports, the verifier's test-integrity result, and a harness task's support-file list are kept as comments on the task in beads.
 - `/wb:implement_inline` follows the same rules for writing tests: the session codes (and writes a harness task's support code), `wb:test-writer` writes every test. It has no per-task verifier, so the checkpoint test review checks test integrity across the phase.
@@ -315,7 +317,7 @@ bd ready
 
 **Phase Checkpoints**:
 
-After completing all phase tasks, `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
+After completing all phase tasks, `wb:prover` runs the product at each acceptance criterion's boundary and reports each criterion and manual check as proven, disproven, or could not prove; a disproven one holds the checkpoint, and you check by hand only what it could not prove. `wb:test-reviewer` reviews the phase's tests and proposes findings; it edits nothing. Deterministic failures in tests the phase changed (a criterion with no outer test, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives) block the milestone until you acknowledge each by name. Other findings are advisory. In parallel, `wb:phase-verifier` checks the phase against its tasks (planned changes missing, changes no task covers, earlier phases' tests changed again, progress toward each Intent statement); each unexplained deviation needs your answer by name: accept, fix, or plan defect. On the final phase, the checkpoint also writes the Intent verdicts beside each README statement. Then:
 
 ```bash
 # Check phase milestone
@@ -348,7 +350,8 @@ Every implement checkpoint already runs `wb:phase-verifier` and `wb:test-reviewe
 1. Runs automated verification once (suite, lint, typecheck, build)
 2. Spawns `wb:phase-verifier` for the phase, or one per phase for `all`
 3. Spawns `wb:test-reviewer` over the phase's range, or the whole plan's for `all`
-4. For `all`: a verdict per Intent statement from the phases' evidence, written beside each README statement after your reply, and the deferred design questions still open
+4. Spawns `wb:prover` for the phase, or one per phase for `all`, to run the product at each criterion's boundary
+5. For `all`: a verdict per Intent statement from the phases' evidence, written beside each README statement after your reply, and the deferred design questions still open
 
 **Checks**:
 

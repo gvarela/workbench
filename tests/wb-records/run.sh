@@ -72,10 +72,13 @@ exit_is 2 "post: a prefix that is not at the start is refused" wr post ISS-2 --e
 exit_is 2 "post: bad base64 is refused" wr post ISS-2 'not*base64'
 exit_is 2 "post: an invalid issue id is refused" wr post 'ISS 2;rm' --escaped 'verification report: x'
 [ "$(wc -l < "$FAKE_BD_STORE/log")" = "$before" ] && ok "post: refused input never reaches bd" || fail "post: refused input never reaches bd"
-for p in 'test integrity:' 'phase verification (2/3):'; do
+for p in 'test integrity:' 'phase verification (2/3):' 'proof (1/2):'; do
     out="$(wr post ISS-P --escaped "$p body")"
     check "$out" 'd["posted"] is True' "post: prefix accepted: $p"
 done
+PR="$(wr post ISS-PR --escaped 'proof:\n- AC-1: proven')"
+wr manifest ISS-PR 'proof' "$(field "$PR" 'd["sha256"]')" >/dev/null
+check "$(wr read ISS-PR 'proof')" 'd["status"]=="ok" and d["parts"]==1 and "AC-1: proven" in d["text"]' "read: a proof record posts, takes a manifest, and reads back ok"
 out="$(BD_FAIL=1 wr post ISS-3 --escaped 'verification report: x')"
 check "$out" 'd["posted"] is False and d["error"] and d["comment_id"] is None' "post: a bd failure gives posted false with the error"
 out="$(BD_MANGLE=1 wr post ISS-3 --escaped 'verification report: y')"
@@ -164,6 +167,50 @@ chmod 777 "$TMP_ROOT/unsafe"
 out="$(TMPDIR="$TMP_ROOT/unsafe" wr post ISS-T --escaped 'verification report: tmp')"
 check "$out" 'd["posted"] is True' "temp: post works with an unsafe TMPDIR (falls back)"
 [ -z "$(ls -A "$TMP_ROOT/unsafe")" ] && ok "temp: nothing is created in a world-writable, non-sticky TMPDIR" || fail "temp: nothing is created in a world-writable, non-sticky TMPDIR"
+
+# ---------------------------------------------------------------- put: any text, one call, confirmed
+printf 'worker report:\n# Summary\nused `x` and "y" $(z)\n' > "$TMP_ROOT/report.txt"
+out="$(wr put ISS-PUT --file "$TMP_ROOT/report.txt")"
+check "$out" 'd["posted"] is True and d["comment_id"]=="c-0001" and d["error"] is None' "put --file: posted and confirmed by read-back in one call"
+printf 'worker report:\n# Summary\nused `x` and "y" $(z)' > "$TMP_ROOT/report.want"
+cmp -s "$(newest ISS-PUT)" "$TMP_ROOT/report.want" && ok "put --file: the stored comment is the file's text" || fail "put --file: the stored comment is the file's text"
+[ -f "$TMP_ROOT/report.txt" ] && ok "put --file: the caller's file is left in place" || fail "put --file: the caller's file is left in place"
+printf 'Mode: inner\nFiles: tests/test_a.py\n' > "$TMP_ROOT/tw.txt"
+check "$(wr put ISS-PUT --file "$TMP_ROOT/tw.txt")" 'd["posted"] is True and d["comment_id"]=="c-0002"' "put: text with no record prefix (a test-writer report) is accepted"
+check "$(wr put ISS-PUT --escaped 'halted: re-verification failed')" 'd["posted"] is True' "put --escaped: a one-line record posts"
+check "$(BD_FAIL=1 wr put ISS-PUT --file "$TMP_ROOT/tw.txt")" 'd["posted"] is False and d["error"] and d["comment_id"] is None' "put: a bd failure gives posted false with the error"
+check "$(BD_MANGLE=1 wr put ISS-PUT --file "$TMP_ROOT/tw.txt")" 'd["posted"] is False and "read-back" in d["error"]' "put: a read-back that does not match gives posted false"
+exit_is 2 "put: a missing file is refused" wr put ISS-PUT --file "$TMP_ROOT/nope.txt"
+exit_is 2 "put: an empty file is refused" wr put ISS-PUT --file /dev/null
+exit_is 2 "put: an invalid issue id is refused" wr put 'ISS W' --escaped 'x: y'
+
+# ---------------------------------------------------------------- have: which comment ids exist
+out="$(wr have ISS-PUT c-0001 c-0002 c-9999)"
+check "$out" 'd["present"]==["c-0001","c-0002"] and d["missing"]==["c-9999"]' "have: lists the comment ids that exist and the ones that do not"
+check "$(wr have ISS-EMPTY c-0001)" 'd["present"]==[] and d["missing"]==["c-0001"]' "have: an issue with no comments has none"
+
+# ---------------------------------------------------------------- file: an issue that cannot lose its link
+out="$(wr file --from TASK-1 --title 'Rewrite: AC-3 outer test' --escaped 'Sanctioned rewrite: AC-3\nsecond line')"
+check "$out" 'd["id"]=="NEW-1" and d["linked"] is True and d["repaired"] is False and d["error"] is None' "file: creates the issue with its discovered-from link, confirmed"
+grep -q -- '--deps discovered-from:TASK-1' "$FAKE_BD_STORE/log" && ok "file: the link is given to bd create" || fail "file: the link is given to bd create"
+printf 'Sanctioned rewrite: AC-3\nsecond line' > "$TMP_ROOT/body.want"
+cmp -s "$FAKE_BD_STORE/NEW-1.body" "$TMP_ROOT/body.want" && ok "file: the description reaches bd through a file, exact" || fail "file: the description reaches bd through a file, exact"
+out="$(BD_DROP_DEP=1 wr file --from TASK-1 --title 'Follow-up' --escaped 'x')"
+check "$out" 'd["id"]=="NEW-2" and d["linked"] is True and d["repaired"] is True' "file: a link bd create did not record is added and confirmed"
+out="$(BD_DROP_DEP=1 BD_DEP_FAIL=1 wr file --from TASK-1 --title 'Follow-up' --escaped 'x')"
+check "$out" 'd["id"]=="NEW-3" and d["linked"] is False and d["error"]' "file: a link that cannot be made is reported, with the new id"
+check "$(BD_CREATE_FAIL=1 wr file --from TASK-1 --title 'Follow-up' --escaped 'x')" 'd["id"] is None and d["linked"] is False and d["error"]' "file: a failed create is reported"
+printf 'from a file\n' > "$TMP_ROOT/desc.txt"
+check "$(wr file --from TASK-1 --title 'From file' --file "$TMP_ROOT/desc.txt" --type task --priority 2 --parent EPIC-1)" 'd["linked"] is True' "file: --file, --type, --priority and --parent are accepted"
+exit_is 2 "file: --from is required" wr file --title 'x' --escaped 'y'
+exit_is 2 "file: --title is required" wr file --from TASK-1 --escaped 'y'
+exit_is 2 "file: an invalid --from is refused" wr file --from 'TASK 1' --title 'x' --escaped 'y'
+
+# ---------------------------------------------------------------- link: repair, idempotent
+check "$(wr link NEW-3 TASK-1)" 'd["linked"] is True and d["added"] is True' "link: adds a missing discovered-from link"
+check "$(wr link NEW-3 TASK-1)" 'd["linked"] is True and d["added"] is False' "link: an existing link is left alone"
+check "$(wr link NEW-1 DECOY)" 'd["added"] is True' "link: an id quoted inside a description does not count as a link"
+check "$(BD_DEP_FAIL=1 wr link NEW-9 TASK-1)" 'd["linked"] is False and d["error"]' "link: a failure is reported"
 
 echo
 echo "bash $BASH_VERSION: $PASS passed, $FAIL failed"

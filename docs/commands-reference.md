@@ -285,10 +285,13 @@ Creates architectural design decisions based on validated research. Focuses on W
 **Interactive Process**:
 
 1. **Reads research** and spawns verification agents
-2. **Analyzes patterns** and integration points
-3. **Presents design options** with trade-offs
-4. **Discusses decisions** interactively
-5. **Documents approved design** with rationale
+2. **Proposes the layers**: which of the three passes apply, from the Intent and the research; you confirm, and a skipped pass is recorded with its reason
+3. **Product pass**: the problem, success metrics, what a person sees and does, how the UI works, what it must do (each criterion's statement and examples), and scope
+4. **Technical pass**: the approach (options with trade-offs, or the decision `explore_design` recorded), the architecture, what the examples leave out, what it relies on outside the repository, and how it runs in production
+5. **Program pass**: the contract of anything one task builds and another calls, where each criterion is observed and proven, and which existing patterns to follow
+6. **Review**: a judge lists what an approval would pass in silence, then you approve
+
+Each pass is an interview that asks only what the documents leave open, and closes when every question of it has an answer or a reasoned "not applicable". design.md's `design_layers` frontmatter records each layer as open, closed, or skipped, so a re-run, in a fresh session if you prefer, resumes at the first open one.
 
 **Design Structure**:
 
@@ -382,10 +385,14 @@ Implements the plan by coordinating fresh-context worker agents, one per task, e
 **Tests**:
 
 - Before a task's worker runs, the coordinator has `wb:test-writer` write the outer test for each criterion the task cites, confirms it fails on an assertion, and commits it as `red(AC-n): <criterion title>`.
-- Workers never edit test cases; for inner tests the worker asks `wb:test-writer`. A harness task's support code (fakes, fixtures, factories, harness modules) is the worker's to write, and it declares those files in its report and in a `support files:` comment on the task.
+- Workers never edit test cases and spawn nothing: `wb:test-writer` writes the task's own tests before the worker starts, and a worker that needs another returns a `needs test:` block for the coordinator.
+- Before the run stops for anything but a checkpoint, `wb:judge` reads the evidence itself and returns repair, settle, recheck, or person. It settles calls about tests inside stated limits (recorded as `judged:`) and writes the question, as what would go wrong in the product, when the decision is yours. It never clears a failure, waives an integrity finding, or changes what a criterion means.
+- An outer test changes after its red commit only through a rewrite task that `wb:test-writer` carries out, landing when the verifier shows the criterion text unchanged, nothing lost (mechanical, name only, or a differential), and no added check beyond the criterion (recorded as `rewrite:`).
+- A harness task's support code (fakes, fixtures, factories, harness modules) is the worker's to write, and it declares those files in its report and in a `support files:` comment on the task.
 - `task-verifier` runs `plugin/scripts/test-integrity` first and plants a defect in a disposable copy to check that a changed test can fail: with `wb-plant-defect` when the optional `wb-defects` plugin is installed, otherwise with the repository's own mutation tool when the testing profile names a recognized one, and Not Run when neither applies. It fails any test change that neither a test-writer report nor, on a harness task, the worker's declared support files or, on a setup task, its declared setup files cover, any support file that holds a test case, and any changed outer test.
 - The red/green evidence lives in beads: the outer test step closes with a `red <sha>: <assertion line>` reason, and the task carries comments with the test-writer reports, the verifier's `test integrity:` result, and on a harness task the worker's `support files:` list. The checkpoint review reads them there.
 - At each phase checkpoint, `wb:test-reviewer` reviews the phase's tests as a whole and proposes findings; it edits nothing. Deterministic failures in tests the phase changed block the checkpoint until you acknowledge each by name (a criterion with no outer test or one below its observed-at level, a changed outer test, an undeclared test change, a test that cannot fail, a planted defect that survives). Other findings are advisory.
+- Also at each checkpoint, `wb:prover` runs the product at each criterion's boundary (the command, the request, the page) and reports each criterion and each manual check as proven, disproven, or could not prove, with the commands it ran and the output. A disproven criterion holds the checkpoint until you answer it by name (`fix: P1` or `accept: P1`). You are asked to check by hand only what it could not prove. It edits nothing and stays local: no paid or external call unless the testing profile's Proof section grants it
 - In parallel with the review, `wb:phase-verifier` checks the phase against its tasks: planned changes missing from the diff, changes no task covers, earlier phases' tests changed again, and progress toward each README Intent statement. Each unexplained deviation needs your answer by name (accept, fix, or plan defect). On the final phase, the checkpoint writes the Intent verdicts (`→ PASS`, `→ FAIL`, `→ DEFERRED`) beside each README statement.
 - A plan with no acceptance criteria predates 5.0.0: outer tests are skipped and the output says why. Workers still never edit tests, and the verifier still checks integrity.
 
@@ -435,7 +442,8 @@ With no second argument it runs `all` when every phase milestone is closed, and 
 1. **Runs automated verification once** (suite, lint, typecheck, build), not per phase
 2. **Spawns `wb:phase-verifier`** for the phase, or one per phase in parallel for `all`: planned changes missing, changes no task covers, earlier phases' tests changed again, Intent progress
 3. **Spawns `wb:test-reviewer`** over the phase's range, or the whole plan's for `all`, with judgment-only proposals settled by three independent readings
-4. **For `all`**: a verdict per Intent statement from the phases' evidence, written back to the README after your reply, and the deferred design questions still open
+4. **Spawns `wb:prover`** for the phase, or one per phase for `all`: it runs the product at each criterion's boundary and reports proven, disproven, or could not prove, so the manual checklist holds only what it could not prove
+5. **For `all`**: a verdict per Intent statement from the phases' evidence, written back to the README after your reply, and the deferred design questions still open
 
 **Validation Report**:
 
@@ -467,6 +475,22 @@ The scope is a plan directory, a path, or nothing for the whole repository; the 
 5. **Report**: proposed Remove, Rewrite, and Consolidate verdicts, each with evidence for you to spot-check, plus what was triaged out and how to expand
 
 It never edits or deletes tests and leaves the audited repository unchanged. Hollow reds and post-red edits cannot be checked cold, and the report says so.
+
+---
+
+### `/wb:review_diff` - Review a Branch Cold
+
+```
+/wb:review_diff [base=<ref>] [head=<ref>] [plan=<docs/plans/dir>] [verify=<n>]
+```
+
+A dynamic workflow, not a skill (`plugin/workflows/review_diff.js`). Every other wb check compares the work to its plan, so a case no criterion names is checked by nothing; this one reads the change the way an outside reviewer would.
+
+1. **Find**: four `wb:diff-reviewer` agents, none given the plan, one lens each: input nobody showed, a failure partway, other callers of what changed, and values and lists that no longer agree.
+2. **Merge**: findings that describe one root cause become one, most serious first.
+3. **Verify**: a skeptic, on the stronger model, checks each of the first `verify` findings (4 by default): confirmed when the repository shows the trigger reaching the failure; not a defect when something stops it or the trigger cannot occur; and "depends" when the code fails as claimed but the trigger lives outside the repository (production data or permissions, a third party), with the condition named for you to judge. With `plan=`, it then names the criterion the finding breaks, or that the design's Beyond the Examples table left the case unhandled.
+
+It returns a report: confirmed, depends on an outside condition, real but accepted in the design, not verified, and raised but not confirmed. It edits nothing. A reviewer that could not read the change (a refused git command, for example) is reported as a lens not covered, never as a clean result; in a headless session, allow read-only git and pre-approve the workflow (`--allowedTools "Workflow(wb:review_diff)" "Bash(git:*)"`). Without `base=`, the base is the merge base with the default branch. About nine agents with the defaults; Claude Code asks you to confirm the launch.
 
 ---
 

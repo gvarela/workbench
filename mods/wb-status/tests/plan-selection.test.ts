@@ -9,6 +9,8 @@ import {
   paneSections,
   parseFrontmatter,
   parseWorktrees,
+  planTie,
+  worktreeBranches,
   pinFromPrompt,
   planPathIn,
   statusLine,
@@ -52,6 +54,8 @@ type World = {
   files: Record<string, string>
   issues: Issue[]
   worktrees?: string[]
+  /** The branch checked out in each worktree, by root; `x` when not given. */
+  branches?: Record<string, string>
   messages?: unknown[]
 }
 
@@ -91,7 +95,7 @@ function stage(on: any, world: World) {
     const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '' } })
     if (argv[0] === 'git' && argv[1] === 'worktree') {
       if (world.worktrees === undefined) return { value: { exitCode: 128, stdout: '', stderr: 'not a git repository' } }
-      return ok(world.worktrees.map(tree => `worktree ${tree}\nHEAD abc\nbranch refs/heads/x\n`).join('\n'))
+      return ok(world.worktrees.map(tree => `worktree ${tree}\nHEAD abc\nbranch refs/heads/${world.branches?.[tree] ?? 'x'}\n`).join('\n'))
     }
     if (argv[0] === 'git' && argv[1] === 'rev-parse') {
       const trees = [...(world.worktrees ?? [world.root])].sort((a, b) => b.length - a.length)
@@ -275,12 +279,60 @@ describe('guessing a plan', () => {
   })
 })
 
+// The same two plans in a git checkout, where the session's branch is known.
+function twoPlansOn(branch: string): World {
+  return { ...twoPlans(), worktrees: [MAIN], branches: { [MAIN]: branch } }
+}
+
+describe('a guess needs a tie to the session', () => {
+  test('on a branch that names no plan, no plan is shown, and the pane lists the unfinished ones', async ($, on) => {
+    stage(on, twoPlansOn('chore/upgrade-runtime'))
+    await read($)
+    const seen = await look($)
+    expect(seen.band.includes('Plan:')).toBe(false)
+    expect(seen.pane[0]).toBe('No wb plan is tied to this session: none is pinned, and the branch chore/upgrade-runtime names none of the unfinished plans (2026-03-01-newer, 2026-01-01-older). /wb-status <plan dir> pins one.')
+  })
+
+  test('on a branch that names a plan, that plan is shown though another is busier', async ($, on) => {
+    const world = twoPlansOn('feature/older-cleanup')
+    stage(on, world)
+    await read($)
+    const seen = await look($)
+    expect(seen.band).toMatch(/Plan: older-plan \(guessed\) · /)
+  })
+
+  test('the branch a plan records ties it, whatever the branch is called', async ($, on) => {
+    const world = twoPlansOn('gv/spike-3')
+    world.files[`${MAIN}/docs/plans/2026-01-01-older/tasks.md`] = tasksMd('older-plan', 'ol').replace('created: 2026-01-01\n', 'created: 2026-01-01\ngit_branch: gv/spike-3\n')
+    stage(on, world)
+    await read($)
+    expect((await look($)).band).toMatch(/Plan: older-plan \(guessed\) · /)
+  })
+
+  test('a pin still shows its plan on an unrelated branch', async ($, on) => {
+    stage(on, twoPlansOn('chore/upgrade-runtime'))
+    await $.prompt.submit({ text: '/wb:implement docs/plans/2026-01-01-older 1' })
+    await read($)
+    const seen = await look($)
+    expect(seen.band).toMatch(/Plan: older-plan · /)
+    expect(seen.band.includes('(guessed)')).toBe(false)
+  })
+
+  test('outside git there is no branch to go by, so the guess stands as before', async ($, on) => {
+    stage(on, twoPlans())
+    await read($)
+    expect((await look($)).band).toMatch(/Plan: newer-plan \(guessed\) · /)
+  })
+})
+
 // The session runs in the main checkout; the plan being implemented and its
 // code live in a linked worktree with its own docs/plans.
 function mainAndWorktree(): World {
   return {
     root: MAIN,
     worktrees: [MAIN, TREE],
+    // The main checkout's branch names the worktree's plan, which ties it to this session.
+    branches: { [MAIN]: 'feature/shared' },
     files: {
       [`${MAIN}/docs/plans/2026-02-01-main/tasks.md`]: tasksMd('main-plan', 'mn'),
       [`${TREE}/docs/plans/2026-01-15-feature/tasks.md`]: tasksMd('feature-plan', 'ft'),
@@ -373,6 +425,26 @@ describe('selection helpers', () => {
       { role: 'user', text: 'thanks', toolUses: [] },
     ], 1)).toEqual({ path: 'docs/plans/b', by: '/wb:implement', at: 1 })
     expect(latestPin([], 1)).toBe(null)
+  })
+
+  test('a plan is tied by its recorded branch, by its name in the branch, or by its name in the worktree', () => {
+    const plan = { name: '2026-01-01-reset-flow', fm: { git_branch: 'feature/reset' } }
+    expect(planTie(plan, { branch: 'feature/reset', worktree: null })).toBe('branch')
+    expect(planTie(plan, { branch: 'feature/reset-flow-p2', worktree: null })).toBe('branch')
+    expect(planTie(plan, { branch: 'main', worktree: 'reset-flow' })).toBe('worktree')
+    expect(planTie(plan, { branch: 'chore/upgrade', worktree: null })).toBe(null)
+    expect(planTie(plan, { branch: null, worktree: null })).toBe(null)
+  })
+
+  test('a plan name inside a longer word does not tie', () => {
+    const plan = { name: '2026-01-01-auth', fm: {} }
+    expect(planTie(plan, { branch: 'feature/authoring-tools', worktree: null })).toBe(null)
+    expect(planTie(plan, { branch: 'feature/auth-tokens', worktree: null })).toBe('branch')
+  })
+
+  test('each worktree\'s branch is read from the worktree list', () => {
+    const listing = 'worktree /repo\nHEAD abc\nbranch refs/heads/feature/a-b\n\nworktree /repo/.claude/worktrees/x\nHEAD def\ndetached\n'
+    expect(worktreeBranches(listing)).toEqual({ '/repo': 'feature/a-b', '/repo/.claude/worktrees/x': null })
   })
 
   test('worktrees are parsed and named', () => {

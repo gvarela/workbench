@@ -30,10 +30,11 @@ Write code before the test? Delete it. Start over.
 
 Write one minimal test showing what should happen. Run it. Watch it fail.
 
-**Red is an assertion failure on the intended behavior:**
+**Red is a failure caused by the behavior not being built yet:**
 
-- The test reached its assertion and failed with the message you expected
-- A load, import, or missing-constant error is not red yet: make the code importable by adding only the stub needed to load it (an empty class or method), then re-run. A test that never reached its assertion says nothing about the behavior.
+- The test reached its assertion and failed with the message you expected; or
+- the run stopped because the class, module, method, or argument you are about to write does not exist yet. That is red too: do not write a stub first to turn it into an assertion failure. As you build, watch the failure move to the assertion before it passes. If it goes from the missing name straight to green, the assertion has not been seen to fail, so break the code once and see it fail.
+- A syntax error in the test, a missing helper or fixture, a failed setup, or an error in code that already exists is not red: fix the test or its setup first.
 
 Under /wb:implement and /wb:implement_inline, have wb:test-writer write the test; see the test-quality skill.
 

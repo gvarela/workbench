@@ -54,5 +54,50 @@ sys.stdout.write(s + "\n")
 PY
     exit 0
 fi
+# bd create <title> ... --silent --deps discovered-from:<id> --body-file <file>
+#   prints a new id; records the dependency unless BD_DROP_DEP is set.
+# bd dep add <issue> <from> --type discovered-from   records one (BD_DEP_FAIL fails it).
+# bd dep list <issue> --json -t discovered-from       lists them in bd's JSON shape.
+if [ "$1" = create ]; then
+    [ -z "${BD_CREATE_FAIL:-}" ] || { echo "Error: database is locked" >&2; exit 1; }
+    deps="" body=""
+    shift
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --deps) deps="$2"; shift ;;
+            --body-file) body="$2"; shift ;;
+            --parent|--type|--priority) shift ;;
+        esac
+        shift
+    done
+    n=$(cat "$STORE/created" 2>/dev/null || echo 0)
+    n=$((n + 1))
+    echo "$n" > "$STORE/created"
+    id="NEW-$n"
+    [ -n "$body" ] && cp "$body" "$STORE/$id.body"
+    if [ -z "${BD_DROP_DEP:-}" ] && [ -n "$deps" ]; then
+        echo "$id ${deps#discovered-from:} discovered-from" >> "$STORE/deps"
+    fi
+    echo "$id"
+    exit 0
+fi
+if [ "$1" = dep ] && [ "$2" = add ]; then
+    [ -z "${BD_DEP_FAIL:-}" ] || { echo "Error: cannot add dependency" >&2; exit 1; }
+    echo "$3 $4 discovered-from" >> "$STORE/deps"
+    exit 0
+fi
+if [ "$1" = dep ] && [ "$2" = list ]; then
+    printf '[\n'
+    first=1
+    while read -r a b t; do
+        [ "$a" = "$3" ] || continue
+        [ "$first" = 1 ] || printf ',\n'
+        first=0
+        # A description that quotes an id must not read as a link.
+        printf '  {\n    "id": "%s",\n    "description": "see \\"id\\": \\"DECOY\\"",\n    "dependency_type": "%s"\n  }' "$b" "$t"
+    done < "$STORE/deps" 2>/dev/null
+    printf '\n]\n'
+    exit 0
+fi
 echo "fake bd: unsupported: $*" >&2
 exit 9

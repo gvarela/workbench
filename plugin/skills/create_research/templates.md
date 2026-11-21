@@ -65,6 +65,11 @@ Against the README Intent's "Success looks like" statements:
 
 ## Architecture Documentation
 
+**Competing patterns and stated rules** (in the areas this plan touches; facts only, both sides):
+
+- [what is done two ways]: [pattern A] (`file:line`, about [n] places, [where]) and [pattern B] (`file:line`, about [n] places, [where]); stated rule: "[quoted]" (`[file:line]`), or none
+- (or: None found)
+
 **Current patterns found**:
 
 - Pattern 1: [Description of pattern and where used]

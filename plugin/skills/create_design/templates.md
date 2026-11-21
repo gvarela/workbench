@@ -13,9 +13,21 @@ status: draft
 last_updated: [YYYY-MM-DD]
 depends_on: research.md
 design_approach: [selected option name]
+design_layers:
+  product: [open | closed]
+  technical: [open | closed | skipped]
+  program: [open | closed | skipped]
 ---
 
 # Design: [Feature/Task Name]
+
+## Design Layers
+
+| Layer | State | Note |
+|-------|-------|------|
+| Product | [open / closed [date]] | [what is still open, or ""] |
+| Technical | [open / closed [date] / skipped] | [for a skip: the reason, and "confirmed by [who] on [date]"] |
+| Program | [open / closed [date] / skipped] | [as above] |
 
 ## Problem Statement
 
@@ -25,6 +37,26 @@ design_approach: [selected option name]
 - [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement][; narrows: how it is stricter than the statement])
 - [Measurable outcome that checks the statement] (refines: "[Intent success statement]"; why: [the statement's why]; strength: [hard | aim, from the statement])
 - Deferred: "[Intent success statement]" — [reason], or "none"
+
+## Experience
+
+("Not applicable: [why]" when nothing a person sees or reads changes.)
+
+- **What a person sees and does**: [from start to finish, in their terms]
+- **When it goes wrong**: [what they are told, for each failure they would notice]
+
+### How the UI Works
+
+- [screen]: [layout, components, wording, and states: empty, loading, error]
+
+### Design Scope
+
+The screen is the unit: a touched screen is built to the whole of its design unless an item is listed as left out. Approved by [who] on [date].
+
+- **Built to the design**: [screen] → [`mockups/[version]/[file]`, `designs/[file]`, or a link][; a worker cannot open it: copy at [where]]
+- **On a touched screen, left out**: [item] ([reason]); or "nothing"
+- **Touched, not designed**: [screen, state, or message] → [follows [existing pattern, `file:line`] / to be mocked up with `/wb:create_mockup` / back to the designer: [who] / built plainly and flagged]; or "nothing"
+- **How it is checked**: what is built is compared with its design at the phase checkpoint; a difference in layout, components, or wording is reported like a failed check.
 
 ## Design Approach
 
@@ -54,6 +86,16 @@ design_approach: [selected option name]
 - [API contracts or interfaces]
 - [Dependencies on other components]
 
+### Contracts
+
+(Program pass. One line for each new thing that one task or phase builds and another calls.)
+
+- `[name]`: called as [how, with what]; returns [what]; fails by [raising / returning what]
+
+### Patterns to Follow
+
+- [new part]: follows [existing pattern] (`[file:line]` from research)[; chosen by [who] on [date] over [the other pattern], when research showed two]
+
 ## Scope Definition
 
 ### In Scope
@@ -79,15 +121,19 @@ One criterion per changed behavior, each checkable at a boundary a test can obse
   - Example: [real input values → real expected output]
   - Example (edge): [a boundary case, when one exists]
   - Observed at: [where the result is visible: HTTP response, rendered page, CLI output, stored record]
+  - Design: [only when what is observed has one: its line in Design Scope]
   - Seam: [only when the boundary is external or an LLM: what is stubbed, and what stays real]
+  - Proven by: [how to show this in the running product: the command, request, or page to use and what to look for; or `manual: <why only a person can check it>`]
   - Refines: [Success Metric id, for example M1]
   - Guards against: [the harm or wrong behavior this criterion exists to stop, in the user's terms]
   - Strength: [hard | aim, from the metric it refines, as wb's rules-and-intents reference (Strength) defines them; hardness attaches to the Guards against purpose, never to the mechanism a narrowing picks, so write `hard (purpose) / aim (mechanism)` when they differ]
   - Narrows: [only when it is stricter than its metric: how (only or never, a fixed placement, a word list, an exact layout); listed under "Choices I made that tighten your intent"]
 
+Proven by is how `wb:prover` will try to show the criterion holding at each phase checkpoint, by running the product; the test is separate. Writing it now tells the person, before anything is built, which criteria they will have to check by hand.
+
 A criterion checks its statement; it does not replace it. When the check is a proxy (a word list, a region, a selector), Guards against is what the proxy stands for, so the test-writer can name it and a reader can tell a proxy's false hit from a real break.
 
-Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Refines: M1; Guards against: an expired link still letting someone set a password; Strength: hard (safety).
+Illustration: Given a password-reset link issued at 10:00 that is valid for 2 hours; When it is opened at 12:01; Then the page says the link has expired and offers a new one; Example: opened 11:59 shows the reset form, opened 12:01 shows "expired"; Observed at: reset page HTML; Proven by: open a link issued more than 2 hours ago on a local server and read the page; Refines: M1; Guards against: an expired link still letting someone set a password; Strength: hard (safety).
 
 ### Harness Decisions
 
@@ -97,10 +143,27 @@ One row per boundary the criteria are observed at. Take "Harness present?" from 
 |----------|------------------|----------|
 | [HTTP, UI, CLI, database, LLM call] | [what exists per research, or "none"] | [Use as is / Add harness / Manual / Lower proxy, with what the proxy cannot check] |
 
+### Beyond the Examples
+
+Three rows per boundary above: what the criteria's examples leave out. A row ends in a criterion, in `not handled` with the reason (a risk approval accepts), or in `cannot happen` with what prevents it.
+
+| Boundary | Question | Case | Outcome |
+|----------|----------|------|---------|
+| [boundary] | Unshown input | [who supplies the input, and what they can send that no example shows] | [AC-n / not handled: reason / cannot happen: what prevents it, file:line] |
+| [boundary] | Partial failure | [the state left, and what the caller sees, when a step fails partway] | [as above] |
+| [boundary] | Other callers | [each existing caller or reader of what this changes, and whether the new behavior suits it] | [as above] |
+
 ### Non-Functional Requirements
 - [ ] Performance: [Specific metric]
 - [ ] Reliability: [Specific metric]
 - [ ] Security: [Specific requirement]
+
+#### Operation
+
+- **Who may use it**: [roles, and what a refused person sees]
+- **When it fails**: [each failure this design names and who or what is told: an error tracker, a message to a person, a status a person sees. "Nobody is told" is an answer the person approves, not a default]
+- **Rollout**: [how it goes live: order of steps, data changes, anything that runs once; or "a normal deploy"]
+- **Undo**: [how it comes back out, and what a rollback leaves behind; or "revert the change"]
 
 ## Risk Analysis
 
@@ -111,7 +174,7 @@ One row per boundary the criteria are observed at. Take "Harness present?" from 
 
 ### Assumptions
 
-Based on knowledge gaps from research - track in beads to ensure validation. A `Q:` question the user deferred is a row here under its own id with the owner they named, and gets no `Validate:` issue:
+Two kinds. Knowledge gaps from research, tracked in beads to ensure validation. And what the design assumes about things the repository cannot show (production data and permissions, what an outside service accepts and returns, a real-world value): each row says how it will be checked, or `accepted unchecked` with what breaks if it is wrong. A `Q:` question the user deferred is a row here under its own id with the owner they named, and gets no `Validate:` issue:
 
 | Assumption | Beads ID | Owner | Validated? |
 |------------|----------|-------|------------|
@@ -144,7 +207,9 @@ Design decisions that need stakeholder input - track in beads. A decision the us
 ```bash
 # Create beads issues for pending decisions:
 bd create "Decide: [brief decision]" --type=task --priority=1 \
-  -d "Options: [A, B, C]. Trade-offs: [summary]. Blocks: [what]"
+  -d "Options: [A, B, C]. Trade-offs: [summary]. Blocks: [what]. Plan: [plan-dir-name]"
+# [plan-dir-name] is the plan directory's name (for example 2025-01-08-my-project): beads is one database
+# across plans and worktrees, and the name is what ties the decision to this plan
 ```
 
 Note: Decisions blocking execution should be resolved before `/create_tasks`.
@@ -173,7 +238,7 @@ This is the decision form for each of this plan's open questions and each Pendin
   - Paste-ready reply: [the one reply that takes the recommended option: `[id]: answer: <answer>`, `[id]: defer to <owner>`, or `[id]: not this plan`]
 ```
 
-Step 5 writes design.md before the replies arrive, so a question still awaiting one is written as a row under its own id (Assumptions for a `Q:`, Pending Decisions for a `Decide:`) with Owner `awaiting your reply`, the one placeholder BARRIER 3 allows before Step 6. A deferred `Q:` stays a row under the `Q:` issue's own id; do not create a `Validate:` issue for it.
+A pass writes design.md before the replies arrive, so a question still awaiting one is written as a row under its own id (Assumptions for a `Q:`, Pending Decisions for a `Decide:`) with Owner `awaiting your reply`, the one placeholder BARRIER 3 allows before Step 6. A deferred `Q:` stays a row under the `Q:` issue's own id; do not create a `Validate:` issue for it.
 
 Apply each reply to design.md and to beads:
 

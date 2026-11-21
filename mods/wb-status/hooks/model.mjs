@@ -6,6 +6,35 @@
 const FINISHED = new Set(['complete', 'completed', 'done', 'archived', 'cancelled'])
 const UNCLOSED = new Set(['open', 'in_progress', 'blocked'])
 
+const LAYERS = ['product', 'technical', 'program']
+
+/**
+ * The design passes a design.md records in its `design_layers` frontmatter:
+ * each layer open, closed, or skipped, in pass order. Null when the document
+ * records none (a design written before the passes).
+ */
+export function designLayers(text) {
+  const recorded = parseFrontmatter(text)?.design_layers
+  if (recorded === null || typeof recorded !== 'object') return null
+  const layers = LAYERS.filter(key => key in recorded).map(key => {
+    const value = String(recorded[key] ?? '').trim().toLowerCase()
+    return { key, state: value.startsWith('closed') ? 'closed' : value.startsWith('skipped') ? 'skipped' : 'open' }
+  })
+  return layers.length === 0 ? null : layers
+}
+
+/** The first layer still open, or null when every recorded layer is closed or skipped. */
+function openLayer(design) {
+  return design?.layers?.find(layer => layer.state === 'open') ?? null
+}
+
+/** `layers: product ✓ technical ● program ○`: closed, the pass in progress, and those after it. */
+function layerWords(layers) {
+  const next = layers.find(layer => layer.state === 'open')?.key ?? null
+  const mark = layer => (layer.state === 'closed' ? '✓' : layer.state === 'skipped' ? 'skipped' : layer.key === next ? '●' : '○')
+  return `layers: ${layers.map(layer => `${layer.key} ${mark(layer)}`).join(' ')}`
+}
+
 /** A YAML-ish frontmatter parser: top-level scalars and one level of maps. */
 export function parseFrontmatter(text) {
   const lines = String(text).split(/\r?\n/)
@@ -136,6 +165,28 @@ export function closeReasonVerdict(reason) {
   return match ? match[1] : null
 }
 
+/**
+ * A comment's first line as its record name reads: lower case, with the part
+ * marker of a record posted in parts removed (`verification report (1/2):`
+ * reads `verification report:`). A `<name> manifest:` line stays as it is,
+ * so it is never taken for the record.
+ */
+function recordHead(text) {
+  return firstLine(text).toLowerCase().replace(/^([a-z][a-z -]*?) \(\d+\/\d+\):/, '$1:')
+}
+
+/**
+ * The `--since` value for the plan's commits, or null for no window. Git
+ * reads a date with no time as that day at the current time of day, which
+ * drops the commits made earlier on the plan's first day, so a date-only
+ * value starts at midnight.
+ */
+export function logSince(created) {
+  const value = typeof created === 'string' ? created.trim() : ''
+  if (value === '') return null
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value
+}
+
 const RESUMES = ['verification report:', 'test integrity:', 'resolved:', 'resumed:', 'unhalted:']
 
 /** What a task's comments say: its latest verifier verdict, integrity findings, and an open halt. */
@@ -148,7 +199,7 @@ export function readComments(comments) {
   for (const comment of comments ?? []) {
     const text = String(comment.text ?? '')
     const at = String(comment.created_at ?? '')
-    const head = firstLine(text).toLowerCase()
+    const head = recordHead(text)
     if (RESUMES.some(prefix => head.startsWith(prefix))) resumes.push(at)
     if (head.startsWith('verification report:')) {
       const status = /###\s*Status:\s*(PASS|FAIL)\b/.exec(text)
@@ -294,10 +345,11 @@ function verdictOf(issue, notes) {
  * fm (tasks.md frontmatter), criteria, issues (bd list for the plan's ids and
  * the epic's children), openIssues (bd list of every unclosed issue),
  * commits (git log lines), comments ({ [id]: bd comments JSON }), intent
- * (readIntent of the README) and dir (the plan directory, as the validate
- * command names it).
+ * (readIntent of the README), dir (the plan directory, as the validate
+ * command names it) and otherPlans (the names of the repository's other plan
+ * directories, whose questions are not this plan's).
  */
-export function buildModel({ fm, criteria, issues, openIssues, commits, comments, intent = null, dir = null }) {
+export function buildModel({ fm, criteria, issues, openIssues, commits, comments, intent = null, dir = null, otherPlans = [] }) {
   const state = planState({ fm, issues, openIssues })
   if (state === null) return null
   const notesOf = new Map()
@@ -357,7 +409,7 @@ export function buildModel({ fm, criteria, issues, openIssues, commits, comments
   }
   // On a finished plan an open question was handed off on purpose: it is a
   // follow-up, not something the plan waits on.
-  const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''))
+  const asks = asksFor(openIssues, state.members, String(fm.created_timestamp ?? fm.created ?? ''), { dir, others: otherPlans })
   if (!state.isDone) blocking.push(...asks)
   const handedOff = state.isDone ? asks : []
 
@@ -402,19 +454,45 @@ export function validationOf(intent) {
 
 /**
  * The open `Q:` and `Decide:` issues that need the person for this plan.
- * They carry no link to a plan, so one counts when it is linked to the plan
- * anyway (`members`) or was opened since the plan was created (`since`).
+ * Beads is one database across plans and worktrees, and these issues carry
+ * no link to a plan. One counts when it is linked to the plan anyway
+ * (`members`) or its text names the plan's directory (`plan.dir`). Failing
+ * both, one opened since the plan was created (`since`) counts, unless its
+ * text names another plan's directory (`plan.others`): that one is asked of
+ * the other plan.
  */
-export function asksFor(openIssues, members, since) {
+export function asksFor(openIssues, members, since, plan = {}) {
+  const own = planDirName(plan.dir)
+  const others = (plan.others ?? []).map(planDirName).filter(name => name !== '' && name !== own)
   const out = []
   for (const issue of openIssues ?? []) {
     const match = /^(Q|Decide):/.exec(String(issue.title ?? ''))
     if (!match || !UNCLOSED.has(String(issue.status ?? 'open'))) continue
+    const text = `${issue.title ?? ''}\n${issue.description ?? ''}\n${issue.notes ?? ''}`
     const isLinked = members.has(issue.id) || linksTo(issue, members)
+    const isNamed = namesPlan(text, own)
+    const isElsewhere = !isNamed && others.some(name => namesPlan(text, name))
     const isRecent = since !== '' && String(issue.created_at ?? '') >= since
-    if (isLinked || isRecent) out.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
+    if (isLinked || isNamed || (isRecent && !isElsewhere)) out.push({ kind: match[1] === 'Q' ? 'question' : 'decision', id: issue.id, title: issue.title, why: match[1] === 'Q' ? 'open question' : 'decision pending' })
   }
   return out
+}
+
+/** A plan directory's own name: the last segment of `docs/plans/<name>`. */
+function planDirName(dir) {
+  return String(dir ?? '').replace(/\/+$/, '').split('/').pop() ?? ''
+}
+
+/** Whether a text names a plan directory as a whole name: `2026-01-01-demo-two` does not name `2026-01-01-demo`. */
+function namesPlan(text, name) {
+  if (name === '') return false
+  const at = text.indexOf(name)
+  if (at === -1) return false
+  const isPart = char => char !== undefined && /[A-Za-z0-9-]/.test(char)
+  for (let from = at; from !== -1; from = text.indexOf(name, from + 1)) {
+    if (!isPart(text[from - 1]) && !isPart(text[from + name.length])) return true
+  }
+  return false
 }
 
 /** A bar of `width` cells, filled in proportion. */
@@ -829,6 +907,58 @@ export function parseWorktrees(stdout) {
     .filter(one => one.startsWith('/'))
 }
 
+/**
+ * The branch checked out in each worktree, by root, from
+ * `git worktree list --porcelain`; null for a detached HEAD.
+ */
+export function worktreeBranches(stdout) {
+  const out = {}
+  let tree = null
+  for (const line of String(stdout ?? '').split('\n')) {
+    if (line.startsWith('worktree ')) {
+      tree = line.slice('worktree '.length).trim()
+      out[tree] = null
+    } else if (tree !== null && line.startsWith('branch ')) {
+      out[tree] = line.slice('branch '.length).trim().replace(/^refs\/heads\//, '')
+    }
+  }
+  return out
+}
+
+/** A plan directory's name without its date: `2026-01-01-reset-flow` is `reset-flow`. */
+function planSlug(name) {
+  return String(name ?? '').replace(/^\d{4}-\d{2}-\d{2}-/, '').toLowerCase()
+}
+
+/** Whether a text names a slug as a whole word: `auth` is not named by `authoring`. */
+function namesSlug(text, slug) {
+  if (slug.length < 3) return false
+  const hay = String(text ?? '').toLowerCase()
+  const isWord = char => char !== undefined && /[a-z0-9]/.test(char)
+  for (let at = hay.indexOf(slug); at !== -1; at = hay.indexOf(slug, at + 1)) {
+    if (!isWord(hay[at - 1]) && !isWord(hay[at + slug.length])) return true
+  }
+  return false
+}
+
+/**
+ * What ties a plan to the session, so that an unpinned plan is this session's
+ * work and not just some unfinished plan in the repository: `branch` when the
+ * session's branch is the one the plan records or names the plan, `worktree`
+ * when the session's worktree is named for it, else null.
+ */
+export function planTie(candidate, session) {
+  const branch = String(session?.branch ?? '')
+  const slug = planSlug(candidate?.name)
+  if (branch !== '') {
+    const recorded = String(candidate?.fm?.git_branch ?? '').trim()
+    if (recorded !== '' && recorded === branch) return 'branch'
+    if (namesSlug(branch, slug)) return 'branch'
+  }
+  if (session?.worktree && namesSlug(session.worktree, slug)) return 'worktree'
+  return null
+}
+
 /** The worktree's name when a root is a linked worktree, else null. */
 export function worktreeName(root, mainRoot) {
   const text = String(root ?? '')
@@ -1125,6 +1255,7 @@ export function readDesign(text) {
   return {
     status: docStatus(text),
     isTemplate: criteria === 0 && /\[to be defined\]/i.test(text),
+    layers: designLayers(text),
     criteria,
     withExample,
     harness: { rows: rows.length, decided },
@@ -1239,6 +1370,7 @@ export function stageSignals({ intent, research, design, tasks, explore, openAsk
     out.design = ['design.md not written yet']
   } else {
     out.design = [
+      ...(design.layers ? [layerWords(design.layers)] : []),
       `${plural(design.criteria, 'criterion', 'criteria')}, ${design.withExample} with examples`,
       design.harness.rows === 0 ? 'no harness decisions' : `harness ${design.harness.decided}/${design.harness.rows} decided`,
       design.metrics.count === 0 ? 'no success metrics' : `${design.metrics.citing}/${design.metrics.count} metrics cite Intent`,
@@ -1265,8 +1397,10 @@ export function stageSignals({ intent, research, design, tasks, explore, openAsk
 }
 
 /** The next command, from help's chain: the current stage's own while it is unfinished, else the first unfinished stage. */
-export function nextCommand(stages, isDesignWaiting) {
+export function nextCommand(stages, isDesignWaiting, design = null) {
   const current = stages.find(stage => stage.state === 'current') ?? null
+  const pass = openLayer(design)
+  if (pass !== null && current?.key === 'design') return { before: `${pass.key} pass: `, command: '/wb:create_design' }
   if (isDesignWaiting && current?.key === 'design') return { before: 'approve design.md, then ', command: '/wb:create_tasks' }
   if (current !== null && !current.isDone) return { before: '', command: current.command }
   const firstOpen = stages.find(stage => !stage.isDone && !stage.isOptional) ?? null
@@ -1278,13 +1412,14 @@ export function nextCommand(stages, isDesignWaiting) {
  * current stage's signals, and what needs the person (a stage waiting on
  * their approval first, then open Q: and Decide: issues).
  */
-export function buildPlanningModel({ planName, intent = null, research = null, design = null, tasks = null, explore = null, openIssues = [], since = '', epic = null, last = null }) {
+export function buildPlanningModel({ planName, intent = null, research = null, design = null, tasks = null, explore = null, openIssues = [], since = '', epic = null, last = null, dir = null, otherPlans = [] }) {
   const stages = stageStates({ intent, research, design, tasks, explore, isImplemented: false, last })
   const current = stages.find(stage => stage.state === 'current') ?? null
   const members = new Set(typeof epic === 'string' && epic !== '' ? [epic] : [])
-  const asks = asksFor(openIssues, members, since ?? '')
+  const asks = asksFor(openIssues, members, since ?? '', { dir, others: otherPlans })
   const blocking = []
-  const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && !DESIGN_DONE.has(String(design.status).toLowerCase())
+  // A design with a pass still open is being written, not waiting for approval.
+  const isDesignWaiting = !!design && !design.isTemplate && design.criteria > 0 && openLayer(design) === null && !DESIGN_DONE.has(String(design.status).toLowerCase())
   if (current?.key === 'design' && isDesignWaiting) {
     blocking.push({ kind: 'approval', id: null, title: 'design.md', why: 'design.md waiting for your approval' })
   }
@@ -1299,7 +1434,7 @@ export function buildPlanningModel({ planName, intent = null, research = null, d
     current: current?.key ?? null,
     blocking,
     signals: stageSignals({ intent, research, design, tasks, explore, openAsks: asks }),
-    next: nextCommand(stages, isDesignWaiting),
+    next: nextCommand(stages, isDesignWaiting, design),
   }
 }
 

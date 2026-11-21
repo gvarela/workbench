@@ -18,7 +18,7 @@ Stages, in order. Each stage reads the previous stage's document and stops if it
   /wb:explore_design  -> optional: think through trade-offs; records a decision in thoughts/ and a closed Decide: issue
   /wb:create_design   -> design.md: what to build and why, with acceptance criteria; needs research.md complete
   /wb:create_tasks    -> tasks.md: phased plan plus the beads epic, milestones, and task issues; needs design.md approved
-  /wb:implement -> the default execution path: outer tests first, one worker per task, verified, one phase at a time; each checkpoint runs a phase verifier and a test review, and the final one writes the Intent verdicts to the README
+  /wb:implement -> the default execution path: outer tests first, one worker per task, verified, one phase at a time; each checkpoint runs a prover on the product, a phase verifier, and a test review, and the final one writes the Intent verdicts to the README
   /wb:implement_inline -> the same plan, coded inline by this session, with the same outer tests and checkpoint verification
   /wb:validate_phase <dir> [phase|all] -> re-check one phase, or every phase plus the Intent verdicts, on demand
   /wb:create_handoff and /wb:resume_handoff -> carry context across sessions, models, and machines
@@ -31,10 +31,10 @@ ORIENTATION
   cat <<'ORIENTATION'
 What each stage needs from you (long form: /wb:help):
   create_research: the question, or confirm the one derived from the Goal
-  create_design: approve the approach, the refined metrics, the acceptance criteria with harness decisions, and each listed choice that tightens your intent; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
+  create_design: confirm which design layers apply (product, technical, program), answer what each pass asks, and approve the design scope (screens built to a design, what is left out, gaps with no design); approve the approach, the refined metrics, the acceptance criteria with how each will be proven and harness decisions, each listed choice that tightens your intent, and each case it leaves unhandled; answer each open question for the plan, defer it to a named owner, or rule it not this plan's
   create_tasks: confirm the phases and checkpoints; decide each design item no task delivers (add a task, defer it, or drop it), and each earlier outer test the design renames
-  implementation: a go-ahead at each phase checkpoint, acknowledging each blocking test failure and answering each unexplained deviation by name, and a handoff decision when a phase that has already compacted heads for another compaction; or "run unattended" in your own message, until your next one
-  validate_phase: the phase to check, or all; the manual checks only you can run; an answer for each unexplained deviation
+  implementation: a go-ahead at each phase checkpoint after the checks the prover could not do, answering each disproven criterion and each unexplained deviation by name; a decision when a halt reaches you, which a judge agent sends only for a product question, an integrity finding, or a plan defect; or "run unattended" in your own message, until your next one
+  validate_phase: the phase to check, or all; the checks the prover could not do; an answer for each disproven criterion and each unexplained deviation
 Long form: /wb:help. Replace this text for a repository with .claude/wb/PRIME.md (print the default with hooks/wb-prime.sh --export).
 ORIENTATION
 }

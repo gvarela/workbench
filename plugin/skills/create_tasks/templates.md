@@ -125,7 +125,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - AC-[n]: [criterion title], observed at [boundary] → `[beads:phase1_outer_1]`
   - Examples: [the criterion's Example lines]
   - Test file: `[path/to/outer/test]`
-  - Done when: the test fails on an assertion about the observable, and the `red(AC-n)` commit exists
+  - Done when: the test fails on an assertion about the observable, or because the code this plan creates does not exist yet, and the `red(AC-n)` commit exists
 
 #### Implementation Tasks
 (Each cites the criterion ids it serves and depends on their outer-test steps.)
@@ -155,7 +155,7 @@ Use `bd show [milestone-id]` to see which tasks block each phase milestone.
 - [ ] Lint, type check, and build commands from research pass
 
 #### Manual Verification
-(From design.md success criteria, plus each acceptance criterion under a "manual" harness decision)
+(From design.md success criteria, plus each acceptance criterion under a "manual" harness decision or whose Proven by line is `manual:`. At the checkpoint `wb:prover` attempts every item here by running the product and leaves the person only what it could not prove, so word each as something that can be run and observed.)
 - [ ] [Specific user action] works correctly
 - [ ] Performance meets target: [metric]
 - [ ] Error messages are clear and helpful

@@ -143,7 +143,7 @@ Both greps are substring matches — count only issues whose **title begins with
 
 Present the decision space to the user and confirm it before diverging:
 
-1. **Name the decision(s)** — what fork(s) in the road does research reveal? Number them if there are several.
+1. **Name the decision(s)** — what fork(s) in the road does research reveal? Number them if there are several, and say which design layer each belongs to, because `/wb:create_design` runs as three passes and takes what this stage settles one layer at a time: **product** (what a person sees and does, what success is, scope), **technical** (the approach, the architecture, what it relies on, how it runs in production), or **program** (how the new parts are called, which patterns they follow). Follow the decision wherever it is; there is no required order. When a technical or program decision depends on a product question nobody has answered, say so in the framing, so it is not settled on a guess.
 2. **Name the constraints** — facts from research.md that bound the space (patterns to respect, contracts that exist, precedents), and the Intent's success statements this decision bears on (a direction that makes a statement unreachable is out of bounds unless the Goal is amended)
 3. **Name what's already fixed** — anything the user has pre-decided (record these as user choices, not open questions)
 
@@ -151,8 +151,9 @@ Present the decision space to the user and confirm it before diverging:
 Based on the research, here's the decision space I see:
 Goal (from README Intent): [the Goal sentence, or "no Intent section; plan predates 3.0.0"]
 
-1. **[Decision axis 1]** — [what's being chosen and why it's open]
-2. **[Decision axis 2]** — [...]
+1. **[Decision axis 1]** ([product | technical | program]) — [what's being chosen and why it's open]
+2. **[Decision axis 2]** ([layer]) — [...]
+[Depends on a product question not yet answered: [which axis, and the question]; or leave this line out]
 
 Constraints from research: [...]
 Success statements this decision bears on: [statement]; [statement]
@@ -215,6 +216,7 @@ When discussion stabilizes around a direction, present it for explicit approval:
 **Proposed direction**: [name + one-paragraph summary]
 **Why (rationale from our discussion)**: [...]
 **What we're consciously giving up**: [trade-offs accepted]
+**What this settles, by design layer**: product: [...]; technical: [...]; program: [...] ("nothing" for a layer it did not touch)
 **Explored but not chosen**: [other directions, one line each]
 
 Do you approve this direction? (This becomes the decision of record
@@ -242,7 +244,9 @@ that /wb:create_design formalizes.)
 
 3. **Verify the record is queryable**: run that exact command and confirm the new issue appears. (The grep is a substring match — consumers count only titles that BEGIN with `Decide:`, which is why the record's title must carry the prefix in first position.)
 
-4. **Record any Goal or Non-goal change**: if the converged direction changes what the plan is for or what it will not do, append a dated line under the README's `**Amendments**` list (`- YYYY-MM-DD: [what changed and why] (explore_design, [Decide: issue-id])`) and replace the placeholder line if it is still there. Success statements are not amended here; create_design refines them into metrics.
+4. **Add what the session produced to the README's Existing Material list**: each thoughts doc, and any mockup or design made or handed over during the discussion, with its path. `/wb:create_design` reads that list, so anything left off it is found only by a search. A README with no such list predates it: add the section.
+
+5. **Record any Goal or Non-goal change**: if the converged direction changes what the plan is for or what it will not do, append a dated line under the README's `**Amendments**` list (`- YYYY-MM-DD: [what changed and why] (explore_design, [Decide: issue-id])`) and replace the placeholder line if it is still there. Success statements are not amended here; create_design refines them into metrics.
 
 If any `bd` command fails: run `bd info` to diagnose, report the specific error, fix (see Error Handling), and retry. Do not finish the stage with the beads record missing.
 
@@ -256,7 +260,8 @@ If any `bd` command fails: run `bd info` to diagnose, report the specific error,
 **Exploration record**: [project-dir]/thoughts/[filename].md
 
 What was considered: [N] directions ([names])
-Deferred to design: [items, if any]
+Settled for design's passes: product: [...]; technical: [...]; program: [...]
+Deferred to design: [items, if any, each with its layer]
 
 Next: /wb:create_design [project-dir] — it will detect the decision
 record and formalize it into design.md (in this session or a fresh one;

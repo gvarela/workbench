@@ -255,10 +255,55 @@ describe('stage chain and signals, per planning stage', () => {
     expect(lines.tests).toBe('Research: ⚠ open question: Which mail provider sends resets? (ex-q1) · testing conventions yes · Intent 2/3 covered · 1 open question')
   })
 
+  test('an open decision that names another plan is not asked of this plan', () => {
+    const open = [
+      { id: 'ex-d9', title: 'Decide: exempt two views', status: 'open', created_at: '2026-01-03T00:00:00Z', description: 'Options: a, b. Plan: 2026-01-02-other-plan.' },
+      { id: 'ex-q1', title: 'Q: Which mail provider sends resets?', status: 'open', created_at: '2026-01-02T00:00:00Z' },
+    ]
+    const model = planning(RESEARCHED, { last: 'research', openIssues: open, dir: 'docs/plans/2026-01-01-demo', otherPlans: ['2026-01-02-other-plan'] })
+    expect(model.blocking.map(item => item.id)).toEqual(['ex-q1'])
+  })
+
+  test('a question that names this plan counts even when it was opened before the plan', () => {
+    const open = [{ id: 'ex-q0', title: 'Q: Who owns the reset copy?', status: 'open', created_at: '2025-12-01T00:00:00Z', description: 'Research question for 2026-01-01-demo.' }]
+    const model = planning(RESEARCHED, { openIssues: open, dir: 'docs/plans/2026-01-01-demo', otherPlans: ['2026-01-02-other-plan'] })
+    expect(model.blocking.map(item => item.id)).toEqual(['ex-q0'])
+  })
+
+  test('a question that names this plan and another counts, and a longer directory name is another plan', () => {
+    const open = [
+      { id: 'ex-q1', title: 'Q: Shared copy?', status: 'open', created_at: '2026-01-02T00:00:00Z', description: 'For 2026-01-01-demo; see also docs/plans/2026-01-02-other-plan/design.md' },
+      { id: 'ex-q2', title: 'Q: Second demo?', status: 'open', created_at: '2026-01-02T00:00:00Z', description: 'Research question for 2026-01-01-demo-two.' },
+    ]
+    const model = planning(RESEARCHED, { openIssues: open, dir: 'docs/plans/2026-01-01-demo', otherPlans: ['2026-01-02-other-plan', '2026-01-01-demo-two', '2026-01-01-demo'] })
+    expect(model.blocking.map(item => item.id)).toEqual(['ex-q1'])
+  })
+
   test('explore: a thoughts doc with no recorded decision waits for you', () => {
     const lines = bandLines(planning(RESEARCHED, { last: 'explore', explore: { thoughts: 1, isDecided: false } })).text
     expect(lines.progress).toBe('Plan: demo-plan · Project ✓ → Research ✓ → Explore ● open → Design ○ → Tasks ○ → Implement ○ → Validate ○')
     expect(lines.tests).toBe('Explore: ⚠ exploration has no recorded decision yet · 1 thoughts doc · no decision recorded')
+  })
+
+  test('design: with a layer still open, the band shows the layers and names the next pass, not an approval', () => {
+    const layered = designMd('draft').replace('status: draft\n', 'status: draft\ndesign_layers:\n  product: closed\n  technical: open\n  program: open\n')
+    const model = planning({ ...RESEARCHED, design: layered })
+    const lines = bandLines(model).text
+    expect(lines.tests).toBe('Design: ✓ nothing needs you · layers: product ✓ technical ● program ○ · 2 criteria, 1 with examples · harness 1/2 decided · 2/3 metrics cite Intent · 0 open decisions')
+    expect(model.blocking).toEqual([])
+    expect(model.next).toEqual({ before: 'technical pass: ', command: '/wb:create_design' })
+  })
+
+  test('design: with every layer closed or skipped, a draft waits for your approval and a skip is shown', () => {
+    const layered = designMd('draft').replace('status: draft\n', 'status: draft\ndesign_layers:\n  product: closed\n  technical: skipped\n  program: closed\n')
+    const model = planning({ ...RESEARCHED, design: layered })
+    const lines = bandLines(model).text
+    expect(lines.tests).toBe('Design: ⚠ design.md waiting for your approval · layers: product ✓ technical skipped program ✓ · 2 criteria, 1 with examples · harness 1/2 decided · 2/3 metrics cite Intent · 0 open decisions')
+    expect(model.next).toEqual({ before: 'approve design.md, then ', command: '/wb:create_tasks' })
+  })
+
+  test('design: a design.md with no layers recorded reads as before', () => {
+    expect(readDesign(designMd('draft'))?.layers).toBe(null)
   })
 
   test('design: a written draft waits for your approval, then shows criteria, harness, metrics and decisions', () => {
@@ -441,7 +486,8 @@ function stage(on: any, world: World) {
   on('process.run', ($: unknown, e: { argv: readonly string[] }) => {
     const argv = e.argv.filter(arg => arg !== '--no-optional-locks')
     const ok = (stdout: string) => ({ value: { exitCode: 0, stdout, stderr: '' } })
-    if (argv[0] === 'git' && argv[1] === 'worktree') return ok(`worktree ${ROOT}\nHEAD abc\nbranch refs/heads/main\n`)
+    // The session's branch names the older plan, so an unpinned reading may guess it.
+    if (argv[0] === 'git' && argv[1] === 'worktree') return ok(`worktree ${ROOT}\nHEAD abc\nbranch refs/heads/feature/older\n`)
     if (argv[0] === 'git' && argv[1] === 'rev-parse') return ok(`${ROOT}\n`)
     if (argv[0] === 'git') return ok('')
     if (argv[0] === 'bd' && argv[1] === 'list') {
@@ -517,6 +563,24 @@ describe('create_project pins the folder it creates', () => {
     expect(seen.band.includes('(guessed)')).toBe(false)
     expect(seen.pane.some(row => /^Pinned by \/wb:create_project at \d\d:\d\d\.$/.test(row))).toBe(true)
     expect(seen.pane).toContain('docs/plans/2026-10-22-reset-flow')
+  })
+
+  test('a decision filed for another plan folder is not shown as pending on the pinned plan', async ($, on) => {
+    const world = olderPlanOnly()
+    world.issues = [
+      { id: 'ex-d9', title: 'Decide: exempt two views', status: 'open', created_at: '2099-01-01T00:00:00Z', description: 'Options: a, b. Plan: 2026-01-01-older.' },
+      { id: 'ex-q1', title: 'Q: Which mail provider?', status: 'open', created_at: '2099-01-01T00:00:00Z' },
+    ]
+    stage(on, world)
+    await $.prompt.submit({ text: '/wb:create_project reset-flow' })
+    world.files[`${NEW}/README.md`] = file(NEW_README, 0)
+    await $.tool.call({ tool: 'Write', file_path: `${NEW}/README.md`, content: NEW_README })
+    await read($)
+    const seen = await look($)
+    expect(seen.band).toMatch(/Plan: reset-flow/)
+    expect(seen.band).toMatch(/open question: Which mail provider\? \(ex-q1\)/)
+    expect(seen.band.includes('ex-d9')).toBe(false)
+    expect(seen.band.includes('+1 more')).toBe(false)
   })
 
   test('a plan folder that appears after the Skill tool ran it is pinned on the next reading', async ($, on) => {

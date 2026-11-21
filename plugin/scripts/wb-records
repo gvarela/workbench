@@ -7,9 +7,13 @@
 #   wb-records post <issue-id> <base64>             (strict RFC 4648, with padding)
 #   wb-records manifest <issue-id> <record-name> <sha256> [<sha256>...]
 #   wb-records read <issue-id> <record-name>
+#   wb-records put <issue-id> --file <path> | --escaped '<text>'   (any text as one comment, confirmed)
+#   wb-records have <issue-id> <comment-id>...                     (which comment ids exist)
+#   wb-records file --from <issue-id> --title '<title>' --file <path> | --escaped '<text>' [--type T] [--priority N] [--parent <id>]
+#   wb-records link <issue-id> <from-issue-id>                     (ensure the discovered-from link)
 #
 # Record names: "verification report", "defect ledger", "test integrity",
-# "phase verification". A posted text must start with "<record-name>:" or
+# "phase verification", "proof". A posted text must start with "<record-name>:" or
 # "<record-name> (i/n):"; only the manifest subcommand writes
 # "<record-name> manifest:" lines. Records are text: a NUL is refused.
 #
@@ -32,13 +36,21 @@
 # manifest reads as mismatch); with no manifest, missing or incomplete; a
 # bd failure or malformed JSON is status error. Read-only.
 #
+# put posts any text as one comment (a report, a one-line record) the same
+# way and confirms it by read-back in the same call; the caller's file is
+# left in place. have lists which of the given comment ids are on the issue.
+# file runs bd create with --deps discovered-from:<from> and the description
+# from a file, then confirms the link with bd dep list, adding it once with
+# bd dep add when it is not there: {"id", "from", "linked", "repaired",
+# "error"}. link does that last step for an existing issue.
+#
 # Integrity, not authorship: anything that can post bd comments as the user
 # can post a newer record. Output: one JSON object. Exit 0 whenever JSON is
 # printed; 2 on a usage error. Requires bash 3.2, awk, bd, and shasum,
 # sha256sum, or openssl.
 
 usage() {
-    sed -n '6,9p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,13p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
 }
 usage_msg() {
@@ -55,7 +67,7 @@ done
 MAX_TEXT_BYTES=49152
 MAX_JSON_BYTES=8388608
 MAX_B64_BYTES=65536
-RECORD_NAMES="verification report|defect ledger|test integrity|phase verification"
+RECORD_NAMES="verification report|defect ledger|test integrity|phase verification|proof"
 
 # ---------------------------------------------------------------- helpers
 json_str() {
@@ -566,6 +578,122 @@ cmd_read() {
         "$n_status" "$n_parts" "$(json_file "$WORK/newest.txt")" "$(json_str "$n_mid")" "$n_ids"
 }
 
+# ---------------------------------------------------------------- put, have
+# take_text <dest> --file <path> | --escaped '<text>': the text into <dest>.
+take_text() {
+    local dest="$1" how="${2:-}" arg="${3:-}"
+    case "$how" in
+        --file)
+            [ -n "$arg" ] && [ -f "$arg" ] && [ -r "$arg" ] || usage_msg "--file: not a readable file: $arg"
+            cat "$arg" > "$dest" || usage_msg "--file: cannot read $arg"
+            ;;
+        --escaped)
+            decode_escaped "$arg" "$dest" || usage_msg "--escaped text: only \\n, \\t, and \\\\ escapes are allowed, and no real newlines"
+            ;;
+        *) usage ;;
+    esac
+    has_nul "$dest" && usage_msg "the text contains a NUL byte (records are text)"
+    strip_trailing_newlines "$dest"
+    [ -s "$dest" ] || usage_msg "the text is empty"
+}
+
+# put: any text as one comment (a report, a single-line record), posted and
+# confirmed by read-back in the same call, so "posted" is never a guess.
+cmd_put() {
+    local issue="$1" file="$WORK/put.txt"
+    shift
+    valid_issue "$issue" || usage_msg "invalid issue id: $issue"
+    [ $# -eq 2 ] || usage
+    take_text "$file" "$1" "$2"
+    post_file "$issue" "$file" text
+}
+
+# have: which of the given comment ids are on the issue.
+cmd_have() {
+    local issue="$1" id present="" missing="" err=""
+    shift
+    valid_issue "$issue" || usage_msg "invalid issue id: $issue"
+    [ $# -ge 1 ] || usage
+    fetch_comments "$issue" || err="could not read the comments: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')"
+    for id in "$@"; do
+        if [ -z "$err" ] && cut -f2- "$WORK/c/index" | grep -Fxq -- "$id"; then
+            present="$present${present:+,}$(json_str "$id")"
+        else
+            missing="$missing${missing:+,}$(json_str "$id")"
+        fi
+    done
+    printf '{"present":[%s],"missing":[%s],"error":%s}\n' "$present" "$missing" "$(str_or_null "$err")"
+}
+
+# ---------------------------------------------------------------- file, link
+# has_link <issue> <from>: bd lists a discovered-from dependency on <from>.
+# An escaped quote inside a description (\"id\": \"x\") does not match.
+has_link() {
+    bd dep list "$1" --json -t discovered-from > "$WORK/deps.json" 2> "$WORK/bd.err" || return 2
+    grep -Eq "\"id\"[[:space:]]*:[[:space:]]*\"$2\"" "$WORK/deps.json"
+}
+
+# ensure_link <issue> <from>: sets LINKED and ADDED; LINK_ERR on failure.
+ensure_link() {
+    LINKED=false ADDED=false LINK_ERR=""
+    if has_link "$1" "$2"; then LINKED=true; return 0; fi
+    if ! bd dep add "$1" "$2" --type discovered-from > "$WORK/bd.out" 2> "$WORK/bd.err"; then
+        LINK_ERR="bd dep add failed: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')"
+        return 1
+    fi
+    if has_link "$1" "$2"; then LINKED=true ADDED=true; return 0; fi
+    LINK_ERR="the discovered-from link on $2 does not show after bd dep add"
+    return 1
+}
+
+# file: create an issue that carries its discovered-from link, and confirm
+# the link, so an issue filed this way cannot be left unlinked unnoticed.
+cmd_file() {
+    local from="" title="" type=task priority=2 parent="" how="" arg="" body="$WORK/body.txt" id="" err=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --from)     from="${2:-}"; shift ;;
+            --title)    title="${2:-}"; shift ;;
+            --type)     type="${2:-}"; shift ;;
+            --priority) priority="${2:-}"; shift ;;
+            --parent)   parent="${2:-}"; shift ;;
+            --file|--escaped) how="$1"; arg="${2:-}"; shift ;;
+            *) usage ;;
+        esac
+        shift
+    done
+    valid_issue "$from" || usage_msg "--from: an issue id is required"
+    [ -n "$title" ] || usage_msg "--title is required"
+    case "$title" in *$'\n'*) usage_msg "--title must be one line" ;; esac
+    case "$type" in ""|*[!a-z-]*) usage_msg "invalid --type: $type" ;; esac
+    case "$priority" in [0-4]) ;; *) usage_msg "invalid --priority: $priority" ;; esac
+    [ -z "$parent" ] || valid_issue "$parent" || usage_msg "invalid --parent: $parent"
+    [ -n "$how" ] || usage_msg "the description is required: --file <path> or --escaped '<text>'"
+    take_text "$body" "$how" "$arg"
+    set -- "$title" --silent --type "$type" --priority "$priority" --deps "discovered-from:$from" --body-file "$body"
+    [ -z "$parent" ] || set -- "$@" --parent "$parent"
+    if ! bd create "$@" > "$WORK/bd.out" 2> "$WORK/bd.err"; then
+        err="bd create failed: $(tail -n 5 "$WORK/bd.err" | tr '\n' ' ')"
+    else
+        id="$(tail -n 1 "$WORK/bd.out" | tr -d '[:space:]')"
+        valid_issue "$id" || { err="bd create printed no issue id"; id=""; }
+    fi
+    LINKED=false ADDED=false LINK_ERR=""
+    if [ -n "$id" ]; then
+        ensure_link "$id" "$from" || err="$LINK_ERR"
+    fi
+    printf '{"id":%s,"from":%s,"linked":%s,"repaired":%s,"error":%s}\n' \
+        "$(str_or_null "$id")" "$(json_str "$from")" "$LINKED" "$ADDED" "$(str_or_null "$err")"
+}
+
+# link: make sure <issue> has a discovered-from link on <from>.
+cmd_link() {
+    valid_issue "$1" || usage_msg "invalid issue id: $1"
+    valid_issue "$2" || usage_msg "invalid issue id: $2"
+    ensure_link "$1" "$2" || true
+    printf '{"linked":%s,"added":%s,"error":%s}\n' "$LINKED" "$ADDED" "$(str_or_null "$LINK_ERR")"
+}
+
 # ---------------------------------------------------------------- main
 [ $# -ge 1 ] || usage
 SUB="$1"
@@ -585,6 +713,10 @@ case "$SUB" in
     post)     [ $# -ge 2 ] || usage; cmd_post "$@" ;;
     manifest) [ $# -ge 3 ] || usage; cmd_manifest "$@" ;;
     read)     [ $# -eq 2 ] || usage; cmd_read "$@" ;;
+    put)      [ $# -ge 1 ] || usage; cmd_put "$@" ;;
+    have)     [ $# -ge 2 ] || usage; cmd_have "$@" ;;
+    file)     cmd_file "$@" ;;
+    link)     [ $# -eq 2 ] || usage; cmd_link "$@" ;;
     *)        usage ;;
 esac
 exit 0

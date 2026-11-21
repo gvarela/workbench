@@ -43,9 +43,13 @@ a reader who wasn't present.]
 
 - **Converged direction**: [name + what was explicitly approved, dated]
 - **Rationale**: [why this direction won, in terms of the discussion]
+- **Settled, by design layer** (what `/wb:create_design` takes as answered in each pass; write "nothing" for a layer the session did not touch):
+  - Product: [what a person sees and does, what success is, scope]
+  - Technical: [the approach, the architecture, what it relies on, how it runs in production]
+  - Program: [how the new parts are called, which patterns they follow]
 - **Rejected (with reasons)**: [each unchosen direction and why — these are
   explored options preserved per the thoughts/ convention, not failures]
-- **Deferred to design**: [questions intentionally left for /wb:create_design]
+- **Deferred to design**: [questions intentionally left for /wb:create_design, each with its layer]
 
 [If the session ended WITHOUT convergence: state that plainly here, list
 where the discussion stood, and leave the rest of the Synthesis fields out.]
@@ -84,6 +88,7 @@ If Step 1 found an **existing open** `Decide:` issue for this same decision (fra
 bd close [issue-id] \
   --reason "Chosen: [direction name] — [one-line thesis].
 Rationale: [why it won, cold-readable].
+Settled by layer: product: [one clause, or nothing]; technical: [...]; program: [...].
 Rejected: [unchosen directions, one clause each].
 Exploration: [relative thoughts path(s), e.g. docs/plans/YYYY-MM-DD-project/thoughts/YYYY-MM-DD-topic.md]"
 ```
@@ -91,6 +96,7 @@ Exploration: [relative thoughts path(s), e.g. docs/plans/YYYY-MM-DD-project/thou
 Requirements for the close reason (this is what `/wb:create_design` reads cold):
 
 - **Chosen direction + rationale** must stand alone — sensible without the conversation
+- **Settled by layer** tells each of create_design's passes what it need not ask again; the detail is in the thoughts doc's Synthesis
 - **Thoughts path(s)** must be repo-relative so a fresh session can read them
 - Keep it a summary — depth lives in the thoughts doc's Synthesis section
 
