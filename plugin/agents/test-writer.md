@@ -69,6 +69,10 @@ The task's description, read with `bd show`, carries an `Outer test rewrite:` li
 
 Plant defects only with `wb-plant-defect`, as "Planted defects" in [non-interactive-shell.md](../docs/reference/non-interactive-shell.md) describes, with `--id <task>-tw` and the red-commit version run through `--test-file <outer test file>=@<red commit>`. Never plant one any other way: no edit to the working tree, no copy, no monkeypatch. If the runner is not available, report the differential as not run with that reason; your caller then takes the rewrite to the person.
 
+## Before you report
+
+Run the repository's check commands (the Checks section of `.claude/wb/profile.md` when it has one, otherwise your prompt or the conventions) on every test file you wrote or changed, and fix what they report in your own lines. An outer test must be clean before its red commit: once it is committed, even a style fix is a change to an approved test and has to be proven. Where a file fails on lines you did not write, leave them and say so in the report's Conventions field (`lint: <file> fails on lines not mine`). When no check command is known, say `lint: no command known`.
+
 ## Report
 
 One report per criterion (per request, in request mode), with exactly these fields:

@@ -437,11 +437,29 @@ printf 't:\n\techo hi\n' > tests/sub.mk
 printf "const b = require('b');\nimport x from 'x';\nimport {y} from 'y';\n\ntest('t', () => { expect(x).toBe(b); });\n" > tests/sample.test.js
 printf 'package calc\n\nimport (\n\t"os"\n\t"fmt"\n)\n\nfunc TestX(t *testing.T) { _ = os.Args; fmt.Println() }\n' > tests/calc_test.go
 printf "require 'b'\nrequire_relative 'a'\n\nclass T < Minitest::Test\n  def test_x; assert true; end\nend\n" > tests/test_r.rb
+# lint directives: start state
+printf "require 'rails_helper'\n\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2)\n  end\nend\n" > tests/lint_trailing_spec.rb
+printf "require 'rails_helper'\n\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2)\n  end\nend\n" > tests/lint_block_spec.rb
+printf "test('t', () => {\n  console.log(1);\n  expect(1).toBe(1);\n});\n" > tests/lint_next.test.js
+printf 'def test_l():\n    x = f()\n    assert x == 1\n' > tests/test_lint_noqa.py
+printf "require 'rails_helper'\n\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2)\n  end\nend\n" > tests/lint_code_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    expect(s).to eq(\"v # noqa: 1\")\n  end\nend\n" > tests/lint_str_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    expect(s).to eq(<<~TXT)\n      line one\n    TXT\n  end\nend\n" > tests/lint_heredoc_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2)\n  end\nend\n" > tests/lint_note_spec.rb
 git add -A && git commit -q -m start
 START_M="$(git rev-parse HEAD)"
 # committed after the start: a pure import reorder
 printf 'import b\nimport a\n' > tests/test_committed.py
 git add -A && git commit -q -m 'reorder imports'
+# lint directives: working-tree changes
+printf "require 'rails_helper'\n\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2) # rubocop:disable Style/Foo\n  end\nend\n" > tests/lint_trailing_spec.rb
+printf "require 'rails_helper'\n\n# rubocop:disable RSpec/ExampleLength\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(2)\n  end\nend\n# rubocop:enable RSpec/ExampleLength\n" > tests/lint_block_spec.rb
+printf "test('t', () => {\n  // eslint-disable-next-line no-console\n  console.log(1);\n  expect(1).toBe(1);\n});\n" > tests/lint_next.test.js
+printf 'def test_l():\n    x = f()  # noqa: E501\n    assert x == 1\n' > tests/test_lint_noqa.py
+printf "require 'rails_helper'\n\nRSpec.describe X do\n  it 'a' do\n    expect(f(1)).to eq(3) # rubocop:disable Style/Foo\n  end\nend\n" > tests/lint_code_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    expect(s).to eq(\"v # noqa: 2\")\n  end\nend\n" > tests/lint_str_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    expect(s).to eq(<<~TXT)\n      line one\n      # rubocop:disable Style/Foo\n    TXT\n  end\nend\n" > tests/lint_heredoc_spec.rb
+printf "RSpec.describe X do\n  it 'a' do\n    # this used to check 2\n    expect(f(1)).to eq(2)\n  end\nend\n" > tests/lint_note_spec.rb
 # working-tree changes
 printf 'import sys\nimport os\n\n\ndef test_a():\n    assert os and sys\n' > tests/test_reorder.py
 printf 'def test_b():\n\n    x = 1   \n    assert x == 1\n\n' > tests/test_ws.py
@@ -520,6 +538,14 @@ check "$OUT_M" "$(mech_of tests/mid_spec.rb) is None" "mechanical: a comment cha
 check "$OUT_M" "$(mech_of tests/lead_spec.rb) is None" "mechanical: a new leading line that is code is not mechanical"
 check "$OUT_M" "$(mech_of tests/magic_spec.rb) is None" "mechanical: a changed magic comment (frozen_string_literal) is not mechanical"
 check "$OUT_M" "$(mech_of tests/eof2.test.js)==\"whitespace\"" "mechanical: a final-newline change after an ordinary line is whitespace"
+check "$OUT_M" "$(mech_of tests/lint_trailing_spec.rb)==\"lint-directive\"" "mechanical: a lint directive added at the end of a line is lint-directive"
+check "$OUT_M" "$(mech_of tests/lint_block_spec.rb)==\"lint-directive\"" "mechanical: disable and enable lines around a block are lint-directive"
+check "$OUT_M" "$(mech_of tests/lint_next.test.js)==\"lint-directive\"" "mechanical: an eslint-disable-next-line comment is lint-directive"
+check "$OUT_M" "$(mech_of tests/test_lint_noqa.py)==\"lint-directive\"" "mechanical: a Python noqa comment is lint-directive"
+check "$OUT_M" "$(mech_of tests/lint_code_spec.rb) is None" "mechanical: a lint directive plus a changed expectation is not mechanical"
+check "$OUT_M" "$(mech_of tests/lint_str_spec.rb) is None" "mechanical: a changed string that looks like a lint directive is not mechanical"
+check "$OUT_M" "$(mech_of tests/lint_heredoc_spec.rb) is None" "mechanical: directive text added inside a heredoc is not mechanical"
+check "$OUT_M" "$(mech_of tests/lint_note_spec.rb) is None" "mechanical: an ordinary comment added among the code is not mechanical"
 check "$OUT_M" "$(mech_of tests/data.yml) is None" "mechanical: a YAML indentation change is not mechanical"
 check "$OUT_M" "$(mech_of tests/data2.yml)==\"whitespace\"" "mechanical: YAML trailing whitespace only is whitespace"
 check "$OUT_M" "$(mech_of tests/Makefile) is None" "mechanical: a Makefile indentation change is not mechanical"
@@ -538,7 +564,7 @@ check "$OUT_M" "$(mech_of tests/test_renamed.py) is None" "mechanical: a renamed
 check "$OUT_M" "$(mech_of tests/test_gone.py) is None" "mechanical: a deleted file is not mechanical"
 check "$OUT_M" "$(mech_of tests/test_brand_new.py) is None" "mechanical: a new file is not mechanical"
 check "$OUT_M" "$(mech_of tests/test_mode.py) is None" "mechanical: a mode-only change is not mechanical"
-MECH_LIST='["tests/AppTest.java","tests/T.cs","tests/calc_test.go","tests/data2.yml","tests/eof2.test.js","tests/indent.test.js","tests/sample.test.js","tests/sub.mk","tests/t.rs","tests/test_committed.py","tests/test_crlf.py","tests/test_from.py","tests/test_reorder.py","tests/test_ws.py","tests/user_spec.rb"]'
+MECH_LIST='["tests/AppTest.java","tests/T.cs","tests/calc_test.go","tests/data2.yml","tests/eof2.test.js","tests/indent.test.js","tests/lint_block_spec.rb","tests/lint_next.test.js","tests/lint_trailing_spec.rb","tests/sample.test.js","tests/sub.mk","tests/t.rs","tests/test_committed.py","tests/test_crlf.py","tests/test_from.py","tests/test_lint_noqa.py","tests/test_reorder.py","tests/test_ws.py","tests/user_spec.rb"]'
 check "$OUT_M" "sorted(d[\"mechanical_changes\"])==$MECH_LIST" "mechanical: mechanical_changes lists exactly the mechanical paths"
 check "$OUT_M" '"tests/test_reorder.py" in d["undeclared_changes"] and "tests/test_ws.py" in d["undeclared_changes"] and d["cleared_mechanical"] is None' "mechanical: without --allow-mechanical, mechanical changes stay undeclared (cleared_mechanical null)"
 OUT_MA="$(run --start "$START_M" --declared-path tests/test_real.py --allow-mechanical)"

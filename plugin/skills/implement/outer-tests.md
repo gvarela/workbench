@@ -10,7 +10,7 @@ An outer test is the plan's check of its criterion, committed red before the cod
 
 1. The criterion's text in design.md is unchanged.
 2. Nothing the red-commit version caught is lost, shown one of three ways:
-   - **mechanical**: the integrity script proves the change is a reflow, an import re-sort, or whitespace;
+   - **mechanical**: the integrity script proves the change is a reflow, an import re-sort, whitespace, or lint directive comments only (`# rubocop:disable ...`, `// eslint-disable-next-line ...`, `# noqa`), which no test runner reads;
    - **name only**: only identifier references in code positions changed, for a rename design.md states. An occurrence in a string, selector, route, snapshot, expected value, assertion message, or user-facing copy is not name only;
    - **differential**: every case the red-commit version caught is still caught, run on `wb-plant-defect` or a recognized mutation tool that runs both versions.
 3. Every added assertion checks what the criterion's statement or one of its examples already states.

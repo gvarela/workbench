@@ -101,7 +101,7 @@ What this means for you:
 | File | Written by | Purpose |
 | ------ | ------------ | --------- |
 | `.claude/wb/testing.md` | `/wb:testing-profile`, on your confirmation | Test commands, levels, seams, your choices, and how to run the product for proof |
-| `.claude/wb/profile.md` | `/wb:create_design`, on your yes | Guidelines for when written rules and existing code disagree |
+| `.claude/wb/profile.md` | `/wb:create_design` and `/wb:implement`, on your yes | Guidelines for when written rules and existing code disagree, and the format and lint commands CI runs on changed files |
 | README `## Existing Material` | `create_project`, extended by design and exploration | Where designs, mockups, and earlier decisions for the plan live |
 | design.md `design_layers` | `create_design` | Which design passes are open, closed, or skipped |
 | Comments on beads issues | every agent | Test-writer reports, worker reports, verification reports, defect ledgers, proof |

@@ -17,6 +17,7 @@ Write tests for this task. Mode: ${outer | task | request | rewrite}
 - Task ID: ${taskId}
 - Plan directory: ${planDir}  (its research.md, design.md, and tasks.md)
 - Test command: ${testCommand}
+- Check commands: ${the format and lint commands for changed files, or "none known"}
 - Earlier test-writer reports for this task: in the task's comments
 ${outer:   "- Criteria: " + each criterion id with its target test file}
 ${request: "- The worker's request, verbatim:\n" + the worker's needs test: block}

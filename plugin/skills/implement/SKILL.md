@@ -48,6 +48,8 @@ Before the first task, put to the person together, as "Pending decisions" in [wr
 
 These are not halts: run the tasks they do not touch while they wait. When `.claude/wb/testing.md` does not exist, suggest `/wb:testing-profile`, because without it the test command is a guess.
 
+**Checks.** Lint and format are backpressure, like the build: cheap, deterministic, and run before anything expensive. Take the commands from the Checks section of `.claude/wb/profile.md`; when it has none, take them from research's conventions and the CI configuration, tell the person which you will use, and offer to record them there, writing only on their yes. Pass them to every worker and test-writer in the context package.
+
 ## Step 2: Check Beads
 
 ```bash
@@ -66,19 +68,20 @@ Beads not initialized, or the epic not resolving: follow [beads-not-initialized.
 
 Before the phase's first task, record `git rev-parse HEAD` as the phase's starting commit. Then, for each task `bd ready` lists, in order:
 
-1. **Take the task.** `bd show [task-id]`. An outer test step (a `phaseN_outer_n` key in the frontmatter) is not a task for a worker: item 4 writes its test and closes it as part of the implementation task it blocks.
+1. **Take the task.** `bd show [task-id]`. An outer test step (a `phaseN_outer_n` key in the frontmatter) is not a task for a worker: item 5 writes its test and closes it as part of the implementation task it blocks.
 2. **Size it.** Estimate the worker's tool calls: reads of files it must not break (4 to 8), discovery (3 to 6, or none when the package names the files), edits (4 to 10), suite runs (3 to 5), finishing (3 to 5). A subagent stops near 70 calls, and what is cut is the tail. A task projecting past about 50 is split at its natural seam into separate beads issues before any spawn.
 3. **Pick the model and record the starting commit.** Haiku for mechanical changes (configuration, docs, renames), Sonnet for standard implementation and the default, Opus for architectural or cross-cutting tasks, Fable never as a first spawn. Then `git rev-parse HEAD`, before any test or code work, as the task's starting commit; the verifier diffs against it.
-4. **Tests first.** Read the "Test-Writer Prompts" in [sub-agent-prompts.md](sub-agent-prompts.md).
+4. **Lint what the task will touch.** When CI checks whole files, run the lint command on the existing files the task names and on the test files its outer tests will go into. A file that already fails gets a commit of its own first, `Structural: lint <file>`, made by a worker told to change style and nothing else. Take the task's starting commit again after that commit, so the style change stays out of the task's diff. For a test file, read the integrity script's result on that change: mechanical is fine, and anything else on a file that holds an earlier criterion's outer test is a rewrite ([outer-tests.md](outer-tests.md)).
+5. **Tests first.** Read the "Test-Writer Prompts" in [sub-agent-prompts.md](sub-agent-prompts.md).
    - **Outer tests**: for each criterion the task cites that has no `red(AC-n)` commit, spawn `wb:test-writer` in outer mode (criteria that share a test file go one per spawn, because a commit takes the whole file). When its blocks return, run the test files once and confirm each fails with a valid red (on an assertion, or because code this plan creates does not exist yet: "Outer Tests on Code That Does Not Exist Yet" in [outer-tests.md](outer-tests.md); no stub is written for it), commit each test alone as `red(AC-n): <criterion title>`, and close each outer step with its red record ("Red record" in [records.md](records.md)). A block that is blocked, or a failure that is not an assertion, commits nothing: an import or setup error proves nothing about the behavior ("Unfinished Worker" in [failures.md](failures.md); for a class that does not exist yet, "Stub Files Route" in [outer-tests.md](outer-tests.md)).
    - **The task's own tests**: spawn `wb:test-writer` in task mode. It writes the tests the task's description and criteria call for beyond the outer tests, shows each failing on an assertion, and posts a report; or it reports that the outer tests already pin everything the task changes. These tests stay uncommitted with the task.
-5. **Spawn the worker** from the "Worker Prompt" with the chosen model. It reads its task and criteria itself.
-6. **When the worker returns:**
+6. **Spawn the worker** from the "Worker Prompt" with the chosen model. It reads its task and criteria itself.
+7. **When the worker returns:**
    - **`needs test:`** in its block: it needs a test it does not have. Spawn `wb:test-writer` in request mode with that block, then continue the same worker with the test-writer's returned block (or spawn a fresh worker, which reads the reports from the task's comments).
    - **Task still `in_progress`** with no such block: "Unfinished Worker" in [failures.md](failures.md).
    - **Task closed**: check the comment ids the worker's and test-writers' blocks name, in one call: `<plugin scripts>/wb-records have [task-id] <comment ids>`. Post a missing report from what the agent returned, verbatim, with `wb-records put`; when it returned none, continue that agent and ask for it. This is bookkeeping, never a stop. Never write a report for an agent: a report written after the change is not the record of who made it.
-7. **Verify.** Take the tree fingerprint, spawn `wb:task-verifier` from the "Verifier Prompt" with no `model` parameter, and take the fingerprint again when it returns ("Tree fingerprints" in [records.md](records.md)); a difference voids that verification, and you run it again.
-8. **Act on the verdict.** The verdict is the returned block's status heading: three hashes, `Status:`, then PASS or FAIL. A block with both, or neither, is a FAIL.
+8. **Verify.** First run the lint and format commands on the task's changed files yourself. A failure goes back to whoever wrote the file, the worker or the test-writer, before any verifier runs: a verification is too expensive to spend on style, and nothing may reformat the tree once it is fingerprinted. Then take the tree fingerprint, spawn `wb:task-verifier` from the "Verifier Prompt" with no `model` parameter, and take the fingerprint again when it returns ("Tree fingerprints" in [records.md](records.md)); a difference voids that verification, and you run it again.
+9. **Act on the verdict.** The verdict is the returned block's status heading: three hashes, `Status:`, then PASS or FAIL. A block with both, or neither, is a FAIL.
    - **PASS**: commit the task's files in one commit whose message names the task and its beads id. File each item on the block's Follow-ups line with `wb-records file --from [task-id]`, and repair each item on its Record gaps line with `wb-records link`. Then the next task.
    - **FAIL**: "Failed Verification" in [failures.md](failures.md). One automatic fix, then the judge.
 

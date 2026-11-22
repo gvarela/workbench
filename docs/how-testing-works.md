@@ -238,6 +238,17 @@ A finding gets a verdict of Remove, Rewrite, or Consolidate, and a hard verdict 
 - **A Choice bounds the findings.** A reviewer leaves out a finding that only repeats an absence a Choice records. A Choice never clears a deterministic failure.
 - **When a written rule and the existing tests disagree**, the rule wins for a new test and the old tests are left alone. See "Conflicting guidance" in the plugin's rules reference.
 
+## Where lint fits
+
+Lint is not test quality. A style violation does not make a test any less able to fail. It is a conformance check, like the build: deterministic, cheap, and run before anything expensive.
+
+- **At writing.** The test-writer and the worker run the repository's format and lint commands on the files they touch before they report. An outer test is therefore clean when it is committed red.
+- **Before each verification.** The coordinator runs them on the task's changed files and sends a failure back to its author. Nothing reformats the tree once it is fingerprinted.
+- **Before a task touches a file that already fails.** When CI checks whole files, that file gets its own `Structural: lint <file>` commit first.
+- **At the checkpoint**, with the build and the type check.
+
+The two concerns are kept apart on purpose. A style fix that lands after a red commit looks like someone altering an approved test, and proving it harmless can cost a full differential. The integrity script clears a change that is only whitespace, an import re-sort, or lint directive comments, as a safety net. The commands live in the `## Checks` section of `.claude/wb/profile.md`.
+
 ## Auditing tests you already have
 
 `/wb:test-audit [scope] [N | full]` reviews an existing suite cold, with no plan.

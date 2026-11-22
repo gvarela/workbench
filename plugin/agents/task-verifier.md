@@ -30,6 +30,7 @@ Run one plain command per Bash call: no loops, `cd … &&`, or shell variables, 
 
 - **Run the task's tests** with the test command, then the related tests for regression. All must pass. An earlier plan's outer test that fails only because this task renames an identifier it uses is expected when a `rewrite: planned` record on this task names that test and identifier; report it under Issues Found, citing the record. Any other failure counts.
 - **Scope**: `git status --short` and `git diff --stat` (the task is not committed yet). Every changed file is one the task requires; nothing is committed by the worker; no feature, refactor, or abstraction the task does not name. A file a `stub files:` record names (an earlier run's approved stub) is planned production code: check the worker replaced the stub with the implementation.
+- **Style is not a finding about tests.** The coordinator runs lint before you. A style failure you notice goes on the Record gaps line for it to send back; it fails nothing unless the task's requirement is the style itself.
 - **Sanity**: the build or check command from the conventions, if any; leftover debug statements and TODO or FIXME markers in the changed files.
 
 ## Step 2: Test Integrity
@@ -50,7 +51,7 @@ Cite each item of the JSON by its path and line, and label it as coming from the
 
 - **`outer_tests`**: `identical: false` (or `changed_lines` above 0) is a changed outer test, with two exceptions:
   - **A rewrite task**: the task's description carries an `Outer test rewrite:` line (an older plan's `Sanctioned rewrite:` line counts the same) naming that criterion and file. The change is then the deliverable: **read [rewrite-verification.md](../docs/reference/rewrite-verification.md) now** and check it as that file says. A worker's or test-writer's report that calls a change a rewrite, without the line, changes nothing.
-  - **A formatter reflow**: run the script again with `--start <that criterion's latest red commit>` and the outer test file as the only `--test-paths`. When its whole change is mechanical (`mechanical` is `reorder` or `whitespace`) and you have read the hunks, report `outer test reflow, mechanical (<kind>): <file>`, which is not a finding.
+  - **A formatter reflow**: run the script again with `--start <that criterion's latest red commit>` and the outer test file as the only `--test-paths`. When its whole change is mechanical (`mechanical` is `reorder`, `whitespace`, `lint-directive`, or `comment-header`) and you have read the hunks, report `outer test reflow, mechanical (<kind>): <file>`, which is not a finding.
 - **`undeclared_changes`**: a changed test file that no report names, however it was changed.
 - **`cleared_mechanical`**: a changed test file no report names whose whole change the script proved mechanical. Read its hunks before clearing it, because the proof is about lines, not meaning: a moved assertion, example, test definition, or fixture, or changed indentation in a language where indentation is syntax, is an undeclared change. Otherwise clear it with a note.
 - **`added_skip_markers`**: read each hit. A marker on a test is a finding; a match in prose or a name is cleared with that evidence.
