@@ -133,7 +133,7 @@ The script decides nothing. The verifier reads its output and fails the task for
 - one control per target, to show the runner itself works;
 - never in the working tree, which the coordinator commits as it stands.
 
-A test that claims to guard a criterion and survives a break of that criterion fails the task. A survivor outside the criterion's statement and examples is filed as a follow-up: the gate checks that tests protect what you approved, not every behavior the code has.
+One test owns each behavior. A criterion's outer test that survives a break of the criterion fails the task, and so does any test that survives the break its own report says it catches. A lower-level test that misses a break the outer test catches is not a failure: the criterion is protected, and repeating the same check at every layer adds upkeep without safety. A survivor outside the criterion's statement and examples is filed as a follow-up: the gate checks that tests protect what you approved, not every behavior the code has. At a checkpoint each test gap gets one fix and one confirming review of that fix; anything new the second look turns up is a follow-up, not another round.
 
 **Always a failure**, whatever else is true, because each is how a test gets bent to pass:
 

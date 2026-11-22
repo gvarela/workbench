@@ -104,6 +104,7 @@ Review the tests Phase ${phase} changed.
 - Phase tasks: ${phaseTaskIds}  (read each verifier's Test Integrity and Defect ledger records from them)
 - Conventions: ${conventionsSource}; test paths: ${testPaths}; test command: ${testCommand}
 ${for a settling review: "Candidates: " + each candidate's location, rubric item, and proposed verdict}
+${after gap fixes: "Confirm: " + each fixed gap's kind, location, and the defect or evidence the first review gave}
 ```
 
 ## Phase Verifier Prompt (Step 5)

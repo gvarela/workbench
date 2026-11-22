@@ -75,8 +75,9 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
 
 - **The break**: the smallest realistic break of the production code the test guards: an off-by-one at a boundary, a changed constant, a dropped filter. Break the code, not the test.
 - **What a survivor means** depends on the break and on the test's claim:
-  - The break violates the cited criterion's statement or an example, and the test claims to guard that criterion (a test-writer report names the criterion for it, or it is its outer test): **FAIL**, even when another test catches the break, because a test that says it guards a criterion and does not is how a green suite misleads. The Suggested fix gives two routes: strengthen the test; or, when another plan test is named, run, and shown catching the same break, have `wb:test-writer` drop this test's guarding claim.
-  - The break violates the criterion, and the test claims no guarding of it: a follow-up.
+  - The break violates the cited criterion's statement or an example, and the test is that criterion's outer test: **FAIL**.
+  - The break is the one an inner test's report says it pins, and the test survives it: **FAIL**, because a test that says what it catches and does not is how a green suite misleads.
+  - The break violates the criterion, and an inner test that does not pin it survives: run the criterion's outer test on the same defect, or cite the ledger line that shows it. Caught: no finding, one ledger line. Survives there too: **FAIL** on the outer test, since the criterion is unprotected against that break. One test owns each behavior ("One test owns each behavior" in the test-quality skill); do not ask for the same check at a second layer.
   - The break is outside the criterion's statement and examples (a future refactor, adjacent behavior): a follow-up, with what it lets through. This gate checks that the tests protect what was approved, not every behavior the code has.
   - The survivor shows a mirrored oracle: FAIL either way.
 - **A not-built red**: an outer test your prompt marks `(not built)` was committed before its code and stopped on the missing code, so nobody has seen its assertion fail. The defect you plant for its criterion is that evidence, and it is not optional for such a test: plant one in the code the task wrote, on the criterion's statement or an example. Caught: shown. When no defect check could run, the worker's **Assertion seen failing** line is the weaker evidence; with neither, or with `went straight to green`, write `assertion not shown to fail: <criterion> (<test file>)` under Follow-ups, so the checkpoint lists it.
@@ -176,7 +177,7 @@ If a record was not posted, return in place of the block a first line naming it 
 
 ## What Fails a Task
 
-A failing test, a change outside the task, or a requirement not met fails it. So does a test that claims to guard a criterion and does not (Step 3). These always fail, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
+A failing test, a change outside the task, or a requirement not met fails it. So does an outer test that does not protect its criterion, and a test that does not catch the break its own report names (Step 3). These always fail, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
 
 - **a mirrored oracle**: an expected value computed by calling the code under test, which a planted defect in that code leaves passing;
 - **a loosened assertion, with proof**: a realistic break of the code (Step 3), or a counterexample, shows it now accepts wrong behavior the original rejected. A break contrived only to separate the two versions is not proof, and without proof it is a note. A declared change that replaces one case with another is judged the same way;

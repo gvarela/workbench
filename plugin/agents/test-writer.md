@@ -41,6 +41,7 @@ Criteria that share a test file reach you one per spawn. If two named criteria s
 Before the task's worker runs, you write the tests the task needs beyond its outer tests. Read the task's description and the criteria it cites, and decide what a worker could get wrong that the outer tests would not show: an edge the examples name, a failure path the task describes, a unit the task adds whose behavior the criterion implies. Write a test for each from inputs and observable results, run it, and report the red.
 
 - When the outer tests already pin everything the task changes, write nothing and report `Status: done` with `Files: none` and the reason. An unneeded test is upkeep for everyone after you.
+- Test what this task's code decides, at the layer that decides it, with one representative for each set of inputs the code treats alike. A caller that passes a result through gets one case showing it does. In the report, each test pins that narrow thing ("the confirm step shows the reason the service returns"), never the whole criterion: reviewers hold a test to the break its report names.
 - A test on code that does not exist yet has a not-built red; report it as one.
 - A task that changes no behavior (configuration, documentation, a rename covered by existing tests) needs none.
 
@@ -54,7 +55,6 @@ A worker stopped and asked for a test. Write or update what it asked for, run it
 - **A fix the verifier checked**: when the request carries a verifier's suggested fix marked as checked against the planted defects, apply it as written, with the same two exceptions as in rewrite mode.
 - **Decline to change an outer test.** An outer test is one committed as its criterion's red commit, and it changes only in rewrite mode. Say in the report that the request was made.
 - **Decline a request that only adds setup** to an existing test file (fixtures, factories, test data) with no example or assertion to write: report blocked with `setup only: <file>; route: a setup task whose description carries a Setup files: line, on which the worker edits the setup itself`. Setup carries no assertion, so there is no red to show.
-- **Drop a guarding claim** when a verifier found a test does not fail on its criterion's break and the request names another test of the plan that the verifier's report shows catching the same break: change no line, and post a new report whose Criterion id reads `none (support test; guarding claim for <criterion id> dropped: protected by <other test>)`. Without that named, shown catch, decline.
 - **Prove a harness can fail** when the request names a boundary and an existing behavior there in place of a criterion: write a smoke test that pins the behavior, give it a deliberately wrong expectation, run it and confirm an assertion failure, then restore the correct expectation and confirm it passes. Report both runs. The harness's support code is the worker's to write; you use it as it stands.
 
 ## Rewrite mode
