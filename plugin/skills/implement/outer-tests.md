@@ -10,7 +10,7 @@ An outer test is the plan's check of its criterion, committed red before the cod
 
 1. The criterion's text in design.md is unchanged.
 2. Nothing the red-commit version caught is lost, shown one of three ways:
-   - **mechanical**: the integrity script proves the change is a reflow, an import re-sort, or whitespace;
+   - **mechanical**: the integrity script proves the change is a reflow, an import re-sort, whitespace, or lint directive comments only (`# rubocop:disable ...`, `// eslint-disable-next-line ...`, `# noqa`), which no test runner reads;
    - **name only**: only identifier references in code positions changed, for a rename design.md states. An occurrence in a string, selector, route, snapshot, expected value, assertion message, or user-facing copy is not name only;
    - **differential**: every case the red-commit version caught is still caught, run on `wb-plant-defect` or a recognized mutation tool that runs both versions.
 3. Every added assertion checks what the criterion's statement or one of its examples already states.
@@ -36,14 +36,15 @@ A judgment-only proposal ("review these", a Rewrite no planted defect or detecto
    - **Cases**: one planted defect for each case the red-commit version catches (every branch, pattern alternative, call form, input shape, and table row of its predicate or assertion, on shapes present in the repository or named in the criterion's examples), and one for the gap. Both versions run against each.
    - **The bar**: the rewrite fails on every one. The red-commit version is expected to pass on the gap's defect, since that miss is why the rewrite exists.
    - **Shapes outside the repository and the examples** are not cases. The test-writer lists each in its report with the search that shows the shape is absent, and the verifier repeats the search.
-   - **The suggested fix** is a starting point, not the specification: where following it would stop catching something the original catches, the rewrite keeps the original's case and adds the gap.
-3. **Verify** with `wb:task-verifier` as for any task. It reads [rewrite-verification.md](../../docs/reference/rewrite-verification.md) and its returned block's Outer tests line says `rewrite proven (<file>; mechanical | name only | differential, <n> of <n> caught)` or `rewrite not proven (<file>; <what was not shown>)`.
+   - **The suggested fix**: copy it into the task description and the test-writer's prompt word for word from the verifier's block, with its Class-fix evidence line. A fix that line shows was checked against the planted defects is the specification, applied as written: paraphrased or applied in part, it closes one instance and the next verification finds the next. A fix marked not checked is a starting point. Either way, where following it would stop catching something the original catches, the rewrite keeps the original's case.
+3. **Verify** with `wb:task-verifier` as for any task. When the rewrite began from a task's failed verification, and that report says `Production code: correct` (or `no production change`) and every failing finding is in this outer test, add the prompt's `Also re-verify: <that task>` line. The same run then checks that task again on the evidence it has just produced, so a second verifier does not plant the same defects on the same code minutes later. It reads [rewrite-verification.md](../../docs/reference/rewrite-verification.md) and its returned block's Outer tests line says `rewrite proven (<file>; mechanical | name only | differential, <n> of <n> caught)` or `rewrite not proven (<file>; <what was not shown>)`.
 
 ### When the proof holds
 
 1. Post the record: `<plugin scripts>/wb-records put <task-id> --escaped 'rewrite: AC-n <outer test file>; reason: <reason>; proof: <the Outer tests line>; report <the verification report manifest's comment id>'`.
 2. Commit the rewritten test on its own as `red(AC-n): <criterion title> (rewrite: <reason>)`, with the task's beads id on a second message line. That commit is the criterion's baseline from then on: every reader that finds a criterion's red commit by title takes the latest one.
 3. List it under "Decisions I made for you" in the next report: what the test now catches that it did not, the proof in one clause, and the undo (`git revert <sha>`).
+4. For a task named on an `Also re-verify:` line, read the returned block's `Also re-verified:` line. `PASS` with a manifest means that task has a passing verification report of its own: commit it after the rewrite's commit, with no further verifier run. Anything else (`not done`, with its reason) means its production code changed or a check of its own failed: re-verify it as usual.
 
 A formatter reflow inside an ordinary task needs no rewrite task: when that task's verifier passes with `outer test reflow, mechanical (<kind>)` in its Test Integrity section, commit the outer test file alone first, as `red(AC-n): <criterion title> (rewrite: reflow)`, then the task's other files.
 

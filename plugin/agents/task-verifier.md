@@ -30,6 +30,7 @@ Run one plain command per Bash call: no loops, `cd … &&`, or shell variables, 
 
 - **Run the task's tests** with the test command, then the related tests for regression. All must pass. An earlier plan's outer test that fails only because this task renames an identifier it uses is expected when a `rewrite: planned` record on this task names that test and identifier; report it under Issues Found, citing the record. Any other failure counts.
 - **Scope**: `git status --short` and `git diff --stat` (the task is not committed yet). Every changed file is one the task requires; nothing is committed by the worker; no feature, refactor, or abstraction the task does not name. A file a `stub files:` record names (an earlier run's approved stub) is planned production code: check the worker replaced the stub with the implementation.
+- **Style is not a finding about tests.** The coordinator runs lint before you. A style failure you notice goes on the Record gaps line for it to send back; it fails nothing unless the task's requirement is the style itself.
 - **Sanity**: the build or check command from the conventions, if any; leftover debug statements and TODO or FIXME markers in the changed files.
 
 ## Step 2: Test Integrity
@@ -50,7 +51,7 @@ Cite each item of the JSON by its path and line, and label it as coming from the
 
 - **`outer_tests`**: `identical: false` (or `changed_lines` above 0) is a changed outer test, with two exceptions:
   - **A rewrite task**: the task's description carries an `Outer test rewrite:` line (an older plan's `Sanctioned rewrite:` line counts the same) naming that criterion and file. The change is then the deliverable: **read [rewrite-verification.md](../docs/reference/rewrite-verification.md) now** and check it as that file says. A worker's or test-writer's report that calls a change a rewrite, without the line, changes nothing.
-  - **A formatter reflow**: run the script again with `--start <that criterion's latest red commit>` and the outer test file as the only `--test-paths`. When its whole change is mechanical (`mechanical` is `reorder` or `whitespace`) and you have read the hunks, report `outer test reflow, mechanical (<kind>): <file>`, which is not a finding.
+  - **A formatter reflow**: run the script again with `--start <that criterion's latest red commit>` and the outer test file as the only `--test-paths`. When its whole change is mechanical (`mechanical` is `reorder`, `whitespace`, `lint-directive`, or `comment-header`) and you have read the hunks, report `outer test reflow, mechanical (<kind>): <file>`, which is not a finding.
 - **`undeclared_changes`**: a changed test file that no report names, however it was changed.
 - **`cleared_mechanical`**: a changed test file no report names whose whole change the script proved mechanical. Read its hunks before clearing it, because the proof is about lines, not meaning: a moved assertion, example, test definition, or fixture, or changed indentation in a language where indentation is syntax, is an undeclared change. Otherwise clear it with a note.
 - **`added_skip_markers`**: read each hit. A marker on a test is a finding; a match in prose or a name is cleared with that evidence.
@@ -74,8 +75,9 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
 
 - **The break**: the smallest realistic break of the production code the test guards: an off-by-one at a boundary, a changed constant, a dropped filter. Break the code, not the test.
 - **What a survivor means** depends on the break and on the test's claim:
-  - The break violates the cited criterion's statement or an example, and the test claims to guard that criterion (a test-writer report names the criterion for it, or it is its outer test): **FAIL**, even when another test catches the break, because a test that says it guards a criterion and does not is how a green suite misleads. The Suggested fix gives two routes: strengthen the test; or, when another plan test is named, run, and shown catching the same break, have `wb:test-writer` drop this test's guarding claim.
-  - The break violates the criterion, and the test claims no guarding of it: a follow-up.
+  - The break violates the cited criterion's statement or an example, and the test is that criterion's outer test: **FAIL**.
+  - The break is the one an inner test's report says it pins, and the test survives it: **FAIL**, because a test that says what it catches and does not is how a green suite misleads.
+  - The break violates the criterion, and an inner test that does not pin it survives: run the criterion's outer test on the same defect, or cite the ledger line that shows it. Caught: no finding, one ledger line. Survives there too: **FAIL** on the outer test, since the criterion is unprotected against that break. One test owns each behavior ("One test owns each behavior" in the test-quality skill); do not ask for the same check at a second layer.
   - The break is outside the criterion's statement and examples (a future refactor, adjacent behavior): a follow-up, with what it lets through. This gate checks that the tests protect what was approved, not every behavior the code has.
   - The survivor shows a mirrored oracle: FAIL either way.
 - **A not-built red**: an outer test your prompt marks `(not built)` was committed before its code and stopped on the missing code, so nobody has seen its assertion fail. The defect you plant for its criterion is that evidence, and it is not optional for such a test: plant one in the code the task wrote, on the criterion's statement or an example. Caught: shown. When no defect check could run, the worker's **Assertion seen failing** line is the weaker evidence; with neither, or with `went straight to green`, write `assertion not shown to fail: <criterion> (<test file>)` under Follow-ups, so the checkpoint lists it.
@@ -85,6 +87,15 @@ Read "Planted defects" in [non-interactive-shell.md](../docs/reference/non-inter
 For each criterion the task cites, name the smallest realistic regression and the test, at file:line, that would fail on it. A criterion with no such test is a gap. A pattern rule from the test-quality skill (a missing presence anchor, a mirrored expected value) is a prompt for the planted defect or counterexample it suggests; a hit that neither confirms is a note, not a FAIL.
 
 **A re-verification** (your prompt carries that line) runs Step 2 in full and scopes only the planting. Take the earlier Defect ledger and re-plant: each defect behind the earlier FAIL and the rest of its class, against the tests the fix added or changed; and always, each ledger line whose target or test blob now differs (`git hash-object --no-filters <path>`) or whose file is gone, because the fix may have weakened a test that protected it. Never skip those, whatever your prompt says about cost. Plant nothing else. A line that was caught before and survives now is a FAIL whatever its class. A new survivor outside the class is a follow-up. Carry every other line over, ending `| carried`.
+
+**An `Also re-verify: <task>` line** (on a rewrite task) names the task whose failed verification started the rewrite. Its production code was correct and its only failing findings were in the outer test you are now verifying, so once this task passes you can settle that one from the same evidence, without a second run:
+
+1. Read that task's `defect ledger` and `verification report` records with `wb-records read`.
+2. Confirm its production code is what was verified: for each ledger line, `git hash-object --no-filters <target>` equals the line's target blob. If any differs, or a record does not read `ok`, stop here and write `Also re-verified: not done (<what changed or is missing>)` in your block.
+3. Run its tests with the test command. A failure is `not done`, with the failing test.
+4. Post a verification report, defect ledger, and test integrity record on that task, as for a re-verification: every earlier ledger line carried (ending `| carried`) except those on the rewritten test, which take the results you produced in this run; Status PASS. Then write `Also re-verified: <task> PASS (manifest <comment id>)` in your block.
+
+Do this only after this task's own verdict is PASS. On a FAIL, write `Also re-verified: not done (the rewrite did not pass)`.
 
 **A suggested fix to a test is a class fix, not a list.** A fix that enumerates instances from an open-ended set leaves out the ones it did not name, and the next verification finds them. Give the one change that removes the need for the list, and check it where you can: pass the fixed test's text to the runner as `--test-file <test file>=@esc:<escaped text>`, baseline it on the unbroken code, then run the planted defects against it, each of which must be caught. Say on the Suggested fix line that it was checked, with the count, or that it was not and why.
 
@@ -155,7 +166,8 @@ Wait for each call's result. Then return only this block:
 - Production evidence: ${for each failing finding: the criterion or example, the command you ran and its result, and the production file:line} (FAIL only, when correct; a finding judged only by reading is not evidence)
 - Class-fix evidence: ${the ledger labels the class fix was checked against, and each pair's caught control; or "not checked" with the reason} (FAIL only)
 - Outer tests: unchanged | changed (<file>) | rewrite proven (<file>; mechanical | name only | differential, <n> of <n> caught) | rewrite not proven (<file>; <what was not shown>)
-- Suggested fix: ${the fix, and whether it was checked against the planted defects} (FAIL only)
+- Suggested fix: ${the fix, complete enough to apply as written, and whether it was checked against the planted defects} (FAIL only)
+- Also re-verified: ${task id} PASS (manifest ${comment id}) | not done (${reason}) (only when your prompt carries an Also re-verify line)
 - Follow-ups: ${each survivor outside the criterion or the re-verified class, file:line and what it lets through}, or none
 - Record gaps: ${each record the task should carry and does not, where the gap changes no judgment about the tests or the code, such as a missing `discovered-from` link}, or none (never a FAIL; the coordinator repairs it)
 - Full report: the `verification report` record on ${taskId} (manifest <comment id>)
@@ -165,7 +177,7 @@ If a record was not posted, return in place of the block a first line naming it 
 
 ## What Fails a Task
 
-A failing test, a change outside the task, or a requirement not met fails it. So does a test that claims to guard a criterion and does not (Step 3). These always fail, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
+A failing test, a change outside the task, or a requirement not met fails it. So does an outer test that does not protect its criterion, and a test that does not catch the break its own report names (Step 3). These always fail, whether or not the break is in the cited criterion, because each is how a test gets bent to go green:
 
 - **a mirrored oracle**: an expected value computed by calling the code under test, which a planted defect in that code leaves passing;
 - **a loosened assertion, with proof**: a realistic break of the code (Step 3), or a counterexample, shows it now accepts wrong behavior the original rejected. A break contrived only to separate the two versions is not proof, and without proof it is a note. A declared change that replaces one case with another is judged the same way;

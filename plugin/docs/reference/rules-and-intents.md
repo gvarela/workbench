@@ -123,6 +123,8 @@ One order of authority settles which to follow:
 - **[what it is about]**: [the guideline]. [follow | ask each time | follow, except [case]: [what to do]] (why: [reason]; decided by [who], [date])
 ```
 
+The profile may also carry a `## Checks` section: the format and lint commands the repository's CI runs on changed files, each written so that file paths can be appended (`- format: <command>`, `- lint: <command>`), and whether CI checks whole files or only changed lines. Agents run them on the files they touch; they are conformance checks like the build, not a judgment about tests.
+
 `ask each time` is a guideline too: it says the choice depends on the case and is put to the person at design, once per plan. A rule that should hold in every session and for every tool belongs in the repository's own instructions or a linter; the profile says how to apply guidance when it meets code that disagrees.
 
 ## Memories

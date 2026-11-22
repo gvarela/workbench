@@ -45,7 +45,7 @@ List what the phase changed: `git diff --name-status <start> <end>` (with "worki
 
 - **Missing planned change**: each change a phase task plans (a file it names, a function or behavior it adds, an outer test step, a design item the coverage table assigns to it) with no matching change in the diff. Read the diff of the file it names before concluding it is absent.
 - **Unplanned change**: each change in the diff that no phase task covers. Leave out edits to files under the plan directory, test files a test-writer report on a phase task names, and the files a phase task's `support files:` or `setup files:` records declare, since each has its route. Read the hunk: a file a task names can still carry a change the task does not plan.
-- **Explained**: a deviation that Implementation Notes, an Implementation Discovery, a `discovered-from` issue, or a halt record states, with its reason. Name the record. A deviation with no such record is unexplained.
+- **Explained**: a deviation that Implementation Notes, an Implementation Discovery, a `discovered-from` issue, or a halt record states, with its reason. Name the record. A deviation with no such record is unexplained. A commit titled `Structural: lint <file>` is its own record when its diff changes style and nothing else: the coordinator makes one for a file that already failed the repository's lint before a task touched it. Read the diff; if it changes anything a test could observe, it is unexplained.
 
 Name each one in plain words, with its file:line (for a missing change, the tasks.md line that plans it), as [writing-for-the-user.md](../docs/reference/writing-for-the-user.md) says: what it is, then what it puts at risk.
 

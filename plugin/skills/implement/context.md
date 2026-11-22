@@ -80,6 +80,9 @@ const contextPackage = {
   // worker doesn't spend, and naming the exact files a task must change removes
   // its discovery sweep entirely. Coordinator context is already loaded; worker
   // tool-call budget is scarce.
+  // The format and lint commands for changed files, from .claude/wb/profile.md's Checks section
+  // (or research and CI), each taking file paths; "none known" when there are none.
+  checks: { format: "bin/format", lint: "bin/lint", scope: "whole files | changed lines" },
   relevantFiles: [
     "src/feature/file1.ts:123 - existing pattern to follow",
     "tests/feature/test1.spec.ts:45 - test structure example"

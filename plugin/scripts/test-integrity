@@ -50,8 +50,9 @@ Usage: test-integrity --start <commit> [options]
                             are changed again since --start. Without it,
                             earlier_phase_tests is null.
   --allow-mechanical        Leave mechanical changes (import re-sorts,
-                            edge-whitespace-only changes, or leading
-                            comment-block changes; see "mechanical") out of
+                            edge-whitespace-only changes, lint directive
+                            comments, or leading comment-block changes;
+                            see "mechanical") out of
                             undeclared_changes, listing them in
                             cleared_mechanical instead. Without it,
                             cleared_mechanical is null.
@@ -650,10 +651,23 @@ import_strip() {
 # backticks or triple quotes on a line toggles one; a heredoc opener such as
 # <<EOF, <<-EOF, or <<~EOF runs to its terminator) are kept byte for byte.
 # Best effort: a verifier still reads the hunks.
+# With a third argument "strip-lint", lint directive comments outside
+# multi-line literals are removed first: a line that is only one is dropped,
+# and one at the end of a line of code is cut off. A directive is a comment
+# that addresses a linter and nothing else (rubocop, standard, noqa, pylint,
+# flake8, ruff, eslint-disable/enable, biome-ignore, nolint, stylelint). A
+# trailing one is cut only when the code before it has balanced quotes, so
+# text inside a string is never taken for a comment.
 ws_lines() {
     local eofnl=1
     [ -n "$(tail -c 1 "$1")" ] && eofnl=0
-    LC_ALL=C awk -v keep="${2:-}" -v q="'" -v eofnl="$eofnl" '
+    LC_ALL=C awk -v keep="${2:-}" -v strip="${3:-}" -v q="'" -v eofnl="$eofnl" '
+        BEGIN {
+            names = "(rubocop:(disable|enable|todo)|standard:(disable|enable)|noqa|pylint:|flake8:|ruff:|eslint-(disable|enable)[a-z-]*|biome-ignore|nolint|stylelint-(disable|enable)[a-z-]*)"
+            lead = "(#|//)[ \t]*" names "([ \t:,(].*)?"
+            block = "/\\*[ \t]*" names "[^*]*\\*/"
+        }
+        function balanced(s) { return count(s, "\"") % 2 == 0 && count(s, q) % 2 == 0 && count(s, "`") % 2 == 0 }
         function count(s, pat,   n, i) { n = 0; while ((i = index(s, pat)) > 0) { n++; s = substr(s, i + length(pat)) } return n }
         {
             line = $0
@@ -678,6 +692,10 @@ ws_lines() {
             t = line
             sub(/[ \t\r]+$/, "", t)
             if (keep != "keep-indent") sub(/^[ \t]+/, "", t)
+            if (strip == "strip-lint") {
+                if (t ~ ("^[ \t]*(" lead "|" block ")[ \t]*$")) next
+                if (match(t, ("[ \t]+(" lead "|" block ")[ \t]*$")) && balanced(substr(t, 1, RSTART - 1))) t = substr(t, 1, RSTART - 1)
+            }
             if (t ~ /^[ \t]*$/) next
             print "N:" t
         }
@@ -696,7 +714,9 @@ ws_lines() {
 # "reorder": the multiset of lines is the same, only qualifying imports (see
 # import_strip) changed position, every other line keeps its line number,
 # and no name is bound twice: an import re-sort. Anything else, including a
-# reorder of statements or assertions, is not mechanical. "comment-header":
+# reorder of statements or assertions, is not mechanical. "lint-directive":
+# only lint directive comments were added or removed (see ws_lines).
+# "comment-header":
 # only the leading comment block differs (see header_end). Identical content
 # (a mode-only change) is not mechanical. Formatter identity
 # (formatter(old) == new) is not attempted: it would mean running the
@@ -758,6 +778,11 @@ mechanical_of() {
             MECHANICAL=reorder
         fi
         rm -f "$a.ra" "$a.rb" "$a.ba" "$a.bb"
+    fi
+    # lint-directive: the two versions are the same once lint directive
+    # comments are removed (and whitespace, as above).
+    if [ -z "$MECHANICAL" ] && cmp -s <(ws_lines "$a" "$indent" strip-lint) <(ws_lines "$path" "$indent" strip-lint); then
+        MECHANICAL=lint-directive
     fi
     # comment-header: the only difference is inside the leading comment block
     # (such as a schema annotation header); everything after it is identical

@@ -6,7 +6,7 @@ A Claude Code plugin for structured software development workflows: project plan
 
 A personal workbench of tools and workflows for Claude Code. Streamlines software development through structured planning, research, and persistent task tracking with [beads](https://github.com/steveyegge/beads).
 
-**[Complete Workflow Guide](docs/workbench-workflow-guide.md)**
+**[Complete Workflow Guide](docs/workbench-workflow-guide.md)** · **[How testing works](docs/how-testing-works.md)** · **[Upgrading from wb 4](docs/upgrading-to-5.md)**
 
 ## Quick Start
 
@@ -47,6 +47,8 @@ Note: `/reload-plugins` alone does NOT pull updates — the cache is keyed by ve
 Coming from wb 4? Read [Upgrading from wb 4 to wb 5](docs/upgrading-to-5.md): what changes at each stage, what happens to plans in flight, and what to expect in time and cost.
 
 ### Planted-defect checks
+
+This is one part of how wb checks tests. [How testing works](docs/how-testing-works.md) covers the whole flow, with diagrams: who writes tests, red commits, what the verifier and the checkpoint check, and what counts as evidence.
 
 `task-verifier`, `test-reviewer`, `test-writer`, and the `/wb:implement_inline` session check that a test can fail by breaking the code in a disposable copy and running only the guarding tests against it. None of them writes your working tree. They take the first route that can run, and report which one ran:
 

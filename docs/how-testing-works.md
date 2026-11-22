@@ -133,7 +133,7 @@ The script decides nothing. The verifier reads its output and fails the task for
 - one control per target, to show the runner itself works;
 - never in the working tree, which the coordinator commits as it stands.
 
-A test that claims to guard a criterion and survives a break of that criterion fails the task. A survivor outside the criterion's statement and examples is filed as a follow-up: the gate checks that tests protect what you approved, not every behavior the code has.
+One test owns each behavior. A criterion's outer test that survives a break of the criterion fails the task, and so does any test that survives the break its own report says it catches. A lower-level test that misses a break the outer test catches is not a failure: the criterion is protected, and repeating the same check at every layer adds upkeep without safety. A survivor outside the criterion's statement and examples is filed as a follow-up: the gate checks that tests protect what you approved, not every behavior the code has. At a checkpoint each test gap gets one fix and one confirming review of that fix; anything new the second look turns up is a follow-up, not another round.
 
 **Always a failure**, whatever else is true, because each is how a test gets bent to pass:
 
@@ -237,6 +237,17 @@ A finding gets a verdict of Remove, Rewrite, or Consolidate, and a hard verdict 
 - **`/wb:testing-profile`** drafts `.claude/wb/testing.md`, written only when you confirm. It holds the same conventions plus your team's Choices (for example "no browser tests", or "stub the model at the call"), a mutation level, how to run the defect sandbox, and a Proof section telling the prover how to start the product and which side effects are allowed.
 - **A Choice bounds the findings.** A reviewer leaves out a finding that only repeats an absence a Choice records. A Choice never clears a deterministic failure.
 - **When a written rule and the existing tests disagree**, the rule wins for a new test and the old tests are left alone. See "Conflicting guidance" in the plugin's rules reference.
+
+## Where lint fits
+
+Lint is not test quality. A style violation does not make a test any less able to fail. It is a conformance check, like the build: deterministic, cheap, and run before anything expensive.
+
+- **At writing.** The test-writer and the worker run the repository's format and lint commands on the files they touch before they report. An outer test is therefore clean when it is committed red.
+- **Before each verification.** The coordinator runs them on the task's changed files and sends a failure back to its author. Nothing reformats the tree once it is fingerprinted.
+- **Before a task touches a file that already fails.** When CI checks whole files, that file gets its own `Structural: lint <file>` commit first.
+- **At the checkpoint**, with the build and the type check.
+
+The two concerns are kept apart on purpose. A style fix that lands after a red commit looks like someone altering an approved test, and proving it harmless can cost a full differential. The integrity script clears a change that is only whitespace, an import re-sort, or lint directive comments, as a safety net. The commands live in the `## Checks` section of `.claude/wb/profile.md`.
 
 ## Auditing tests you already have
 

@@ -19,6 +19,8 @@ Read the rest yourself: each criterion with its examples, observed-at boundary, 
 
 **With Candidates in your prompt**, you are one of the further judgments on them. Judge only those tests, each from the test and its criterion, and return one line per candidate: the location, agree or disagree, and the evidence. Agree only with proof of your own, of a kind the skill's Part 3 names; a pattern alone is grounds to disagree. Skip the procedure and the report below.
 
+**With Confirm in your prompt**, an earlier review's blocking items were fixed and you check those fixes, nothing more. The bar was set by the first review: a second review that plants new kinds of defect never ends. For each item listed (its kind, location, and the defect or evidence behind it), plant that same defect against the tests the fix changed and report it `closed` or `still open` with the evidence. Also check the fix itself: that it is declared, and that no defect the ledgers show caught before survives now (a line whose test blob changed). Those two, and an item still open, are the only things you may list under Blocking. Anything else you notice goes under Findings as a follow-up. Skip steps 2 to 4.
+
 Review `<starting commit>..HEAD`. List the changed test files with `git --no-pager diff --name-status <starting commit> HEAD`. Uncommitted changes are outside the review: if `git status --short` shows any, say so. Run one plain command per Bash call ([non-interactive-shell.md](../docs/reference/non-interactive-shell.md)).
 
 ## Procedure
@@ -87,11 +89,11 @@ The caller holds the go-ahead on each blocking item, so keep the list narrow: th
 - a criterion with no outer test, or an outer test below its observed-at level;
 - a changed outer test with no proof, or an undeclared test change;
 - a test that cannot fail, on deterministic evidence;
-- a planted defect that breaks the criterion's statement or an example and survives a test that claims to guard it (a test-writer report names the criterion for it, or it is its outer test), whatever other tests catch.
+- a planted defect that breaks the criterion's statement or an example and survives the criterion's outer test, or one that survives the test whose own report says it pins that break ("One test owns each behavior" in the skill).
 
-For each, say what the fix changes, because the caller closes a gap whose fix is tests only without asking the person: `fix: tests only` (strengthen the test, write the missing one, or, when another plan test is named, run, and shown catching the break, drop this test's guarding claim) or `fix: needs production code`. A changed outer test with no proof and an undeclared test change are integrity findings and are never closed that way: mark them `fix: the person decides`.
+For each, say what the fix changes, because the caller closes a gap whose fix is tests only without asking the person: `fix: tests only` (strengthen the test, replacing the weaker example and not adding one beside it, or write the missing one) or `fix: needs production code`. A changed outer test with no proof and an undeclared test change are integrity findings and are never closed that way: mark them `fix: the person decides`.
 
-Not blocking, and listed under Findings as follow-ups: a survivor whose break the criterion does not reach, and a survivor in a test that claims no guarding of the criterion.
+Not blocking, and listed under Findings as follow-ups: a survivor whose break the criterion does not reach, and a survivor in an inner test that does not pin the break when the criterion's outer test catches it.
 
 List each failing test once, under the first kind that fits. In implement mode, cite the verifiers' Test Integrity records for a changed outer test or an undeclared change; do not rebuild them.
 
