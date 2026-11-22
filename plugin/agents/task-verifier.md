@@ -86,6 +86,15 @@ For each criterion the task cites, name the smallest realistic regression and th
 
 **A re-verification** (your prompt carries that line) runs Step 2 in full and scopes only the planting. Take the earlier Defect ledger and re-plant: each defect behind the earlier FAIL and the rest of its class, against the tests the fix added or changed; and always, each ledger line whose target or test blob now differs (`git hash-object --no-filters <path>`) or whose file is gone, because the fix may have weakened a test that protected it. Never skip those, whatever your prompt says about cost. Plant nothing else. A line that was caught before and survives now is a FAIL whatever its class. A new survivor outside the class is a follow-up. Carry every other line over, ending `| carried`.
 
+**An `Also re-verify: <task>` line** (on a rewrite task) names the task whose failed verification started the rewrite. Its production code was correct and its only failing findings were in the outer test you are now verifying, so once this task passes you can settle that one from the same evidence, without a second run:
+
+1. Read that task's `defect ledger` and `verification report` records with `wb-records read`.
+2. Confirm its production code is what was verified: for each ledger line, `git hash-object --no-filters <target>` equals the line's target blob. If any differs, or a record does not read `ok`, stop here and write `Also re-verified: not done (<what changed or is missing>)` in your block.
+3. Run its tests with the test command. A failure is `not done`, with the failing test.
+4. Post a verification report, defect ledger, and test integrity record on that task, as for a re-verification: every earlier ledger line carried (ending `| carried`) except those on the rewritten test, which take the results you produced in this run; Status PASS. Then write `Also re-verified: <task> PASS (manifest <comment id>)` in your block.
+
+Do this only after this task's own verdict is PASS. On a FAIL, write `Also re-verified: not done (the rewrite did not pass)`.
+
 **A suggested fix to a test is a class fix, not a list.** A fix that enumerates instances from an open-ended set leaves out the ones it did not name, and the next verification finds them. Give the one change that removes the need for the list, and check it where you can: pass the fixed test's text to the runner as `--test-file <test file>=@esc:<escaped text>`, baseline it on the unbroken code, then run the planted defects against it, each of which must be caught. Say on the Suggested fix line that it was checked, with the count, or that it was not and why.
 
 ## Report
@@ -155,7 +164,8 @@ Wait for each call's result. Then return only this block:
 - Production evidence: ${for each failing finding: the criterion or example, the command you ran and its result, and the production file:line} (FAIL only, when correct; a finding judged only by reading is not evidence)
 - Class-fix evidence: ${the ledger labels the class fix was checked against, and each pair's caught control; or "not checked" with the reason} (FAIL only)
 - Outer tests: unchanged | changed (<file>) | rewrite proven (<file>; mechanical | name only | differential, <n> of <n> caught) | rewrite not proven (<file>; <what was not shown>)
-- Suggested fix: ${the fix, and whether it was checked against the planted defects} (FAIL only)
+- Suggested fix: ${the fix, complete enough to apply as written, and whether it was checked against the planted defects} (FAIL only)
+- Also re-verified: ${task id} PASS (manifest ${comment id}) | not done (${reason}) (only when your prompt carries an Also re-verify line)
 - Follow-ups: ${each survivor outside the criterion or the re-verified class, file:line and what it lets through}, or none
 - Record gaps: ${each record the task should carry and does not, where the gap changes no judgment about the tests or the code, such as a missing `discovered-from` link}, or none (never a FAIL; the coordinator repairs it)
 - Full report: the `verification report` record on ${taskId} (manifest <comment id>)

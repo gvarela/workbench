@@ -20,7 +20,7 @@ Write tests for this task. Mode: ${outer | task | request | rewrite}
 - Earlier test-writer reports for this task: in the task's comments
 ${outer:   "- Criteria: " + each criterion id with its target test file}
 ${request: "- The worker's request, verbatim:\n" + the worker's needs test: block}
-${rewrite: "- Outer test: " + testFile + ", red commit " + redCommit + "\n- Why: " + the reason from the task's Outer test rewrite: line + "\n- Suggested fix (a starting point, not the specification): " + suggestedFix}
+${rewrite: "- Outer test: " + testFile + ", red commit " + redCommit + "\n- Why: " + the reason from the task's Outer test rewrite: line + "\n- Suggested fix (" + ("checked against the planted defects: apply it as written" | "not checked: a starting point") + "), word for word from the verifier's block:\n" + suggestedFix + "\n- Class-fix evidence: " + classFixEvidence}
 
 Read the task and its criteria yourself, as your agent definition's Inputs says. Post each report on task ${taskId} and return one block per report. Do not commit.
 ```
@@ -62,6 +62,7 @@ Verify this task.
 ${one added line when it applies:}
 ${"Re-verification: yes; the earlier verification report record holds the FAIL, and the defect ledger record its ledger"}
 ${"Targeted re-check: " + the finding, as the judge named it}
+${"Also re-verify: " + ownerTaskId + " (its last verification failed only on this outer test, with its production code correct)"}
 
 Read the task, its criteria, and the reports and records in the task's comments yourself. Post your records on the task and return your block.
 ```
@@ -85,7 +86,7 @@ ${"Guidance: " + the judge's guidance, or "Guidance from the user: " + the perso
 Fix what the report names. Where it names a class of failure, fix the whole class, not only the instances it lists. You write no test: for a test change, return a needs test: block. Close the beads issue when done.
 ```
 
-When the fix is to a test only (the report says the production code is correct), spawn `wb:test-writer` in request mode with the verifier's class fix as the request, in place of a fix worker.
+When the fix is to a test only (the report says the production code is correct), spawn `wb:test-writer` in request mode in place of a fix worker. The request is the verifier's Suggested fix and Class-fix evidence lines, copied word for word, with whether the fix was checked: a checked fix is applied as written.
 
 ## Test Reviewer Prompt (Step 5)
 
