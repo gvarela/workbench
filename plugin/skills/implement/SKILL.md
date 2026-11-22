@@ -48,7 +48,7 @@ Before the first task, put to the person together, as "Pending decisions" in [wr
 
 These are not halts: run the tasks they do not touch while they wait. When `.claude/wb/testing.md` does not exist, suggest `/wb:testing-profile`, because without it the test command is a guess.
 
-**Checks.** Lint and format are backpressure, like the build: cheap, deterministic, and run before anything expensive. Take the commands from the Checks section of `.claude/wb/profile.md`; when it has none, take them from research's conventions and the CI configuration, tell the person which you will use, and offer to record them there, writing only on their yes. Pass them to every worker and test-writer in the context package.
+**Checks.** Lint and format are backpressure, like the build: cheap, deterministic, and run before anything expensive. Take the commands from the Checks section of `.claude/wb/profile.md`; when it has none, take them from research's conventions and the CI configuration, tell the person which you will use, and offer to record them there, writing only on their yes. Pass them to every worker and test-writer in the context package. When there is a format command and the repository has no hook that runs it on written files, offer one once, as [format-on-write.md](../../docs/reference/format-on-write.md) says; this is not a halt.
 
 ## Step 2: Check Beads
 
